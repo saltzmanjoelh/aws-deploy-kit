@@ -35,7 +35,7 @@ public class Services: Servicable {
         return Lambda(client: client, region: .init(rawValue: region), timeout: TimeAmount.minutes(4))
     }
     
-    public var logger: Logger = Logger.default
+    public var logger: Logger = Logger(label: "AWSDeployKit")
     public var client: AWSClient
     public var s3: S3
     public var lambda: Lambda

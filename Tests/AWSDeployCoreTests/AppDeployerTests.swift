@@ -8,7 +8,6 @@
 import Foundation
 import XCTest
 import ShellOut
-import XcodeTestingKit
 import SotoS3
 import Logging
 import LogKit
@@ -67,7 +66,7 @@ class AppDeployerTests: XCTestCase {
         try instance.verifyConfiguration(services: testServices)
 
         // Then a "Skipping $PRODUCT" log should be received
-        XCTAssertTrue("\(testServices.logCollection.allEntries)".contains("Skipping: \(product)"))
+        XCTAssertTrue("\(testServices.logCollector.logs.allEntries)".contains("Skipping: \(product)"))
     }
     
     func testGetProducts() throws {
@@ -77,7 +76,7 @@ class AppDeployerTests: XCTestCase {
         let instance = AppDeployer()
         
         // When calling getProducts with a skipProducts list
-        let result = try instance.getProducts(from: path, skipProducts: "SkipMe")
+        let result = try instance.getProducts(from: path, skipProducts: "SkipMe", logger: Logger.CollectingLogger(label: "Test"))
         
         // Then only one executable should be returned
         XCTAssertEqual(result, ["TestExecutable"])
@@ -122,7 +121,7 @@ class AppDeployerTests: XCTestCase {
                 
             } catch {
                 // Then no errors should be thrown
-                XCTFail(error)
+                XCTFail(String(describing: error))
             }
             resultReceived.fulfill()
         }
@@ -176,7 +175,7 @@ class AppDeployerTests: XCTestCase {
 //                
 //            } catch {
 //                // Then no errors should be thrown
-//                XCTFail(error)
+//                XCTFail(String(describing: error))
 //            }
 //            resultReceived.fulfill()
 //        }
@@ -192,12 +191,12 @@ class AppDeployerTests: XCTestCase {
 //        XCTAssertEqual(fixtureResults.count, 0, "Not all calls were performed.")
 //        wait(for: [resultReceived], timeout: 2.0)
 //    }
-    func testRunDoesWithRealPackage() throws {
+    func testRunWithRealPackage() throws {
         // This is more of an integration test. We won't stub the services
         let path = try createTempPackage(includeSource: true)
         // Create the Dockerfile
         let dockerFile = "FROM swift:5.3-amazonlinux2\nRUN yum -y install zip"
-        try (dockerFile as NSString).write(toFile: URL(string: path)!.appending("Dockerfile").absoluteString,
+        try (dockerFile as NSString).write(toFile: URL(string: path)!.appendingPathComponent("Dockerfile").absoluteString,
                                            atomically: true,
                                            encoding: String.Encoding.utf8.rawValue)
         
@@ -207,9 +206,8 @@ class AppDeployerTests: XCTestCase {
         // When calling run
         // Then no errors should be thrown
         XCTAssertNoThrow(try instance.run())
-        
         // and the zip should exist
-        let zipPath = URL(string: path)!.appending(".build")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: zipPath.absoluteString))
+        let zipPath = URL(string: path)!.appendingPathComponent(".build")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: zipPath.absoluteString), "File does not exist: \(zipPath.absoluteString)")
     }
 }

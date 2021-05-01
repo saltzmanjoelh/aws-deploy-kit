@@ -27,13 +27,13 @@ func createTempPackage(includeSource: Bool = false) throws -> String {
     if includeSource {
         let products = ["TestPackage", "TestExecutable", "SkipMe"]
         for product in products {
-            let sourcesURL = directory.appending("Sources")
-            let productDirectory = sourcesURL.appending(product)
+            let sourcesURL = directory.appendingPathComponent("Sources")
+            let productDirectory = sourcesURL.appendingPathComponent(product)
             try FileManager.default.createDirectory(at: productDirectory,
                                                     withIntermediateDirectories: true,
                                                     attributes: [FileAttributeKey.posixPermissions : 0o777])
             let source = "print(\"Hello Test Package!\")"
-            let sourceFileURL = productDirectory.appending("main.swift")
+            let sourceFileURL = productDirectory.appendingPathComponent("main.swift")
             try (source as NSString).write(to: sourceFileURL,
                                            atomically: true,
                                            encoding: String.Encoding.utf8.rawValue)

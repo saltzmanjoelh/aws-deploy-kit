@@ -21,11 +21,12 @@ public struct ShellExecutor {
         at path: String = ".",
         process: Process = .init(),
         outputHandle: FileHandle? = nil,
-        errorHandle: FileHandle? = nil
+        errorHandle: FileHandle? = nil,
+        logger: Logger? = nil
     ) throws -> String {
 //        Logger.default.logLevel = .trace
         let cmd = ([command] + arguments).joined(separator: " ")
-        Logger.default.trace("Running shell command: \(cmd)")
+        logger?.trace("Running shell command: \(cmd)")
         return try shellOutAction(command, arguments, path, process, outputHandle, errorHandle)
     }
 }

@@ -11,7 +11,6 @@ import Logging
 import SotoLambda
 import SotoS3
 import NIO
-import AWSLambdaKit
 import AWSLambdaEvents
 
 public enum BlueGreenPublisherError: Error, CustomStringConvertible {

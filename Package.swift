@@ -16,7 +16,9 @@ let package = Package(
                     targets: ["AWSDeploy"])
     ],
     dependencies: [
+        .package(url: "https://github.com/saltzmanjoelh/LogKit", .branch("main")),
         .package(url: "https://github.com/apple/swift-argument-parser", .branch("main")),
+        .package(url: "https://github.com/swift-server/swift-aws-lambda-runtime.git", .branch("main")),
         .package(url: "https://github.com/apple/swift-log", .branch("main")),
         .package(url: "https://github.com/apple/swift-nio", .branch("main")),
         .package(url: "https://github.com/soto-project/soto", .branch("main")),
@@ -28,7 +30,6 @@ let package = Package(
         .target(
             name: "AWSDeployCore",
             dependencies: [
-                "AWSLambdaKit",
                 .product(name: "ShellOut", package: "ShellOut"),
                 .product(name: "LogKit", package: "LogKit"),
                 .product(name: "Logging", package: "swift-log"),
@@ -50,7 +51,6 @@ let package = Package(
             dependencies: [
                 "AWSDeployCore",
                 .product(name: "ShellOut", package: "ShellOut"),
-                .product(name: "XcodeTestingKit", package: "XcodeTestingKit"),
                 .product(name: "SotoTestUtils", package: "soto-core"),
                 .product(name: "AWSLambdaRuntimeCore", package: "swift-aws-lambda-runtime"),
                 .product(name: "NIO", package: "swift-nio"),

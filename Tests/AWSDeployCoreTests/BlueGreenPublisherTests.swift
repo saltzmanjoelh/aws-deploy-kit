@@ -10,7 +10,6 @@ import XCTest
 import AWSDeployCore
 import SotoLambda
 import SotoS3
-import XcodeTestingKit
 import LogKit
 import Logging
 @testable import SotoTestUtils
@@ -60,7 +59,7 @@ class BlueGreenPublisherTests: XCTestCase {
                 XCTAssertEqual(config.codeSha256, sha256)
                 resultReceived.fulfill()
             } catch {
-                XCTFail(error)
+                XCTFail(String(describing: error))
             }
         })
         
@@ -192,7 +191,7 @@ class BlueGreenPublisherTests: XCTestCase {
         // Given an invalid archive path
         let testServices = TestServices()
         let instance = BlueGreenPublisher()
-        let archiveURL = URL(staticString: "invalid.zip")
+        let archiveURL = URL(string: "invalid.zip")!
         let errorReceived = expectation(description: "Error received")
         
         // When calling publishArchive
@@ -224,7 +223,7 @@ class BlueGreenPublisherTests: XCTestCase {
             }
         
         wait(for: [errorReceived], timeout: 2.0)
-        XCTAssertTrue("\(testServices.logCollection.allEntries)".contains("Error publishing"))
+        XCTAssertTrue("\(testServices.logCollector.logs.allEntries)".contains("Error publishing"))
     }
     func testPublishArchive() throws {
         // Setup
@@ -253,7 +252,7 @@ class BlueGreenPublisherTests: XCTestCase {
                     let result = try publishResult.get()
                     XCTAssertEqual(result.revisionId, aliasConfig.revisionId)
                 } catch {
-                    XCTFail(error)
+                    XCTFail(String(describing: error))
                 }
                 resultReceived.fulfill()
             })
@@ -302,7 +301,7 @@ class BlueGreenPublisherTests: XCTestCase {
                     XCTAssertEqual(result[0].revisionId, aliasConfigs[0].revisionId)
                     XCTAssertEqual(result[1].revisionId, aliasConfigs[1].revisionId)
                 } catch {
-                    XCTFail(error)
+                    XCTFail(String(describing: error))
                 }
             })
         

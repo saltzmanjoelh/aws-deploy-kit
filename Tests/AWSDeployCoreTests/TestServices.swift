@@ -16,10 +16,8 @@ import SotoS3
 
 class TestServices: Servicable {
     
-    let logCollection = LogCollector.Logs()
-    lazy var logger: Logger = {
-        Logger(label: "LoggingTests", factory: { _ in LogCollector(logCollection, logLevel: .trace) })
-    }()
+    let logCollector = LogCollector()
+    lazy var logger: Logger = Logger.CollectingLogger(label: "Testing Logger", logCollector: logCollector)
     let awsServer = AWSTestServer(serviceProtocol: .json)
     let client = createAWSClient(credentialProvider: .static(accessKeyId: "foo", secretAccessKey: "bar"))
     lazy var lambda: Lambda = {

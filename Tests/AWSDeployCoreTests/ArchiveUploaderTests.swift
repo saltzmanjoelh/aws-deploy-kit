@@ -13,7 +13,6 @@ import NIOHTTP1
 import AsyncHTTPClient
 import SotoTestUtils
 import SotoS3
-import XcodeTestingKit
 @testable import AWSDeployCore
 
 class ArchiveUploaderTests: XCTestCase {
@@ -38,7 +37,7 @@ class ArchiveUploaderTests: XCTestCase {
         }
         // Then "Bucket exists" should be logged
         wait(for: [resultReceived], timeout: 2.0)
-        let message = testServices.logCollection.allEntries.map({ $0.message })
+        let message = testServices.logCollector.logs.allEntries.map({ $0.message })
         XCTAssertTrue(message.contains(where: { $0 == "Bucket exists"}))
     }
     func testVerifyBucketCreation() throws {
@@ -64,7 +63,7 @@ class ArchiveUploaderTests: XCTestCase {
         }
         // Then "Created bucket:" should be logged
         wait(for: [resultReceived], timeout: 2.0)
-        let message = testServices.logCollection.allEntries.map({ $0.message })
+        let message = testServices.logCollector.logs.allEntries.map({ $0.message })
         XCTAssertTrue(message.contains(where: { $0 == "Created bucket: \(bucket)"}))
     }
     
@@ -88,7 +87,7 @@ class ArchiveUploaderTests: XCTestCase {
                 let items = try result.get().map({ $0.0 })
                 XCTAssertEqual(items, [archivePath])
             } catch {
-                XCTFail(error)
+                XCTFail(String(describing: error))
             }
         }
         

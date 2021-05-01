@@ -82,7 +82,7 @@ public struct AppDeployer: ParsableCommand {
             if skipProducts.count > 1 {
                 services.logger.info("Skipping: \(skipProducts)")
             }
-            products = try getProducts(from: directoryPath, of: .executable, skipProducts: skipProducts)
+            products = try getProducts(from: directoryPath, of: .executable, skipProducts: skipProducts, logger: services.logger)
         }
 //        if let s3Bucket = bucket {
 //            if s3Bucket == "" {
@@ -100,9 +100,13 @@ public struct AppDeployer: ParsableCommand {
     ///   - type: The ProductTypes you want to get.
     ///   - skipProducts: The name of the products to exclude from the array.
     /// - Returns: Array of product names in the package.
-    public func getProducts(from directoryPath: String, of type: ProductType = .executable, skipProducts: String = "") throws -> [String] {
+    public func getProducts(from directoryPath: String, of type: ProductType = .executable, skipProducts: String = "", logger: Logger? = nil) throws -> [String] {
         let command = "swift package dump-package | sed -e 's|: null|: \"\"|g' | /usr/local/bin/jq '.products[] | (select(.type.\(type.rawValue))) | .name' | sed -e 's|\"||g'"
-        let output = try ShellExecutor.run(command, at: directoryPath, outputHandle: FileHandle.standardOutput, errorHandle: FileHandle.standardError)
+        let output = try ShellExecutor.run(command,
+                                           at: directoryPath,
+                                           outputHandle: FileHandle.standardOutput,
+                                           errorHandle: FileHandle.standardError,
+                                           logger: logger)
         var allProducts = output.components(separatedBy: "\n")
         let skips = skipProducts.components(separatedBy: ",")
         if skips.count > 0 {
