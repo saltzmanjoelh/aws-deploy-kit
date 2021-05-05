@@ -165,7 +165,7 @@ class BuildInDockerTests: XCTestCase {
         
         // Then the correct command should be issued
         XCTAssertNotNil(result)
-        XCTAssertTrue(result!.contains(".bundle/Contents/Resources/packageInDocker.sh /tmp Test ."), "Invalid shell command.")
+        XCTAssertTrue(result!.contains(".bundle/Contents/Resources/packageInDocker.sh /tmp Test ."), "Invalid shell command: \(result).")
     }
     
     func testRunBundledScriptThrowsWithInvalidScript() {
