@@ -35,8 +35,10 @@ public struct BuildInDocker {
     /// Build the products in Docker.
     /// - Returns: Array of URLs to the built archives. Their filenames will be in the format $executable-yyyymmdd_HHMM.zip in UTC
     public func buildProducts(_ products: [String], at directoryPath: String, logger: Logger) throws -> [URL] {
-//        logger.logLevel = .info
-        _ = try prepareDockerImage(at: directoryPath, logger: logger)
+        if let dockerfile = URL(string: directoryPath)?.appendingPathComponent("Dockerfile"),
+           FileManager.default.fileExists(atPath: dockerfile.absoluteString) {
+            _ = try prepareDockerImage(at: directoryPath, logger: logger)
+        }
         let archiveURLs = try products.map({ (product: String) -> URL in
             let filePath = try buildAndPackageInDocker(product: product, at: directoryPath, logger: logger)
             guard let url = URL(string: filePath),
@@ -64,10 +66,16 @@ public struct BuildInDocker {
     /// - Parameter directoryPath: The direcotry where the Dockerfile is
     /// - Returns: The output from building the new image.
     public func prepareDockerImage(at directoryPath: String, logger: Logger) throws -> String {
-        logger.info("Preparing Docker image.")
+        logger.trace("Preparing Docker image.")
         let command = "/bin/bash -c \"export PATH=$PATH:/usr/local/bin/ && /usr/local/bin/docker build . -t builder  --no-cache\"" //--build-arg WORKSPACE=\"$PWD\"
-        logger.info("\(command)")
-        return try ShellExecutor.run(command, at: directoryPath, outputHandle: FileHandle.standardOutput, errorHandle: FileHandle.standardError)
+        logger.trace("\(command)")
+        let output = try ShellExecutor.run(command,
+                                           at: directoryPath,
+                                           outputHandle: FileHandle.standardOutput,
+                                           errorHandle: FileHandle.standardError,
+                                           logger: logger)
+        logger.trace("\(output)")
+        return output
     }
     
     /// Build a Swift product in Docker
@@ -76,23 +84,32 @@ public struct BuildInDocker {
     ///   - directoryPath: The directory to find the package in.
     /// - Returns: The output from building in Docker.
     public func buildProductInDocker(_ product: String, at directoryPath: String, logger: Logger, sshPrivateKeyPath: String? = nil) throws -> String {
-        logger.info("-- Building \(product) ---")
+        logger.trace("-- Building \(product) ---")
         let command = "/usr/local/bin/docker"
-        var arguments = ["run", "-it", "--rm", "-e", "TERM=dumb", "-e", "GIT_TERMINAL_PROMPT=1",
-        "-v", "\(directoryPath):\(directoryPath)", "-w", directoryPath, "-v", "$HOME/.ssh:/root/.ssh"]
+        var arguments = ["run", "-it", "--rm",
+                         "-e", "TERM=dumb",
+                         "-e", "GIT_TERMINAL_PROMPT=1",
+                         "-v", "\(directoryPath):\(directoryPath)",
+                         "-w", directoryPath]
         let swiftBuildCommand = "swift build -c release --product \(product)"
         if let privateKeyPath = sshPrivateKeyPath {
             // We need the path to the key mounted and
             // need to use the ssh-agent command
-            arguments += ["-v", "\(privateKeyPath):\(privateKeyPath)", "builder", "ssh-agent", "bash", "-c", "ssh-add -c \(privateKeyPath); \(swiftBuildCommand)"]
+            arguments += ["-v", "\(privateKeyPath):\(privateKeyPath)",
+                          "builder",
+                          "ssh-agent", "bash", "-c", "ssh-add -c \(privateKeyPath); \(swiftBuildCommand)"]
         } else {
-            
-            arguments += ["builder", "/usr/bin/bash", "-c", "\"\(swiftBuildCommand)\""]
+            arguments += ["builder",
+                          "/usr/bin/bash", "-c", "\"\(swiftBuildCommand)\""]
         }
         
-        return try ShellExecutor.run(command,
-                                     arguments: arguments,
-                                     outputHandle: FileHandle.standardOutput, errorHandle: FileHandle.standardError)
+        let output = try ShellExecutor.run(command,
+                                           arguments: arguments,
+                                           outputHandle: FileHandle.standardOutput,
+                                           errorHandle: FileHandle.standardError,
+                                           logger: logger)
+        logger.trace("\(output)")
+        return output
     }
     
     /// Get the path to the script in the bundle
@@ -117,11 +134,17 @@ public struct BuildInDocker {
     ///   - script: Name of the script to run.
     ///   - arguments: Arguments to provide to the script.
     /// - Returns: Output from the script.
-    public func run(script: String, arguments: [String] = [], logger: Logger) throws -> String {
+    public func runBundledScript(_ script: String, arguments: [String] = [], logger: Logger) throws -> String {
         let theScript = try pathForBundleScript(script)
         let parts: [String] = [theScript] + arguments
-        logger.info("\(parts.joined(separator: " "))")
-        return try ShellExecutor.run(theScript, arguments: arguments, outputHandle: FileHandle.standardOutput, errorHandle: FileHandle.standardError)
+        logger.trace("\(parts.joined(separator: " "))")
+        let output = try ShellExecutor.run(theScript,
+                                           arguments: arguments,
+                                           outputHandle: FileHandle.standardOutput,
+                                           errorHandle: FileHandle.standardError,
+                                           logger: logger)
+        logger.trace("\(output)")
+        return output
     }
     
     /// Archive the product and Swift dependencies.
@@ -131,8 +154,8 @@ public struct BuildInDocker {
     /// - Returns: Path to the new archive.
     public func packageProduct(_ product: String, at directoryPath: String, logger: Logger) throws -> String? {
         let arguments = [directoryPath] + [product]
-        logger.info("-- Packaging \(product) ---")
-        return try run(script: "packageInDocker.sh", arguments: arguments, logger: logger).components(separatedBy: "\n").last
+        logger.trace("-- Packaging \(product) ---")
+        return try runBundledScript("packageInDocker.sh", arguments: arguments, logger: logger).components(separatedBy: "\n").last
         // TODO: Check error logs and provide useful tips.
         // Maybe no rootManifest error means you didn't specify the source code directory
     }

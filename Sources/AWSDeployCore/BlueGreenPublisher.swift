@@ -38,19 +38,19 @@ public struct BlueGreenPublisher {
     public init(){}
     
     /// Creates a new Lambda function. Then, invokes the function to make sure that it's not crashing.
-    /// Finally, points the API Gateway to the new Lambda function.
+    /// Finally, it points the API Gateway to the new Lambda function.
     public func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> {
         let futures = archiveURLs.map({ self.publishArchive($0, services: services) })
         return EventLoopFuture.reduce(into: Array<Lambda.AliasConfiguration>(),
                                       futures,
                                       on: services.lambda.client.eventLoopGroup.next()) { (result, nextValue) in
             result.append(nextValue)
-            services.logger.info("Updated: \(nextValue)")
+            services.logger.trace("Updated: \(nextValue)")
         }
     }
     
     public func publishArchive(_ archiveURL: URL, alias: String = "production", services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        services.logger.info("Publishing: \(archiveURL.lastPathComponent)")
+        services.logger.trace("Publishing: \(archiveURL.lastPathComponent)")
         return self.getFunctionConfiguration(archiveURL: archiveURL, services: services)
             // Update the code
             .flatMap({
@@ -68,11 +68,11 @@ public struct BlueGreenPublisher {
             .flatMap({ updateFunctionVersion($0, alias: alias, services: services) })
             
             .map {
-                services.logger.info("Done publishing: \(archiveURL.lastPathComponent)")
+                services.logger.trace("Done publishing: \(archiveURL.lastPathComponent)")
                 return $0
             }
             .flatMapError { (error: Error) -> EventLoopFuture<Lambda.AliasConfiguration> in
-                services.logger.info("Error publishing: \(archiveURL.lastPathComponent).\n\(error)")
+                services.logger.trace("Error publishing: \(archiveURL.lastPathComponent).\n\(error)")
                 return services.lambda.client.eventLoopGroup.next().makeFailedFuture(error)
             }
     }
@@ -112,7 +112,7 @@ public struct BlueGreenPublisher {
     public func updateFunctionCode(_ configuration: Lambda.FunctionConfiguration,
                                    archiveURL: URL,
                                    services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
-        services.logger.info("Update function code")
+        services.logger.trace("Update function code")
         guard let data = FileManager.default.contents(atPath: archiveURL.absoluteString),
               data.count > 0
         else {
@@ -130,14 +130,14 @@ public struct BlueGreenPublisher {
     }
     
     public func publishLatest(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
-        services.logger.info("Publish $LATEST")
+        services.logger.trace("Publish $LATEST")
         guard let functionName = configuration.functionName else {
             return services.lambda.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "publishLatest"))
         }
         guard let codeSha256 = configuration.codeSha256 else {
             return services.lambda.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("codeSha256", "publishLatest"))
         }
-        services.logger.info("Publishing $LATEST: \(functionName)")
+        services.logger.trace("Publishing $LATEST: \(functionName)")
         return services.lambda.publishVersion(.init(codeSha256: codeSha256, functionName: functionName),
                                               logger: services.awsLogger)
     }
@@ -149,7 +149,7 @@ public struct BlueGreenPublisher {
     /// - Throws: Errors if the Lambda had issues being invoked
     /// - Returns: codeSha256 for success, throws if errors are encountered
     public func verifyLambda(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
-        services.logger.info("Verify Lambda")
+        services.logger.trace("Verify Lambda")
         guard let functionName = configuration.functionName else {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda"))
         }
@@ -162,7 +162,7 @@ public struct BlueGreenPublisher {
         // The payload doesn't matter, a different kind of error will be returned
         let functionVersion = "\(functionName):\(version)"
         let payload = APIGateway.V2.Request.wrapRawBody(url: URL(string: "https://verify.lambda")!, httpMethod: .POST, body: "")
-        services.logger.info("Verifying Lambda: \(functionVersion). Payload: \(String(data: payload, encoding: .utf8)!)")
+        services.logger.trace("Verifying Lambda: \(functionVersion). Payload: \(String(data: payload, encoding: .utf8)!)")
         let action: () -> EventLoopFuture<Lambda.FunctionConfiguration> = {
             services.lambda.invoke(.init(functionName: functionVersion, payload: .data(payload)), logger: services.awsLogger)
                 .flatMapThrowing({ (response: Lambda.InvocationResponse) -> Lambda.FunctionConfiguration in
@@ -185,7 +185,7 @@ public struct BlueGreenPublisher {
 //        })
     }
     public func updateFunctionVersion(_ configuration: Lambda.FunctionConfiguration, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        services.logger.info("Update function version")
+        services.logger.trace("Update function version")
         guard let functionName = configuration.functionName else {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "updateFunctionVersion"))
         }
@@ -193,7 +193,7 @@ public struct BlueGreenPublisher {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("version", "updateFunctionVersion"))
         }
         
-        services.logger.info("Updating \(alias) alias for \(functionName) to version: \(version)")
+        services.logger.trace("Updating \(alias) alias for \(functionName) to version: \(version)")
         return services.lambda.updateAlias(.init(functionName: functionName,
                                                  functionVersion: version,
                                                  name: alias),

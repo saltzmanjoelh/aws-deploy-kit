@@ -17,7 +17,11 @@ import SotoS3
 class TestServices: Servicable {
     
     let logCollector = LogCollector()
-    lazy var logger: Logger = Logger.CollectingLogger(label: "Testing Logger", logCollector: logCollector)
+    lazy var logger: Logger = {
+        var result = CollectingLogger(label: "Testing Logger", logCollector: logCollector)
+        result.logLevel = .trace
+        return result
+    }()
     let awsServer = AWSTestServer(serviceProtocol: .json)
     let client = createAWSClient(credentialProvider: .static(accessKeyId: "foo", secretAccessKey: "bar"))
     lazy var lambda: Lambda = {
@@ -27,7 +31,6 @@ class TestServices: Servicable {
     var awsLogger: Logger = AWSClient.loggingDisabled
     
     var builder: BuildInDocker = .init()
-    var uploader: ArchiveUploader = .init()
     var publisher: BlueGreenPublisher = .init()
     
     deinit {

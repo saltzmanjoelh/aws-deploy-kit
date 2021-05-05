@@ -13,18 +13,6 @@ import SotoS3
 import SotoLambda
 
 
-//public enum AWSDeployError: Error, CustomStringConvertible {
-//    case invalidBucket
-//
-//    public var description: String {
-//        switch self {
-//        case .invalidBucket:
-//            return "Bucket name was empty. The -b option should be followed by the bucket name. ie: -b \"bucket-name\""
-//        }
-//    }
-//}
-
-
 public enum ProductType: String {
     case library = "library"
     case executable = "executable"
@@ -33,7 +21,7 @@ public enum ProductType: String {
 
 public struct AppDeployer: ParsableCommand {
     
-    public static let configuration = CommandConfiguration(abstract: "Helps with building Swift packages in Linux and deploying to Lambda.")
+    public static let configuration = CommandConfiguration(abstract: "Helps with building Swift packages in Linux and deploying to Lambda. Currently, we only support building executable targets.")
 
     @Option(name: [.short, .long], help: "Provide a custom path to the project directory instead of using the current working directory.")
     var directoryPath: String = "./"
@@ -47,12 +35,6 @@ public struct AppDeployer: ParsableCommand {
     @Flag(name: [.short, .long], help: "Publish the updated Lambda functions with a blue green process. A new Lambda version will be created for an existing function that uses the same product name from the archive. Archives are created with the format 'PRODUCT_DATE.zip'. Next, the Lamdba will be invoked to make sure that it hasn't crashed on startup. Finally, the 'production' alias for the Lambda will be updated to point to the new revision.")
     var publishBlueGreen: Bool = false
     
-//    @Option(name: [.short, .long], help: "S3 bucket to deploy all of the archives to. Example: -b app-bucket")
-//    var bucket: String?
-//
-//    @Option(name: [.short, .long], help: "AWS regions to use for actions like S3 upload. Example: -r us-west-1")
-//    var region: String = "us-west-1"
-    
     public init() {}
     
     public mutating func run() throws {
@@ -61,9 +43,6 @@ public struct AppDeployer: ParsableCommand {
     public mutating func run(services: Servicable) throws {
         try verifyConfiguration(services: services)
         let archiveURLs = try services.builder.buildProducts(products, at: directoryPath, logger: services.logger)
-//        if let bucketName = bucket {
-//            _ = try services.uploader.uploadArchives(archiveURLs, bucket: bucketName, services: services).wait()
-//        }
         if publishBlueGreen == true {
             _ = try services.publisher.publishArchives(archiveURLs, services: services).wait()
         }
@@ -76,21 +55,16 @@ public struct AppDeployer: ParsableCommand {
             directoryPath == "." {
             directoryPath = FileManager.default.currentDirectoryPath
         }
-        services.logger.info("Working in: \(directoryPath)")
+        services.logger.trace("Working in: \(directoryPath)")
 
         if products.count == 0 {
             if skipProducts.count > 1 {
-                services.logger.info("Skipping: \(skipProducts)")
+                services.logger.trace("Skipping: \(skipProducts)")
             }
             products = try getProducts(from: directoryPath, of: .executable, skipProducts: skipProducts, logger: services.logger)
         }
-//        if let s3Bucket = bucket {
-//            if s3Bucket == "" {
-//                throw AWSDeployError.invalidBucket
-//            }
-//            services.logger.info("Deploying: \(products) to bucket: \(s3Bucket)")
         if publishBlueGreen {
-            services.logger.info("Deploying: \(products)")
+            services.logger.trace("Deploying: \(products)")
         }
     }
     

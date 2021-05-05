@@ -18,7 +18,7 @@ public protocol Servicable {
     var awsLogger: Logger { get set }
     
     var builder: BuildInDocker { get set }
-    var uploader: ArchiveUploader { get set }
+//    var uploader: ArchiveUploader { get set }
     var publisher: BlueGreenPublisher { get set }
 }
 
@@ -42,7 +42,6 @@ public class Services: Servicable {
     public var awsLogger: Logger = AWSClient.loggingDisabled
     
     public var builder: BuildInDocker = .init()
-    public var uploader: ArchiveUploader = .init()
     public var publisher: BlueGreenPublisher = .init()
     
     public init(region: String = "us-west-1") {

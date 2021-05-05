@@ -131,7 +131,6 @@ class BuildInDockerTests: XCTestCase {
         assertString(result, contains: "-e GIT_TERMINAL_PROMPT=1")
         assertString(result, contains: "-v /tmp/TestPackage:/tmp/TestPackage")
         assertString(result, contains: "-w /tmp/TestPackage")
-        assertString(result, contains: "-v $HOME/.ssh:/root/.ssh")
         assertString(result, contains: "builder")
         assertString(result, contains: "/usr/bin/bash -c \"swift build -c release --product TestExecutable\" .")
     }
@@ -139,24 +138,23 @@ class BuildInDockerTests: XCTestCase {
         XCTAssertTrue(result.contains(search), "\(search) was not found in string: \(result)")
     }
     func testBuildProductWithPrivateKey() throws {
-        // Given an instance
+        // Given an ssh key path
+        let keyPath = "/tmp/ssh/key"
         let instance = BuildInDocker()
         let path = try createTempPackage()
         
         // When calling buildProduct with valid input and a private key
-        let result = try instance.buildProductInDocker("TestExecutable", at: path, logger: AWSClient.loggingDisabled, sshPrivateKeyPath: "/tmp/ssh/key")
+        let result = try instance.buildProductInDocker("TestExecutable", at: path, logger: AWSClient.loggingDisabled, sshPrivateKeyPath: keyPath)
         
-        // Then the correct command should be issued
+        // Then the correct command should be issued and contain the key's path in a volume mount
         assertString(result, contains: "/usr/local/bin/docker")
         assertString(result, contains: "run -it --rm -e TERM=dumb")
         assertString(result, contains: "-e GIT_TERMINAL_PROMPT=1")
         assertString(result, contains: "-v /tmp/TestPackage:/tmp/TestPackage")
         assertString(result, contains: "-w /tmp/TestPackage")
-        assertString(result, contains: "-v /tmp/ssh/key:/tmp/ssh/key")
-        assertString(result, contains: "-v $HOME/.ssh:/root/.ssh")
-        assertString(result, contains: "builder ssh-agent")
-        assertString(result, contains: "bash -c")
-        assertString(result, contains: "ssh-add -c /tmp/ssh/key; swift build -c release --product TestExecutable .")
+        assertString(result, contains: "-v \(keyPath):\(keyPath)")
+        assertString(result, contains: "builder")
+        assertString(result, contains: "ssh-agent bash -c ssh-add -c \(keyPath); swift build -c release --product TestExecutable .")
     }
     func testPackageProduct() throws {
         // Given an instance
@@ -170,14 +168,14 @@ class BuildInDockerTests: XCTestCase {
         XCTAssertTrue(result!.contains(".bundle/Contents/Resources/packageInDocker.sh /tmp Test ."), "Invalid shell command.")
     }
     
-    func testRunScriptThrowsWithInvalidScript() {
+    func testRunBundledScriptThrowsWithInvalidScript() {
         // Given an invalid script
         let script = "invalid.sh"
         let instance = BuildInDocker()
         
         do {
             // When calling run(script:)
-            _ = try instance.run(script: script, logger: AWSClient.loggingDisabled)
+            _ = try instance.runBundledScript(script, logger: AWSClient.loggingDisabled)
             
             XCTFail("An error should have been thrown.")
         } catch {

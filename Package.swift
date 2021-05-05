@@ -5,15 +5,11 @@ import PackageDescription
 
 let package = Package(
     name: "AWSDeployKit",
-    platforms: [
-        .macOS(.v11),
-        .iOS(.v14)
-    ],
     products: [
         .library(name: "AWSDeployCore",
                 targets: ["AWSDeployCore"]),
-        .executable(name: "AWSDeploy",
-                    targets: ["AWSDeploy"])
+        .executable(name: "aws-deploy",
+                    targets: ["aws-deploy"])
     ],
     dependencies: [
         .package(url: "https://github.com/saltzmanjoelh/LogKit", .branch("main")),
@@ -62,7 +58,7 @@ let package = Package(
                 
             ]),
         .target(
-            name: "AWSDeploy",
+            name: "aws-deploy",
             dependencies: [
                 "AWSDeployCore",
                 .product(name: "ShellOut", package: "ShellOut"),

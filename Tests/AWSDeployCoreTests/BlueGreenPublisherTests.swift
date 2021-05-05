@@ -207,10 +207,9 @@ class BlueGreenPublisherTests: XCTestCase {
     func testPublishArchiveErrorsAreLogged() throws {
         // Setup
         let testServices = TestServices()
-        testServices.logger.logLevel = .info
         let instance = BlueGreenPublisher()
         let errorReceived = expectation(description: "Error received")
-        // Given an error when publishing
+        // Given an invalid zip path
         let archiveURL = URL(string: "/tmp/invalid.zip")!
         
         
@@ -223,7 +222,8 @@ class BlueGreenPublisherTests: XCTestCase {
             }
         
         wait(for: [errorReceived], timeout: 2.0)
-        XCTAssertTrue("\(testServices.logCollector.logs.allEntries)".contains("Error publishing"))
+        // Then an error should b received
+        XCTAssertTrue("\(testServices.logCollector.logs.allEntries)".contains("Error publishing"), "\"Error publishing\" was not found in the logs: \(testServices.logCollector.logs.allEntries)")
     }
     func testPublishArchive() throws {
         // Setup
