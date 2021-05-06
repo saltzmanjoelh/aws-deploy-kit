@@ -1,16 +1,16 @@
 //
 //  ShellExecutor.swift
-//  
+//
 //
 //  Created by Joel Saltzman on 3/25/21.
 //
 
 import Foundation
-import ShellOut
-import LogKit
 import Logging
+import LogKit
+import ShellOut
 
-public struct ShellExecutor {
+public enum ShellExecutor {
     /// The function to perform the shellOut action. You only need to modify this for tests.
     public static var shellOutAction: (String, [String], String, Process, FileHandle?, FileHandle?) throws -> String = shellOut(to:arguments:at:process:outputHandle:errorHandle:)
     /// Executes a shell script

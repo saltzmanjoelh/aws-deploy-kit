@@ -6,10 +6,14 @@ import PackageDescription
 let package = Package(
     name: "AWSDeployKit",
     products: [
-        .library(name: "AWSDeployCore",
-                targets: ["AWSDeployCore"]),
-        .executable(name: "aws-deploy",
-                    targets: ["aws-deploy"])
+        .library(
+            name: "AWSDeployCore",
+            targets: ["AWSDeployCore"]
+        ),
+        .executable(
+            name: "aws-deploy",
+            targets: ["aws-deploy"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/saltzmanjoelh/LogKit", .branch("main")),
@@ -55,8 +59,8 @@ let package = Package(
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
-                
-            ]),
+            ]
+        ),
         .target(
             name: "aws-deploy",
             dependencies: [
@@ -73,7 +77,7 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"),
                 .product(name: "AWSLambdaEvents", package: "swift-aws-lambda-runtime"),
-            ])
-        
+            ]
+        ),
     ]
 )

@@ -1,73 +1,71 @@
 //
 //  AppDeployer.swift
-//  
+//
 //
 //  Created by Joel Saltzman on 1/28/21.
 //
 
-import Foundation
 import ArgumentParser
-import LogKit
+import Foundation
 import Logging
-import SotoS3
+import LogKit
 import SotoLambda
-
+import SotoS3
 
 public enum ProductType: String {
-    case library = "library"
-    case executable = "executable"
+    case library
+    case executable
 }
 
-
 public struct AppDeployer: ParsableCommand {
-    
     public static let configuration = CommandConfiguration(abstract: "Helps with building Swift packages in Linux and deploying to Lambda. Currently, we only support building executable targets.")
 
     @Option(name: [.short, .long], help: "Provide a custom path to the project directory instead of using the current working directory.")
     var directoryPath: String = "./"
-    
+
     @Option(name: [.short, .long], help: "Skip specific products. Use a comma separted string. Example: -s SkipThis,SkipThat. This is only applicable if you didn't specify the products.")
     var skipProducts: String = ""
-    
+
     @Argument(help: "You can either specify which products you want to include. Or if you don't specify any, all will be used. You can optionally skip some products using the --skip-products (-s) flag.")
     var products: [String] = []
-    
+
     @Flag(name: [.short, .long], help: "Publish the updated Lambda functions with a blue green process. A new Lambda version will be created for an existing function that uses the same product name from the archive. Archives are created with the format 'PRODUCT_DATE.zip'. Next, the Lamdba will be invoked to make sure that it hasn't crashed on startup. Finally, the 'production' alias for the Lambda will be updated to point to the new revision.")
     var publishBlueGreen: Bool = false
-    
+
     public init() {}
-    
+
     public mutating func run() throws {
-        try run(services: Services.shared)
+        try self.run(services: Services.shared)
     }
+
     public mutating func run(services: Servicable) throws {
-        try verifyConfiguration(services: services)
-        let archiveURLs = try services.builder.buildProducts(products, at: directoryPath, logger: services.logger)
-        if publishBlueGreen == true {
+        try self.verifyConfiguration(services: services)
+        let archiveURLs = try services.builder.buildProducts(self.products, at: self.directoryPath, logger: services.logger)
+        if self.publishBlueGreen == true {
             _ = try services.publisher.publishArchives(archiveURLs, services: services).wait()
         }
     }
-    
-    
+
     /// Verifies the configuration and throws when it's invalid.
     public mutating func verifyConfiguration(services: Servicable) throws {
-        if directoryPath == "./" ||
-            directoryPath == "." {
-            directoryPath = FileManager.default.currentDirectoryPath
+        if self.directoryPath == "./" ||
+            self.directoryPath == "."
+        {
+            self.directoryPath = FileManager.default.currentDirectoryPath
         }
-        services.logger.trace("Working in: \(directoryPath)")
+        services.logger.trace("Working in: \(self.directoryPath)")
 
-        if products.count == 0 {
-            if skipProducts.count > 1 {
-                services.logger.trace("Skipping: \(skipProducts)")
+        if self.products.count == 0 {
+            if self.skipProducts.count > 1 {
+                services.logger.trace("Skipping: \(self.skipProducts)")
             }
-            products = try getProducts(from: directoryPath, of: .executable, skipProducts: skipProducts, logger: services.logger)
+            self.products = try self.getProducts(from: self.directoryPath, of: .executable, skipProducts: self.skipProducts, logger: services.logger)
         }
-        if publishBlueGreen {
-            services.logger.trace("Deploying: \(products)")
+        if self.publishBlueGreen {
+            services.logger.trace("Deploying: \(self.products)")
         }
     }
-    
+
     /// Get an array of products of a specific type in a Swift package.
     /// - Parameters:
     ///   - directoryPath: String path to the directory that contains the package.
@@ -76,11 +74,13 @@ public struct AppDeployer: ParsableCommand {
     /// - Returns: Array of product names in the package.
     public func getProducts(from directoryPath: String, of type: ProductType = .executable, skipProducts: String = "", logger: Logger? = nil) throws -> [String] {
         let command = "swift package dump-package | sed -e 's|: null|: \"\"|g' | /usr/local/bin/jq '.products[] | (select(.type.\(type.rawValue))) | .name' | sed -e 's|\"||g'"
-        let output = try ShellExecutor.run(command,
-                                           at: directoryPath,
-                                           outputHandle: FileHandle.standardOutput,
-                                           errorHandle: FileHandle.standardError,
-                                           logger: logger)
+        let output = try ShellExecutor.run(
+            command,
+            at: directoryPath,
+            outputHandle: FileHandle.standardOutput,
+            errorHandle: FileHandle.standardError,
+            logger: logger
+        )
         var allProducts = output.components(separatedBy: "\n")
         let skips = skipProducts.components(separatedBy: ",")
         if skips.count > 0 {

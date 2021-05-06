@@ -1,4 +1,9 @@
 ## AWSDeployCore
+
+[<img src="http://img.shields.io/badge/swift-5.3-brightgreen.svg" alt="Swift 5.3" />](https://swift.org)
+[<img src="https://github.com/saltzmanjoelh/AWSDeployKit/workflows/Swift/badge.svg" />](https://github.com/saltzmanjoelh/AWSDeployKit/actions)
+[<img src="https://codecov.io/gh/saltzmanjoelh/AWSDeployKit/branch/main/graph/badge.svg" alt="Codecov Result" />](https://codecov.io/gh/saltzmanjoelh/AWSDeployKit)
+
 Helps with building Swift packages in Linux and updating an existing AWS Lambda. 
 
 The `AWSDeploy` product is simply an executable target for the `AppDeployer`. If you plan on [using this from the command line](#using-from-the-command-line), you will simply build the aws-deploy target and copy the product somewhere. However, I prefer to [use this in Xcode](#use-this-in-xcode).
