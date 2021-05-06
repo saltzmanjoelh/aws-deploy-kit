@@ -55,6 +55,24 @@ class AppDeployerTests: XCTestCase {
         // Then a "Skipping $PRODUCT" log should be received
         XCTAssertTrue("\(testServices.logCollector.logs.allEntries)".contains("Skipping: \(product)"))
     }
+    func testVerifyConfiguration_throwsWithMissingProducts() throws {
+        // Given a package without any executables
+        let product = UUID().uuidString
+        var instance = try AppDeployer.parseAsRoot(["-s", product]) as! AppDeployer
+        let testServices = TestServices()
+
+        
+        do {
+            // When calling verifyConfiguration
+            try instance.verifyConfiguration(services: testServices)
+            
+            XCTFail("An error should have been thrown.")
+        } catch AppDeployerError.missingProducts {
+            // Then an error should be thrown
+        } catch {
+            XCTFail(String(describing: error))
+        }
+    }
 
     func testGetProducts() throws {
         // Given a package with a library and multiple executables

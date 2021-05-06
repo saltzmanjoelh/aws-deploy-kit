@@ -35,7 +35,7 @@ public class Services: Servicable {
         return Lambda(client: client, region: .init(rawValue: region), timeout: TimeAmount.minutes(4))
     }
 
-    public var logger = Logger(label: "AWSDeployKit")
+    public var logger: Logger
     public var client: AWSClient
     public var s3: S3
     public var lambda: Lambda
@@ -49,6 +49,8 @@ public class Services: Servicable {
         self.client = client
         self.s3 = Self.createS3Service(region: region, client: client)
         self.lambda = Self.createLambdaService(region: region, client: client)
+        self.logger = Logger(label: "AWSDeployKit")
+        self.logger.logLevel = .trace
     }
 
     deinit {

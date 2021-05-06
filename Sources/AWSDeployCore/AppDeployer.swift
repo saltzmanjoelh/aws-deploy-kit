@@ -17,6 +17,17 @@ public enum ProductType: String {
     case executable
 }
 
+public enum AppDeployerError: Error, CustomStringConvertible {
+    case missingProducts
+    
+    public var description: String {
+        switch self {
+        case .missingProducts:
+            return "No executable products were found. Does the package description contain a products section with at least one executable type?"
+        }
+    }
+}
+
 public struct AppDeployer: ParsableCommand {
     public static let configuration = CommandConfiguration(abstract: "Helps with building Swift packages in Linux and deploying to Lambda. Currently, we only support building executable targets.")
 
@@ -61,6 +72,10 @@ public struct AppDeployer: ParsableCommand {
             }
             self.products = try self.getProducts(from: self.directoryPath, of: .executable, skipProducts: self.skipProducts, logger: services.logger)
         }
+        print("COUNT: \(self.products.count) \(self.products)")
+        if self.products.count == 0 {
+            throw AppDeployerError.missingProducts
+        }
         if self.publishBlueGreen {
             services.logger.trace("Deploying: \(self.products)")
         }
@@ -81,7 +96,16 @@ public struct AppDeployer: ParsableCommand {
             errorHandle: FileHandle.standardError,
             logger: logger
         )
-        var allProducts = output.components(separatedBy: "\n")
+        // Remove empty values
+        var allProducts: [String] = output
+            .trimmingCharacters(in: .whitespaces)
+            .components(separatedBy: "\n")
+            .compactMap({
+                let result = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard result.count > 0 else { return nil }
+                return result
+            })
+        // Remove the products that were requested to be skipped
         let skips = skipProducts.components(separatedBy: ",")
         if skips.count > 0 {
             allProducts.removeAll { (product: String) -> Bool in

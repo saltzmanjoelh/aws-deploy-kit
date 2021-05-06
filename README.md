@@ -32,17 +32,32 @@ The blue/green deployment steps are as follows:
 ## Using in Xcode
 You are basically duplicating the `aws-deploy` target.
 
-* Create a new executable target that depends on `AWSDeployCore`
+* Create a new target that depends on `AWSDeployCore`. Let's call this `Deploy` for the example.
+```swift
+.target(
+    name: "Deploy",
+    dependencies: [
+        .product(name: "AWSDeployCore", package: "AWSDeployKit")
+    ]),
+```
+
 * You only need 2 lines in the `main.swift` file:
   ```swift
   import AWSDeployCore
   AppDeployer.main()
   ```
-* Switch your target in Xcode to your new target
-* Press `cmd` + `shift` + `<` to edit the scheme
-* Add the path to your project in the "Arguments Passed On Launch" section`-d /path/to/project/` 
+  
+* Switch your selected target in Xcode to your new target `Deploy`.
+* Press `cmd` + `shift` + `<` to edit the scheme.
+* Add the path to your project in the "Arguments Passed On Launch" section `-d /path/to/project/`.
+* Make sure to skip the building and deploying your deploy executable `-s Deploy`.
+* This is enough to build in Docker. You can optionally pass the `-p` to publish to your Lambda.
+![Example Setup](ExampleSetup.png)
 
 Now when you want to deploy, simply pick your new target and run. Logs should appear in the Xcode console. 
+
+You can take a look at the [DeployExample](https://github.com/saltzmanjoelh/DeployExample) project as well.
+
 
 
 ## Using from the command line
