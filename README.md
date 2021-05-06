@@ -56,7 +56,7 @@ You are basically duplicating the `aws-deploy` target.
 
 Now when you want to deploy, simply pick your new target and run. Logs should appear in the Xcode console. 
 
-You can take a look at the [DeployExample](https://github.com/saltzmanjoelh/DeployExample) project as well.
+You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoelh/AWSDeployKitExample) project as well.
 
 
 
