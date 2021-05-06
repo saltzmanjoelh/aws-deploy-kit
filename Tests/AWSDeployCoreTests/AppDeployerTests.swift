@@ -57,16 +57,21 @@ class AppDeployerTests: XCTestCase {
     }
     func testVerifyConfiguration_throwsWithMissingProducts() throws {
         // Given a package without any executables
-        let product = UUID().uuidString
-        var instance = try AppDeployer.parseAsRoot(["-s", product]) as! AppDeployer
+        var instance = AppDeployer()
+        instance.directoryPath = "./"
+        instance.products = []
+        instance.skipProducts = ""
+        instance.publishBlueGreen = false
         let testServices = TestServices()
-
+        ShellExecutor.shellOutAction = { _, _, _, _, _, _ in
+            return "" // Make the shell check return ""
+        }
         
         do {
             // When calling verifyConfiguration
             try instance.verifyConfiguration(services: testServices)
             
-            XCTFail("An error should have been thrown.")
+            XCTFail("An error should have been thrown and products should have been empty instead of: \(instance.products)")
         } catch AppDeployerError.missingProducts {
             // Then an error should be thrown
         } catch {
@@ -87,6 +92,28 @@ class AppDeployerTests: XCTestCase {
 
         // Then only one executable should be returned
         XCTAssertEqual(result, ["TestExecutable"])
+    }
+    func testGetProducts_throwsWithMissingProducts() throws {
+        // Given a package without any executables
+        var instance = AppDeployer()
+        instance.directoryPath = "./"
+        instance.products = []
+        instance.skipProducts = ""
+        instance.publishBlueGreen = false
+        ShellExecutor.shellOutAction = { _, _, _, _, _, _ in
+            return "" // Make the shell check return ""
+        }
+        
+        do {
+            // When calling getProdcuts
+            let result = try instance.getProducts(from: "")
+            
+            XCTFail("An error should have been thrown and products should have been empty instead of: \(result)")
+        } catch AppDeployerError.missingProducts {
+            // Then an error should be thrown
+        } catch {
+            XCTFail(String(describing: error))
+        }
     }
 
     func testRunDoesNotThrow() throws {

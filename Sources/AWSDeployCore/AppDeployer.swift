@@ -112,6 +112,9 @@ public struct AppDeployer: ParsableCommand {
                 skips.contains(product)
             }
         }
+        guard allProducts.count > 0 else {
+            throw AppDeployerError.missingProducts
+        }
         return allProducts
     }
 }
