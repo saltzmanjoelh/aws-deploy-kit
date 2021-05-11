@@ -22,7 +22,7 @@ class TestServices: Servicable {
         return result
     }()
 
-    let awsServer = AWSTestServer(serviceProtocol: .json)
+    lazy var awsServer: AWSTestServer = { AWSTestServer(serviceProtocol: .json) }()
     let client = createAWSClient(credentialProvider: .static(accessKeyId: "foo", secretAccessKey: "bar"))
     lazy var lambda: Lambda = {
         Lambda(client: client, region: .uswest1, endpoint: awsServer.address)

@@ -9,7 +9,6 @@
 import Foundation
 import Logging
 import LogKit
-import ShellOut
 import SotoS3
 @testable import SotoTestUtils
 import XCTest
@@ -45,15 +44,16 @@ class AppDeployerTests: XCTestCase {
 
     func testVerifyConfiguration_logsWhenSkippingProducts() throws {
         // Given a product to skip
-        let product = UUID().uuidString
-        var instance = try AppDeployer.parseAsRoot(["-s", product]) as! AppDeployer
+        let path = try createTempPackage()
+        var instance = try AppDeployer.parseAsRoot(["-s", TestPackage.skipTarget, "-p", path]) as! AppDeployer
         let testServices = TestServices()
 
         // When calling verifyConfiguration
         try instance.verifyConfiguration(services: testServices)
 
         // Then a "Skipping $PRODUCT" log should be received
-        XCTAssertTrue("\(testServices.logCollector.logs.allEntries)".contains("Skipping: \(product)"))
+        let messages = testServices.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
+        XCTAssertString(messages, contains: "Skipping: \(TestPackage.skipTarget)")
     }
     func testVerifyConfiguration_throwsWithMissingProducts() throws {
         // Given a package without any executables
@@ -63,9 +63,10 @@ class AppDeployerTests: XCTestCase {
         instance.skipProducts = ""
         instance.publishBlueGreen = false
         let testServices = TestServices()
-        ShellExecutor.shellOutAction = { _, _, _, _, _, _ in
+        ShellExecutor.shellOutAction = { (_, _) throws -> String in
             return "" // Make the shell check return ""
         }
+        defer { ShellExecutor.resetAction() }
         
         do {
             // When calling verifyConfiguration
@@ -81,7 +82,6 @@ class AppDeployerTests: XCTestCase {
 
     func testGetProducts() throws {
         // Given a package with a library and multiple executables
-        ShellExecutor.shellOutAction = shellOut(to:arguments:at:process:outputHandle:errorHandle:)
         let path = try createTempPackage()
         let instance = AppDeployer()
         let collector = LogCollector()
@@ -91,7 +91,7 @@ class AppDeployerTests: XCTestCase {
         let result = try instance.getProducts(from: path, skipProducts: "SkipMe", logger: logger)
 
         // Then only one executable should be returned
-        XCTAssertEqual(result, ["TestExecutable"])
+        XCTAssertEqual(result.last, TestPackage.executable)
     }
     func testGetProducts_throwsWithMissingProducts() throws {
         // Given a package without any executables
@@ -100,9 +100,10 @@ class AppDeployerTests: XCTestCase {
         instance.products = []
         instance.skipProducts = ""
         instance.publishBlueGreen = false
-        ShellExecutor.shellOutAction = { _, _, _, _, _, _ in
+        ShellExecutor.shellOutAction = { (_, _) throws -> String in
             return "" // Make the shell check return ""
         }
+        defer { ShellExecutor.resetAction() }
         
         do {
             // When calling getProdcuts
@@ -126,16 +127,10 @@ class AppDeployerTests: XCTestCase {
         let functionName = "my-function"
         let archivePath = "/tmp/\(functionName)_yyyymmdd_HHMM.zip"
         FileManager.default.createFile(atPath: archivePath, contents: "File".data(using: .utf8)!, attributes: nil)
-        ShellExecutor.shellOutAction = { (
-            to: String,
-            arguments: [String],
-            at: String,
-            process: Process,
-            outputHandle: FileHandle?,
-            errorHandle: FileHandle?
-        ) throws -> String in
-        archivePath
+        ShellExecutor.shellOutAction = { (_, _) throws -> String in
+            return archivePath
         }
+        defer { ShellExecutor.resetAction() }
         let functionConfiguration = String(
             data: try JSONEncoder().encode([
                 "FunctionName": functionName,
@@ -180,13 +175,6 @@ class AppDeployerTests: XCTestCase {
     func testRunWithRealPackage() throws {
         // This is more of an integration test. We won't stub the services
         let path = try createTempPackage(includeSource: true)
-        // Create the Dockerfile
-        let dockerFile = "FROM swift:5.3-amazonlinux2\nRUN yum -y install zip"
-        try (dockerFile as NSString).write(
-            toFile: URL(string: path)!.appendingPathComponent("Dockerfile").absoluteString,
-            atomically: true,
-            encoding: String.Encoding.utf8.rawValue
-        )
         // Configure the CollectingLogger
         let collector = LogCollector()
         Services.shared.logger = CollectingLogger(label: #function, logCollector: collector)
@@ -199,7 +187,7 @@ class AppDeployerTests: XCTestCase {
         // Then no errors should be thrown
         XCTAssertNoThrow(try instance.run())
         // and the zip should exist. The last line of the last log should contain the zip path
-        let zipPath = collector.logs.allEntries.last?.message.components(separatedBy: "\n").last
+        let zipPath = collector.logs.allEntries.last?.message.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n").last
         XCTAssertNotNil(zipPath)
         XCTAssertTrue(FileManager.default.fileExists(atPath: zipPath!), "File does not exist: \(zipPath!)")
     }

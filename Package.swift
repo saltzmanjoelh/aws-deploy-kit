@@ -24,13 +24,11 @@ let package = Package(
         .package(url: "https://github.com/soto-project/soto", .branch("main")),
         .package(url: "https://github.com/soto-project/soto-core", .branch("main")),
         .package(url: "https://github.com/swift-server/async-http-client", .branch("main")),
-        .package(url: "https://github.com/JohnSundell/ShellOut", .branch("master")),
     ],
     targets: [
         .target(
             name: "AWSDeployCore",
             dependencies: [
-                .product(name: "ShellOut", package: "ShellOut"),
                 .product(name: "LogKit", package: "LogKit"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "SotoS3", package: "soto"),
@@ -50,7 +48,6 @@ let package = Package(
             name: "AWSDeployCoreTests",
             dependencies: [
                 "AWSDeployCore",
-                .product(name: "ShellOut", package: "ShellOut"),
                 .product(name: "SotoTestUtils", package: "soto-core"),
                 .product(name: "AWSLambdaRuntimeCore", package: "swift-aws-lambda-runtime"),
                 .product(name: "NIO", package: "swift-nio"),
@@ -65,7 +62,6 @@ let package = Package(
             name: "aws-deploy",
             dependencies: [
                 "AWSDeployCore",
-                .product(name: "ShellOut", package: "ShellOut"),
                 .product(name: "LogKit", package: "LogKit"),
                 .product(name: "SotoS3", package: "soto"),
                 .product(name: "SotoLambda", package: "soto"),

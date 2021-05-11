@@ -66,13 +66,13 @@ public struct AppDeployer: ParsableCommand {
         }
         services.logger.trace("Working in: \(self.directoryPath)")
 
+        if self.skipProducts.count > 1 {
+            services.logger.trace("Skipping: \(self.skipProducts)")
+        }
         if self.products.count == 0 {
-            if self.skipProducts.count > 1 {
-                services.logger.trace("Skipping: \(self.skipProducts)")
-            }
             self.products = try self.getProducts(from: self.directoryPath, of: .executable, skipProducts: self.skipProducts, logger: services.logger)
         }
-        print("COUNT: \(self.products.count) \(self.products)")
+        
         if self.products.count == 0 {
             throw AppDeployerError.missingProducts
         }
@@ -92,10 +92,9 @@ public struct AppDeployer: ParsableCommand {
         let output = try ShellExecutor.run(
             command,
             at: directoryPath,
-            outputHandle: FileHandle.standardOutput,
-            errorHandle: FileHandle.standardError,
             logger: logger
         )
+        
         // Remove empty values
         var allProducts: [String] = output
             .trimmingCharacters(in: .whitespaces)

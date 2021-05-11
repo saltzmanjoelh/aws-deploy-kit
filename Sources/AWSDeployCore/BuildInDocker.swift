@@ -14,7 +14,7 @@ import SotoS3
 public enum BuildInDockerError: Error, CustomStringConvertible {
     case scriptNotFound(String)
     case archivePathNotReceived(String)
-    case invalidArchivePath(String)
+    case archiveNotFound(String)
 
     public var description: String {
         switch self {
@@ -22,33 +22,62 @@ public enum BuildInDockerError: Error, CustomStringConvertible {
             return "The \(scriptName) script was not found in the resources."
         case .archivePathNotReceived(let productName):
             return "The path to the completed archive was not found for \(productName)."
-        case .invalidArchivePath(let path):
-            return "Invalid archive path: \(path)"
+        case .archiveNotFound(let path):
+            return "The build succeeded but the archive was not found at: \(path)."
         }
     }
 }
 
 public struct BuildInDocker {
+    
+    public struct DockerConfig {
+        public static let imageName = "swift:5.3-amazonlinux2"
+        public static let containerName = "awsdeploykit-builder"
+    }
+    
     public init() {}
 
     /// Build the products in Docker.
     /// - Returns: Array of URLs to the built archives. Their filenames will be in the format $executable-yyyymmdd_HHMM.zip in UTC
     public func buildProducts(_ products: [String], at directoryPath: String, logger: Logger) throws -> [URL] {
-        if let dockerfile = URL(string: directoryPath)?.appendingPathComponent("Dockerfile"),
-           FileManager.default.fileExists(atPath: dockerfile.absoluteString)
-        {
-            _ = try self.prepareDockerImage(at: directoryPath, logger: logger)
-        }
+        let dockerfilePath = try getDockerfilePath(from: directoryPath, logger: logger)
+        _ = try prepareDockerImage(at: dockerfilePath, logger: logger)
         let archiveURLs = try products.map { (product: String) -> URL in
             let filePath = try buildAndPackageInDocker(product: product, at: directoryPath, logger: logger)
             guard let url = URL(string: filePath),
                   FileManager.default.fileExists(atPath: filePath)
             else {
-                throw BuildInDockerError.invalidArchivePath(filePath)
+                throw BuildInDockerError.archiveNotFound(filePath)
             }
             return url
         }
         return archiveURLs
+    }
+    
+    func getDockerfilePath(from directoryPath: String, logger: Logger) throws -> String {
+        guard let dockerfile = URL(string: directoryPath)?.appendingPathComponent("Dockerfile"),
+           FileManager.default.fileExists(atPath: dockerfile.absoluteString)
+        else {
+            // Dockerfile was not available. Create a default Swift image to use for building with.
+            return try createTemporyDockerfile(logger: logger)
+        }
+        return dockerfile.absoluteString
+    }
+    
+    /// If a dockerfile was not provided, we create a temporary one to create a Swift Docker image from.
+    /// - Returns: Path to the temporary Dockerfile
+    func createTemporyDockerfile(logger: Logger) throws -> String {
+        logger.trace("Creating temporary Dockerfile")
+        let dockerfile = URL(string: "/tmp")!.appendingPathComponent("Dockerfile")
+        try? FileManager.default.removeItem(at: dockerfile)
+        // Create the Dockerfile
+        let dockerFile = "FROM \(BuildInDocker.DockerConfig.imageName)\nRUN yum -y install zip"
+        try (dockerFile as NSString).write(
+            toFile: dockerfile.absoluteString,
+            atomically: false,
+            encoding: String.Encoding.utf8.rawValue
+        )
+        return dockerfile.absoluteString
     }
 
     /// Builds and archives the product in Docker.
@@ -56,29 +85,20 @@ public struct BuildInDocker {
     /// - Returns: Path to the archive of the built product.
     public func buildAndPackageInDocker(product: String, at directoryPath: String, logger: Logger) throws -> String {
         _ = try self.buildProductInDocker(product, at: directoryPath, logger: logger)
-        guard let archivePath = try packageProduct(product, at: directoryPath, logger: logger),
-              archivePath.hasSuffix(".zip")
-        else { // Last log should be the zip path
-            throw BuildInDockerError.archivePathNotReceived(product)
-        }
+        let archivePath = try packageProduct(product, at: directoryPath, logger: logger)
         return archivePath
     }
 
     /// Builds a new Docker image to build the products with.
-    /// - Parameter directoryPath: The direcotry where the Dockerfile is
+    /// - Parameter dockerfilePath: The direcotry where the Dockerfile is
     /// - Returns: The output from building the new image.
-    public func prepareDockerImage(at directoryPath: String, logger: Logger) throws -> String {
+    public func prepareDockerImage(at dockerfilePath: String, logger: Logger) throws -> String {
         logger.trace("Preparing Docker image.")
-        let command = "/bin/bash -c \"export PATH=$PATH:/usr/local/bin/ && /usr/local/bin/docker build . -t builder  --no-cache\"" // --build-arg WORKSPACE=\"$PWD\"
-        logger.trace("\(command)")
+        let command = "/bin/bash -c \"export PATH=$PATH:/usr/local/bin/ && /usr/local/bin/docker build --file \(dockerfilePath) . -t \(DockerConfig.containerName)  --no-cache\""
         let output = try ShellExecutor.run(
             command,
-            at: directoryPath,
-            outputHandle: FileHandle.standardOutput,
-            errorHandle: FileHandle.standardError,
             logger: logger
         )
-        logger.trace("\(output)")
         return output
     }
 
@@ -110,7 +130,7 @@ public struct BuildInDocker {
             arguments += [
                 "-v",
                 "\(privateKeyPath):\(privateKeyPath)",
-                "builder",
+                DockerConfig.containerName,
                 "ssh-agent",
                 "bash",
                 "-c",
@@ -118,22 +138,26 @@ public struct BuildInDocker {
             ]
         } else {
             arguments += [
-                "builder",
+                DockerConfig.containerName,
                 "/usr/bin/bash",
                 "-c",
                 "\"\(swiftBuildCommand)\"",
             ]
         }
 
-        let output = try ShellExecutor.run(
-            command,
-            arguments: arguments,
-            outputHandle: FileHandle.standardOutput,
-            errorHandle: FileHandle.standardError,
-            logger: logger
-        )
-        logger.trace("\(output)")
-        return output
+        do {
+            let output = try ShellExecutor.run(
+                command,
+                arguments: arguments,
+                logger: logger
+            )
+            return output
+        } catch {
+            if "\(error)".contains("root manifest not found") {
+                logger.error("Did you specify a path to a Swift Package: \(directoryPath)")
+            }
+            throw error
+        }
     }
 
     /// Get the path to the script in the bundle
@@ -165,11 +189,8 @@ public struct BuildInDocker {
         let output = try ShellExecutor.run(
             theScript,
             arguments: arguments,
-            outputHandle: FileHandle.standardOutput,
-            errorHandle: FileHandle.standardError,
             logger: logger
         )
-        logger.trace("\(output)")
         return output
     }
 
@@ -178,11 +199,16 @@ public struct BuildInDocker {
     ///   - product: The name of built product to archive.
     ///   - directoryPath: The directory where the built product is located.
     /// - Returns: Path to the new archive.
-    public func packageProduct(_ product: String, at directoryPath: String, logger: Logger) throws -> String? {
+    public func packageProduct(_ product: String, at directoryPath: String, logger: Logger) throws -> String {
         let arguments = [directoryPath] + [product]
         logger.trace("-- Packaging \(product) ---")
-        return try self.runBundledScript("packageInDocker.sh", arguments: arguments, logger: logger).components(separatedBy: "\n").last
+        let output = try self.runBundledScript("packageInDocker.sh", arguments: arguments, logger: logger)
+        guard let archivePath = output.components(separatedBy: "\n").last,
+              archivePath.hasSuffix(".zip") // Last log should be the zip path
+        else {
+            throw BuildInDockerError.archivePathNotReceived(product)
+        }
         // TODO: Check error logs and provide useful tips.
-        // Maybe no rootManifest error means you didn't specify the source code directory
+        return archivePath
     }
 }

@@ -13,83 +13,70 @@ import SotoCore
 import XCTest
 
 class BuildInDockerTests: XCTestCase {
-    override func setUpWithError() throws {
-        ShellExecutor.shellOutAction = { (
-            to: String,
-            arguments: [String],
-            at: String,
-            process: Process,
-            outputHandle: FileHandle?,
-            errorHandle: FileHandle?
-        ) throws -> String in
-        let components = [to] + arguments + [at]
-        return components.joined(separator: " ")
+    
+    var instance = BuildInDocker()
+    var services = TestServices()
+    
+    override func setUp() {
+        instance = BuildInDocker()
+        services = TestServices()
+        ShellExecutor.shellOutAction = { (_, _) throws -> String in
+            return "/path/to/app.zip"
         }
     }
-
-    func createTempScript(at scriptPath: String) throws -> String {
-        let output = "/tmp/archive.zip"
-        let fileURL = URL(fileURLWithPath: scriptPath)
-        let script = "echo \"\(output)\""
-        try (script as NSString).write(
-            to: fileURL,
-            atomically: true,
-            encoding: String.Encoding.utf8.rawValue
-        )
-        try FileManager.default.setAttributes([FileAttributeKey.posixPermissions: 0o777], ofItemAtPath: scriptPath)
-        return output
+    override func tearDown() {
+        ShellExecutor.resetAction()
     }
-
+    
     func testPrepareDockerImage() throws {
-        // Given an instance
-        let instance = BuildInDocker()
+        // Given an a valid package with a Dockerfile
+        let path = try createTempPackage()
+        let dockerFile = URL(string: path)!.appendingPathComponent("Dockerfile")
 
-        // When calling prepareDockerImage with valid input
-        let result = try instance.prepareDockerImage(at: "/tmp", logger: AWSClient.loggingDisabled)
+        // When calling prepareDockerImage
+        _ = try instance.prepareDockerImage(at: dockerFile.absoluteString, logger: services.logger)
 
         // Then the correct command should be issued
-        XCTAssertTrue(result.contains("/bin/bash -c"))
-        XCTAssertTrue(result.contains("export PATH"))
-        XCTAssertTrue(result.contains("/usr/local/bin/"))
-        XCTAssertTrue(result.contains("/usr/local/bin/docker build . -t builder"))
-        XCTAssertTrue(result.contains("--no-cache"))
+        let message = services.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
+        XCTAssertString(message, contains: "/bin/bash -c")
+        XCTAssertString(message, contains: "export PATH")
+        XCTAssertString(message, contains: "/usr/local/bin/")
+        XCTAssertString(message, contains: "/usr/local/bin/docker build --file \(dockerFile.absoluteString) . -t \(BuildInDocker.DockerConfig.containerName)")
+        XCTAssertString(message, contains: "--no-cache")
+    }
+    func testGetDefaultDockerfilePath() throws {
+        // Given a package without a Dockerfile
+        let path = try createTempPackage(includeSource: true, includeDockerfile: false)
+
+        // When calling prepareDockerImage
+        let result = try instance.getDockerfilePath(from: path, logger: services.logger)
+
+        // Then a default Dockerfile should be used
+        XCTAssertEqual(result, "/tmp/Dockerfile")
+        let message = services.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
+        XCTAssertString(message, contains: "Creating temporary Dockerfile")
     }
 
     func testBuildAndPackage_returnsArchivePath() throws {
-        // Given a successful shellOut
-        let instance = BuildInDocker()
-        ShellExecutor.shellOutAction = { (
-            to: String,
-            arguments: [String],
-            at: String,
-            process: Process,
-            outputHandle: FileHandle?,
-            errorHandle: FileHandle?
-        ) throws -> String in
-        "archive.zip"
-        }
+        // Live run within Docker
+        ShellExecutor.resetAction()
+        // Given a valid package
+        let path = try createTempPackage()
 
         // When calling buildAndPackage
-        let result = try instance.buildAndPackageInDocker(product: "Example", at: ".", logger: AWSClient.loggingDisabled)
+        let result = try instance.buildAndPackageInDocker(product: TestPackage.executable, at: path, logger: services.logger)
 
         // Then an archive should be returned
-        XCTAssertEqual(result, "archive.zip")
+        XCTAssertTrue(result.contains(TestPackage.executable), "Executable name: \(TestPackage.executable) should have been in the archive name: \(result)")
+        XCTAssertTrue(result.contains(".zip"), ".zip should have been in the archive name: \(result)")
+        XCTAssertTrue(result.components(separatedBy: "_").count == 3, "There should have been 3 parts in the archive name: \(result)")
     }
 
     func testBuildAndPackage_throwsWithUnexpectedResult() throws {
         // Given an unexpected shellOut result
-        let instance = BuildInDocker()
-        ShellExecutor.shellOutAction = { (
-            to: String,
-            arguments: [String],
-            at: String,
-            process: Process,
-            outputHandle: FileHandle?,
-            errorHandle: FileHandle?
-        ) throws -> String in
-        "??"
+        ShellExecutor.shellOutAction = { (_, _) throws -> String in
+            return "??"
         }
-
         // When calling buildAndPackage
         do {
             _ = try instance.buildAndPackageInDocker(product: "Example", at: ".", logger: AWSClient.loggingDisabled)
@@ -103,90 +90,102 @@ class BuildInDockerTests: XCTestCase {
     }
 
     func testBuildProductsThrowsWithMissingArchive() throws {
-        // Given an archive that doesn't exist
-        let archive = "invalid.zip"
-        ShellExecutor.shellOutAction = { (
-            to: String,
-            arguments: [String],
-            at: String,
-            process: Process,
-            outputHandle: FileHandle?,
-            errorHandle: FileHandle?
-        ) throws -> String in
-        archive
-        }
-        let instance = BuildInDocker()
+        // Setup
         let path = try createTempPackage()
+        // Given an archive that doesn't exist after the build
+        let archive = "invalid.zip"
+        ShellExecutor.shellOutAction = { (_, _) throws -> String in
+            return archive // Stub the result to return an archive but skip the actual building process
+        }
 
         // When calling buildProduct
-        // Then an error should be throw
         do {
-            _ = try instance.buildProducts(["TestExecutable"], at: path, logger: AWSClient.loggingDisabled)
+            _ = try instance.buildProducts([TestPackage.executable], at: path, logger: AWSClient.loggingDisabled)
 
             XCTFail("An error should have been thrown.")
+        } catch BuildInDockerError.archiveNotFound(_) {
+            // Then an error should be throw
         } catch {
-            XCTAssertEqual("\(error)", BuildInDockerError.invalidArchivePath(archive).description)
+            XCTFail(error)
         }
     }
 
     func testBuildProduct() throws {
-        // Given an instance
-        let instance = BuildInDocker()
+        // Setup
         let path = try createTempPackage()
+        // Given a valid package
+        let instance = BuildInDocker()
 
-        // When calling buildProduct with valid input
-        let result = try instance.buildProductInDocker("TestExecutable", at: path, logger: AWSClient.loggingDisabled)
+        // When calling buildProduct
+        _ = try instance.buildProductInDocker(TestPackage.executable, at: path, logger: services.logger)
 
         // Then the correct command should be issued
-        self.assertString(result, contains: "/usr/local/bin/docker")
-        self.assertString(result, contains: "run -it --rm -e TERM=dumb")
-        self.assertString(result, contains: "-e GIT_TERMINAL_PROMPT=1")
-        self.assertString(result, contains: "-v /tmp/TestPackage:/tmp/TestPackage")
-        self.assertString(result, contains: "-w /tmp/TestPackage")
-        self.assertString(result, contains: "builder")
-        self.assertString(result, contains: "/usr/bin/bash -c \"swift build -c release --product TestExecutable\" .")
-    }
-
-    func assertString(_ result: String, contains search: String) {
-        XCTAssertTrue(result.contains(search), "\(search) was not found in string: \(result)")
+        let message = services.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
+        XCTAssertString(message, contains: "/usr/local/bin/docker")
+        XCTAssertString(message, contains: "run -it --rm -e TERM=dumb")
+        XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
+        XCTAssertString(message, contains: "-v /tmp/\(TestPackage.name):/tmp/\(TestPackage.name)")
+        XCTAssertString(message, contains: "-w /tmp/\(TestPackage.name)")
+        XCTAssertString(message, contains: BuildInDocker.DockerConfig.containerName)
+        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --product \(TestPackage.executable)\"")
     }
 
     func testBuildProductWithPrivateKey() throws {
+        // Setup
+        let path = try createTempPackage()
         // Given an ssh key path
         let keyPath = "/tmp/ssh/key"
-        let instance = BuildInDocker()
-        let path = try createTempPackage()
 
         // When calling buildProduct with valid input and a private key
-        let result = try instance.buildProductInDocker("TestExecutable", at: path, logger: AWSClient.loggingDisabled, sshPrivateKeyPath: keyPath)
+        _ = try instance.buildProductInDocker(TestPackage.executable,
+                                                       at: path,
+                                                       logger: services.logger,
+                                                       sshPrivateKeyPath: keyPath)
 
         // Then the correct command should be issued and contain the key's path in a volume mount
-        self.assertString(result, contains: "/usr/local/bin/docker")
-        self.assertString(result, contains: "run -it --rm -e TERM=dumb")
-        self.assertString(result, contains: "-e GIT_TERMINAL_PROMPT=1")
-        self.assertString(result, contains: "-v /tmp/TestPackage:/tmp/TestPackage")
-        self.assertString(result, contains: "-w /tmp/TestPackage")
-        self.assertString(result, contains: "-v \(keyPath):\(keyPath)")
-        self.assertString(result, contains: "builder")
-        self.assertString(result, contains: "ssh-agent bash -c ssh-add -c \(keyPath); swift build -c release --product TestExecutable .")
+        let message = services.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
+        XCTAssertString(message, contains: "/usr/local/bin/docker")
+        XCTAssertString(message, contains: "run -it --rm -e TERM=dumb")
+        XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
+        XCTAssertString(message, contains: "-v /tmp/\(TestPackage.name):/tmp/\(TestPackage.name)")
+        XCTAssertString(message, contains: "-w /tmp/\(TestPackage.name)")
+        XCTAssertString(message, contains: "-v \(keyPath):\(keyPath)")
+        XCTAssertString(message, contains: BuildInDocker.DockerConfig.containerName)
+        XCTAssertString(message, contains: "ssh-agent bash -c")
+        XCTAssertString(message, contains: "ssh-add -c \(keyPath);")
+        XCTAssertString(message, contains: "swift build -c release --product \(TestPackage.executable)")
+    }
+    func testBuildProductsHandlesInvalidDirectory() throws {
+        // If there is no Swift package at the path, there should be a useful tip about it.
+        // Given a invalid package path
+        let path = "/tmp/invalid"
+
+        do {
+            // When calling buildProductInDocker
+            _ = try instance.buildProductInDocker(TestPackage.executable, at: path, logger: services.logger)
+
+        } catch _ {
+            // Then a suggestion about the path should be logged
+            let message = services.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
+            XCTAssertString(message, contains: "Did you specify a path to a Swift Package")
+        }
     }
 
     func testPackageProduct() throws {
-        // Given an instance
-        let instance = BuildInDocker()
+        // Given a valid package
+        let path = try createTempPackage()
 
-        // When calling packageProduct with valid input
-        let result = try instance.packageProduct("Test", at: "/tmp", logger: AWSClient.loggingDisabled)
+        // When calling packageProduct
+        _ = try instance.packageProduct(TestPackage.executable, at: path, logger: services.logger)
 
         // Then the correct command should be issued
-        XCTAssertNotNil(result)
-        XCTAssertTrue(result!.contains("/packageInDocker.sh /tmp Test ."), "Invalid shell command: \(result!).")
+        let message = services.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
+        XCTAssertString(message, contains: "/packageInDocker.sh /tmp/\(TestPackage.name) \(TestPackage.executable)")
     }
 
     func testRunBundledScriptThrowsWithInvalidScript() {
         // Given an invalid script
         let script = "invalid.sh"
-        let instance = BuildInDocker()
 
         do {
             // When calling run(script:)

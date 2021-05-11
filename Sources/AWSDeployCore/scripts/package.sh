@@ -37,8 +37,7 @@ for executable in ${@: 2}; do
     zipName="$PWD/${executable}_$(TZ=":UTC" date +'%y%m%d_%H%M').zip"
     ln -s "$executable" "bootstrap"
     zip --symlinks $zipName * .env
-    printf "Built product at: \n"
-    echo $zipName
+    echo -e "Built product at:\n$zipName"
 
 done
 

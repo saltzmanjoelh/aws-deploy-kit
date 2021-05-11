@@ -2,7 +2,7 @@
                             The AWSDeployKit Project
                             ========================
 
-Please visit the SwiftLog web site for more information:
+Please visit the AWSDeployKit web site for more information:
 
   * https://github.com/saltzmanjoelh/AWSDeployKit
 
@@ -25,3 +25,10 @@ the 'license' directory of the distribution file, for the license terms of the
 components that this product depends on.
 
 -------------------------------------------------------------------------------
+
+This product contains a derivation of the John Sundell's 'ShellOut'.
+
+  * LICENSE (MIT License):
+    * https://mit-license.org
+  * HOMEPAGE:
+    * https://github.com/JohnSundell/ShellOut

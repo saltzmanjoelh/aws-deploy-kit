@@ -1,4 +1,4 @@
-## AWSDeployCore
+## AWSDeployKit
 
 [<img src="http://img.shields.io/badge/swift-5.3-brightgreen.svg" alt="Swift 5.3" />](https://swift.org)
 [<img src="https://github.com/saltzmanjoelh/AWSDeployKit/workflows/Swift/badge.svg" />](https://github.com/saltzmanjoelh/AWSDeployKit/actions)
@@ -50,7 +50,7 @@ You are basically duplicating the `aws-deploy` target.
 * Switch your selected target in Xcode to your new target `Deploy`.
 * Press `cmd` + `shift` + `<` to edit the scheme.
 * Add the path to your project in the "Arguments Passed On Launch" section `-d /path/to/project/`.
-* Make sure to skip the building and deploying your deploy executable `-s Deploy`.
+* Make sure to skip the building and deploying your `Deploy` executable `-s Deploy`.
 * This is enough to build in Docker. You can optionally pass the `-p` to publish to your Lambda.
 ![Example Setup](ExampleSetup.png)
 
@@ -65,3 +65,11 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 * Build the `aws-deploy` target.
 * Copy to `/usr/local/bin` or similar.
 * Run it with the path to your project directory. `aws-deploy -d /path/to/project`.
+
+
+TODO:
+* Building without dockerfile should use specific image
+* Automatically skip building itself.
+* Ask to create the Lambda if it doesn't exist.
+* Allow executing a custom command like `aws sam-deploy`
+* Add a readme for the cli args
