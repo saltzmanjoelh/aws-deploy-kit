@@ -18,10 +18,10 @@ class ShellExecutorTests: XCTestCase {
     func testStdOutAndStdErrCombinedOutput() throws {
         // Messages printed to stderr should be included in the output
         let services = TestServices()
-        let cmd = "echo \"stdout\" && echo \"stderr\" >> /dev/stderr"
-        let output = try ShellExecutor.run(cmd, logger: services.logger)
+        let cmd = "echo \"stdout\" >> /dev/stdout && echo \"stderr\" >> /dev/stderr"
+        let output: String = try ShellExecutor.run(cmd, logger: services.logger)
         XCTAssertString(output, contains: "stdout\nstderr")
-        let messages = services.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
+        let messages = services.logCollector.logs.allMessages()
         XCTAssertString(messages, contains: "stdout\n")
         XCTAssertString(messages, contains: "stderr\n")
     }
@@ -31,7 +31,7 @@ class ShellExecutorTests: XCTestCase {
         
         do {
             // When calling run()
-            _ = try ShellExecutor.run(command)
+            let _: String = try ShellExecutor.run(command)
             
             XCTFail("An error should have been thrown.")
         } catch let error as ShellOutError {
@@ -49,7 +49,7 @@ class ShellExecutorTests: XCTestCase {
         
         do {
             // When calling run()
-            _ = try ShellExecutor.run(command)
+            let _: String = try ShellExecutor.run(command)
         } catch let error as ShellOutError {
             // Then an ShellOutError should be thrown
             XCTAssertEqual(error.terminationStatus, 127)

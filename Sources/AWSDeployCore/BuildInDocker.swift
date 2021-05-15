@@ -11,23 +11,6 @@ import LogKit
 import NIO
 import SotoS3
 
-public enum BuildInDockerError: Error, CustomStringConvertible {
-    case scriptNotFound(String)
-    case archivePathNotReceived(String)
-    case archiveNotFound(String)
-
-    public var description: String {
-        switch self {
-        case .scriptNotFound(let scriptName):
-            return "The \(scriptName) script was not found in the resources."
-        case .archivePathNotReceived(let productName):
-            return "The path to the completed archive was not found for \(productName)."
-        case .archiveNotFound(let path):
-            return "The build succeeded but the archive was not found at: \(path)."
-        }
-    }
-}
-
 public struct BuildInDocker {
     
     public struct DockerConfig {
@@ -53,7 +36,10 @@ public struct BuildInDocker {
         }
         return archiveURLs
     }
+
     
+    /// Get the path of the Dockerfile in the target projects directory. If one isn't available a temporary one is provided.
+    /// - Returns:Path to the projects Dockerfile if it exists. Otherwise, the path to a temporary Dockerfile.
     func getDockerfilePath(from directoryPath: String, logger: Logger) throws -> String {
         guard let dockerfile = URL(string: directoryPath)?.appendingPathComponent("Dockerfile"),
            FileManager.default.fileExists(atPath: dockerfile.absoluteString)
@@ -61,22 +47,18 @@ public struct BuildInDocker {
             // Dockerfile was not available. Create a default Swift image to use for building with.
             return try createTemporyDockerfile(logger: logger)
         }
-        return dockerfile.absoluteString
+        return dockerfile.path
     }
     
     /// If a dockerfile was not provided, we create a temporary one to create a Swift Docker image from.
     /// - Returns: Path to the temporary Dockerfile
     func createTemporyDockerfile(logger: Logger) throws -> String {
         logger.trace("Creating temporary Dockerfile")
-        let dockerfile = URL(string: "/tmp")!.appendingPathComponent("Dockerfile")
+        let dockerfile = URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile")
         try? FileManager.default.removeItem(at: dockerfile)
         // Create the Dockerfile
-        let dockerFile = "FROM \(BuildInDocker.DockerConfig.imageName)\nRUN yum -y install zip"
-        try (dockerFile as NSString).write(
-            toFile: dockerfile.absoluteString,
-            atomically: false,
-            encoding: String.Encoding.utf8.rawValue
-        )
+        let contents = "FROM \(BuildInDocker.DockerConfig.imageName)\nRUN yum -y install zip"
+        try contents.write(to: dockerfile, atomically: true, encoding: .utf8)
         return dockerfile.absoluteString
     }
 
@@ -94,9 +76,14 @@ public struct BuildInDocker {
     /// - Returns: The output from building the new image.
     public func prepareDockerImage(at dockerfilePath: String, logger: Logger) throws -> String {
         logger.trace("Preparing Docker image.")
-        let command = "/bin/bash -c \"export PATH=$PATH:/usr/local/bin/ && /usr/local/bin/docker build --file \(dockerfilePath) . -t \(DockerConfig.containerName)  --no-cache\""
-        let output = try ShellExecutor.run(
+        guard let directory = URL(string: dockerfilePath)?.deletingLastPathComponent() else {
+            throw BuildInDockerError.invalidDockerfilePath(dockerfilePath)
+        }
+        let command = "export PATH=$PATH:/usr/local/bin/ && pwd && /usr/local/bin/docker build --file \(dockerfilePath) . -t \(DockerConfig.containerName)  --no-cache"
+        let output: String = try ShellExecutor.run(
             command,
+            arguments: [],
+            at: directory.path,
             logger: logger
         )
         return output
@@ -146,7 +133,7 @@ public struct BuildInDocker {
         }
 
         do {
-            let output = try ShellExecutor.run(
+            let output: String = try ShellExecutor.run(
                 command,
                 arguments: arguments,
                 logger: logger
@@ -186,7 +173,7 @@ public struct BuildInDocker {
         let theScript = try pathForBundleScript(script)
         let parts: [String] = [theScript] + arguments
         logger.trace("\(parts.joined(separator: " "))")
-        let output = try ShellExecutor.run(
+        let output: String = try ShellExecutor.run(
             theScript,
             arguments: arguments,
             logger: logger

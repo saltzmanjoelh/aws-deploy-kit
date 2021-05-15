@@ -32,3 +32,13 @@ This product contains a derivation of the John Sundell's 'ShellOut'.
     * https://mit-license.org
   * HOMEPAGE:
     * https://github.com/JohnSundell/ShellOut
+    
+-------------------------------------------------------------------------------
+
+This product contains a derivation of the Yonas Kolb's 'Mint'.
+
+  * LICENSE (MIT License):
+    * https://mit-license.org
+  * HOMEPAGE:
+    * https://github.com/yonaskolb/Mint
+

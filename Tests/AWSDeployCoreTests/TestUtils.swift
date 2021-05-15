@@ -7,62 +7,72 @@
 
 import Foundation
 import XCTest
+import Logging
+import LogKit
 @testable import AWSDeployCore
 
-enum TestPackage {
-    static var name = "TestPackage"
-    static var library = "TestPackage"
-    static var executable = "TestExecutable"
-    static var skipTarget = "SkipMe"
+enum ExamplePackage {
+    static var name = "ExamplePackage"
+    static var library = "Core"
+    static var executableOne = "executableOne"
+    static var executableTwo = "executableTwo"
+    static var executableThree = "executableThree"
+    static var executables = [ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
 }
 
 func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = true) throws -> String {
-    let package = """
+    let packageManifest = """
     // swift-tools-version:5.3
     import PackageDescription
 
     let package = Package(
-        name: "\(TestPackage.name)",
+        name: "\(ExamplePackage.name)",
         products: [
             // Products define the executables and libraries a package produces, and make them visible to other packages.
             .library(
-                name: "\(TestPackage.library)",
-                targets: ["\(TestPackage.library)"]),
+                name: "\(ExamplePackage.library)",
+                targets: ["\(ExamplePackage.library)"]),
             .executable(
-                name: "\(TestPackage.executable)",
-                targets: ["\(TestPackage.executable)"]),
+                name: "\(ExamplePackage.executableOne)",
+                targets: ["\(ExamplePackage.executableOne)"]),
+            .executable(
+                name: "\(ExamplePackage.executableTwo)",
+                targets: ["\(ExamplePackage.executableTwo)"]),
+            .executable(
+                name: "\(ExamplePackage.executableThree)",
+                targets: ["\(ExamplePackage.executableThree)"]),
         ],
         targets: [
             .target(
-                name: "\(TestPackage.library)",
+                name: "\(ExamplePackage.library)",
                 dependencies: []),
             .target(
-                name: "\(TestPackage.executable)",
+                name: "\(ExamplePackage.executableOne)",
+                dependencies: []),
+            .target(
+                name: "\(ExamplePackage.executableTwo)",
+                dependencies: []),
+            .target(
+                name: "\(ExamplePackage.executableThree)",
                 dependencies: []),
         ]
     )
 
     """
-    let directoryPath = "/tmp/\(TestPackage.name)"
-    let directory = URL(fileURLWithPath: directoryPath)
-    try? FileManager.default.removeItem(at: directory)
+    let packageDirectory = URL(fileURLWithPath: "/tmp/\(ExamplePackage.name)")
+    try? FileManager.default.removeItem(at: packageDirectory)
     try FileManager.default.createDirectory(
-        at: directory,
+        at: packageDirectory,
         withIntermediateDirectories: true,
         attributes: [FileAttributeKey.posixPermissions: 0o777]
     )
-    let scriptPath = "\(directoryPath)/Package.swift"
-    let fileURL = URL(fileURLWithPath: scriptPath)
-    try (package as NSString).write(
-        to: fileURL,
-        atomically: true,
-        encoding: String.Encoding.utf8.rawValue
-    )
-    try FileManager.default.setAttributes([FileAttributeKey.posixPermissions: 0o777], ofItemAtPath: scriptPath)
+    let manifestURL = packageDirectory.appendingPathComponent("Package.swift")
+    try packageManifest.write(to: manifestURL, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([FileAttributeKey.posixPermissions: 0o777], ofItemAtPath: manifestURL.path)
     if includeSource {
-        let products = [TestPackage.library, TestPackage.executable, TestPackage.skipTarget]
+        let products = [ExamplePackage.library, ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
         for product in products {
-            let sourcesURL = directory.appendingPathComponent("Sources")
+            let sourcesURL = packageDirectory.appendingPathComponent("Sources")
             let productDirectory = sourcesURL.appendingPathComponent(product)
             try FileManager.default.createDirectory(
                 at: productDirectory,
@@ -71,24 +81,17 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
             )
             let source = "print(\"Hello Test Package!\")"
             let sourceFileURL = productDirectory.appendingPathComponent("main.swift")
-            try (source as NSString).write(
-                to: sourceFileURL,
-                atomically: true,
-                encoding: String.Encoding.utf8.rawValue
-            )
+            try source.write(to: sourceFileURL, atomically: true, encoding: .utf8)
         }
     }
     if includeDockerfile {
         // Create the Dockerfile
-        let dockerFile = "FROM \(BuildInDocker.DockerConfig.imageName)\nRUN yum -y install zip"
-        try (dockerFile as NSString).write(
-            toFile: URL(string: directoryPath)!.appendingPathComponent("Dockerfile").absoluteString,
-            atomically: true,
-            encoding: String.Encoding.utf8.rawValue
-        )
+        let dockerfile = packageDirectory.appendingPathComponent("Dockerfile")
+        let contents = "FROM \(BuildInDocker.DockerConfig.imageName)\nRUN yum -y install zip"
+        try contents.write(to: dockerfile, atomically: true, encoding: .utf8)
     }
-    try ShellExecutor.run("/usr/local/bin/docker rm \(BuildInDocker.DockerConfig.containerName) || true")
-    return directoryPath
+    let _: String = try ShellExecutor.run("/usr/local/bin/docker rm \(BuildInDocker.DockerConfig.containerName) || true")
+    return packageDirectory.path
 }
 
 // MARK: - XCTestCase
@@ -99,3 +102,13 @@ func XCTAssertString(_ result: String, contains search: String, file: StaticStri
 public func XCTFail(_ error: Error, file: StaticString = #filePath, line: UInt = #line) {
     XCTFail("Unexpected error: \(error)", file: file, line: line)
 }
+
+// MARK: - LogCollector
+extension LogCollector.Logs {
+    static func stubMessage(level: Logger.Level, message: String) -> LogCollector.Logs {
+        let logs = LogCollector.Logs()
+        logs.append(level: level, message: .init(stringLiteral: "\(message)"), metadata: nil)
+        return logs
+    }
+}
+

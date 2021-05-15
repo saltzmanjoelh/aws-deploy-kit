@@ -11,10 +11,7 @@ import LogKit
 
 public enum ShellExecutor {
     
-    /// Executes a shell script and return the stdout and stderr UTF8 Strings.
-    /// ShellOut only returns the stdout data. We also want stderr data
-    /// because some apps don't terminate with an error but return successfully
-    /// and have error output.
+    /// Executes a shell script and returns both the stdout and stderr UTF8 Strings combined as a single String.
     @discardableResult
     public static func run(
         _ command: String,
@@ -22,10 +19,22 @@ public enum ShellExecutor {
         at path: String = ".",
         logger: Logger? = nil
     ) throws -> String {
-        let shellCommand = "cd \(path.escapingSpaces) && \(command) \(arguments.joined(separator: " "))"
-        logger?.trace("Running shell command: \(shellCommand)")
-        let output = try Self.shellOutAction(shellCommand, logger)
+        let output = try run(command, arguments: arguments, at: path, logger: logger).allMessages(joined: "")
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    /// Executes a shell script and returns the raw `LogCollector.Logs`.
+    /// stdout messages have .trace LogLevel and stderr have .error LogLevel.
+    @discardableResult
+    public static func run(
+        _ command: String,
+        arguments: [String] = [],
+        at path: String = ".",
+        logger: Logger? = nil
+    ) throws -> LogCollector.Logs {
+        let shellCommand = "\(command) \(arguments.joined(separator: " "))"
+        logger?.trace("Running shell command: \(shellCommand) at: \(path)")
+        return try Self.shellOutAction(shellCommand, path, logger)
     }
 }
 
@@ -36,45 +45,63 @@ extension ShellExecutor {
     /// You could set this to a custom closure that simply returns a fixed String to test how
     /// your code handles specific output. Make sure to reset it for the next test though.
     /// ```swift
-    /// ShellExecutor.shellOutAction = { _, _, _, _ in return "File not found." }
+    /// ShellExecutor.shellOutAction = { _, _, _ in return "File not found." }
     /// defer { ShellExecutor.resetAction() }
     /// ```
-    public static var shellOutAction: (String, Logger?) throws -> String = Self.defaultAction
+    public static var shellOutAction: (String, String, Logger?) throws -> LogCollector.Logs = Self.defaultAction
     
     public static func resetAction() {
         Self.shellOutAction = defaultAction
     }
     /// The default action we perform is Process.launchBash(_:arguments:at:logger:)
-    private static let defaultAction = { (shellCommand: String, logger: Logger?) throws -> String in
+    private static let defaultAction = { (command: String, path: String, logger: Logger?) throws -> LogCollector.Logs in
         let process = Process.init()
-        return try process.launchBash(with: shellCommand, logger: logger)
+        return try process.launchBash(command, at: path, logger: logger)
     }
 }
 
 
 // MARK: - ShellOut
 /// Modified version of [Shellout](https://github.com/JohnSundell/ShellOut)
-/// We return both stdout + stderr as the result.
+/// We return both stdout + stderr as the in the LogCollector.Logs
+/// stdout messages have .trace LogLevel and stderr have .error LogLevel.
 private extension Process {
-    @discardableResult func launchBash(with command: String, logger: Logger?) throws -> String {
-        launchPath = "/bin/bash"
-        arguments = ["-c", command]
+    @discardableResult func launchBash(_ shellCommand: String,
+                                       at path: String = ".",
+                                       logger: Logger? = nil) throws -> LogCollector.Logs {
+        self.currentDirectoryPath = path
+        self.launchPath = "/bin/bash"
+        self.arguments = ["-c", "cd \(path) && \(shellCommand)"]
+        
 
         // Because FileHandle's readabilityHandler might be called from a
         // different queue from the calling queue, avoid a data race by
         // protecting reads and writes on a single dispatch queue.
         let outputQueue = DispatchQueue(label: "bash-output-queue")
-
-        var messages = [String]()
-        let outPipe = BufferedPipe() { message in
+        
+        let logs = LogCollector.Logs()
+        let stdoutPipe = BufferedPipe() { message in
             guard message.count > 0 else { return }
             outputQueue.async {
-                messages.append(message)
-                logger?.trace(.init(stringLiteral: "\(message)"))
+                let logMessage: Logger.Message = .init(stringLiteral: "\(message)")
+                logger?.trace(logMessage)
+                logs.append(level: .trace,
+                            message: logMessage,
+                            metadata: nil)
             }
         }
-        standardOutput = outPipe.internalPipe
-        standardError = outPipe.internalPipe
+        let stderrPipe = BufferedPipe() { message in
+            guard message.count > 0 else { return }
+            outputQueue.async {
+                let logMessage: Logger.Message = .init(stringLiteral: "\(message)")
+                logger?.error(logMessage)
+                logs.append(level: .error,
+                            message: logMessage,
+                            metadata: nil)
+            }
+        }
+        standardOutput = stdoutPipe.internalPipe
+        standardError = stderrPipe.internalPipe
 
         launch()
 
@@ -83,14 +110,13 @@ private extension Process {
 
         // Block until all writes have occurred
         return try outputQueue.sync {
-            let output = messages.joined(separator: "")
             if terminationStatus != 0 {
                 throw ShellOutError(
                     terminationStatus: terminationStatus,
-                    output: output
+                    output: logs.allMessages(joined: "")
                 )
             }
-            return output
+            return logs
         }
     }
 }

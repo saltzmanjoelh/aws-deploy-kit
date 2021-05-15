@@ -12,22 +12,6 @@ import LogKit
 import SotoLambda
 import SotoS3
 
-public enum ProductType: String {
-    case library
-    case executable
-}
-
-public enum AppDeployerError: Error, CustomStringConvertible {
-    case missingProducts
-    
-    public var description: String {
-        switch self {
-        case .missingProducts:
-            return "No executable products were found. Does the package description contain a products section with at least one executable type?"
-        }
-    }
-}
-
 public struct AppDeployer: ParsableCommand {
     public static let configuration = CommandConfiguration(abstract: "Helps with building Swift packages in Linux and deploying to Lambda. Currently, we only support building executable targets.")
 
@@ -66,13 +50,10 @@ public struct AppDeployer: ParsableCommand {
         }
         services.logger.trace("Working in: \(self.directoryPath)")
 
-        if self.skipProducts.count > 1 {
-            services.logger.trace("Skipping: \(self.skipProducts)")
-        }
         if self.products.count == 0 {
-            self.products = try self.getProducts(from: self.directoryPath, of: .executable, skipProducts: self.skipProducts, logger: services.logger)
+            self.products = try self.getProducts(from: self.directoryPath, of: .executable, logger: services.logger)
         }
-        
+        self.products = Self.removeSkippedProducts(self.skipProducts, from: self.products, logger: services.logger)
         if self.products.count == 0 {
             throw AppDeployerError.missingProducts
         }
@@ -85,35 +66,59 @@ public struct AppDeployer: ParsableCommand {
     /// - Parameters:
     ///   - directoryPath: String path to the directory that contains the package.
     ///   - type: The ProductTypes you want to get.
-    ///   - skipProducts: The name of the products to exclude from the array.
     /// - Returns: Array of product names in the package.
-    public func getProducts(from directoryPath: String, of type: ProductType = .executable, skipProducts: String = "", logger: Logger? = nil) throws -> [String] {
-        let command = "swift package dump-package | sed -e 's|: null|: \"\"|g' | /usr/local/bin/jq '.products[] | (select(.type.\(type.rawValue))) | .name' | sed -e 's|\"||g'"
-        let output = try ShellExecutor.run(
+    public func getProducts(from directoryPath: String, of type: ProductType = .executable, logger: Logger? = nil) throws -> [String] {
+        let command = "swift package dump-package"
+        let logs: LogCollector.Logs = try ShellExecutor.run(
             command,
             at: directoryPath,
             logger: logger
         )
+
+        // For some unknown reason, we get this error in stderr
+        // Failed to open macho file at /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift for reading: Too many levels of symbolic links
+        // Filter the logs so that we only read trace level messages and ignore that error that came from stderr
+        guard let output = logs.filter(level: .trace).last?.message, // Get the last line of output, it should be json
+            let data = output.data(using: .utf8) else {
+            throw AppDeployerError.packageDumpFailure
+        }
+        let package = try JSONDecoder().decode(SwiftPackage.self, from: data)
         
         // Remove empty values
-        var allProducts: [String] = output
-            .trimmingCharacters(in: .whitespaces)
-            .components(separatedBy: "\n")
-            .compactMap({
-                let result = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard result.count > 0 else { return nil }
-                return result
-            })
-        // Remove the products that were requested to be skipped
-        let skips = skipProducts.components(separatedBy: ",")
-        if skips.count > 0 {
-            allProducts.removeAll { (product: String) -> Bool in
-                skips.contains(product)
-            }
-        }
+        let allProducts: [String] = package.products.filter { (product: SwiftPackage.Product) in
+            product.isExecutable == (type == .executable)
+        }.map({ $0.name })
         guard allProducts.count > 0 else {
             throw AppDeployerError.missingProducts
         }
         return allProducts
+    }
+    
+    /// Filters the `skipProducts` from the list of `products`.
+    /// If the running process named `processName` is in the list of products,
+    /// it will be skipped as well. We do this for when we want to include a deployment target in a project.
+    /// The deployment target deploys the executables in the package. However, the deployment target is
+    /// an executable itself. We don't want to have to specify that it should skip itself. We know that it should
+    /// be skipped.
+    /// - Returns: An array of product names with the `skipProducts` and `processName` filtered out.
+    static func removeSkippedProducts(_ skipProducts: String,
+                                      from products: [String],
+                                      logger: Logger,
+                                      processName: String = ProcessInfo.processInfo.processName) -> [String] {
+        var skips = skipProducts.components(separatedBy: ",")
+        var remainingProducts = products
+        if remainingProducts.contains(processName) {
+            skips.append(processName)
+        }
+        guard skips.count > 0 else { return remainingProducts }
+
+        // Remove the products that were requested to be skipped
+        logger.trace("Skipping: \(skips.joined(separator: ", "))")
+        if skips.count > 0 {
+            remainingProducts.removeAll { (product: String) -> Bool in
+                skips.contains(product)
+            }
+        }
+        return remainingProducts
     }
 }

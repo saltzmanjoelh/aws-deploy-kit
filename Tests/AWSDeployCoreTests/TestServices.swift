@@ -15,6 +15,7 @@ import SotoTestUtils
 import XCTest
 
 class TestServices: Servicable {
+    private var didStart = false
     let logCollector = LogCollector()
     lazy var logger: Logger = {
         var result = CollectingLogger(label: "Testing Logger", logCollector: logCollector)
@@ -22,8 +23,14 @@ class TestServices: Servicable {
         return result
     }()
 
-    lazy var awsServer: AWSTestServer = { AWSTestServer(serviceProtocol: .json) }()
-    let client = createAWSClient(credentialProvider: .static(accessKeyId: "foo", secretAccessKey: "bar"))
+    lazy var awsServer: AWSTestServer = {
+        didStart = true
+        return AWSTestServer(serviceProtocol: .json)
+    }()
+    lazy var client: AWSClient = {
+        didStart = true
+        return createAWSClient(credentialProvider: .static(accessKeyId: "foo", secretAccessKey: "bar"))
+    }()
     lazy var lambda: Lambda = {
         Lambda(client: client, region: .uswest1, endpoint: awsServer.address)
     }()
@@ -35,7 +42,10 @@ class TestServices: Servicable {
     var publisher: BlueGreenPublisher = .init()
 
     deinit {
-        XCTAssertNoThrow(try client.syncShutdown())
-        XCTAssertNoThrow(try awsServer.stop())
+        if didStart {
+            XCTAssertNoThrow(try client.syncShutdown())
+            XCTAssertNoThrow(try awsServer.stop())
+        }
+        
     }
 }

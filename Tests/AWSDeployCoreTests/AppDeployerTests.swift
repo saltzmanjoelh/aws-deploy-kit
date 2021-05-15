@@ -14,8 +14,15 @@ import SotoS3
 import XCTest
 
 class AppDeployerTests: XCTestCase {
+    
+    var testServices = TestServices()
+    
     override func setUp() {
         continueAfterFailure = false
+        testServices = TestServices()
+    }
+    override func tearDown() {
+        ShellExecutor.resetAction()
     }
 
     func testVerifyConfiguration_directoryPathUpdateWithDot() throws {
@@ -23,7 +30,7 @@ class AppDeployerTests: XCTestCase {
         var instance = try AppDeployer.parseAsRoot(["-d", ".", "my-function"]) as! AppDeployer
 
         // When calling verifyConfiguration
-        try instance.verifyConfiguration(services: TestServices())
+        try instance.verifyConfiguration(services: testServices)
 
         // Then the directoryPath should be updated
         XCTAssertNotEqual(instance.directoryPath, "./")
@@ -35,7 +42,7 @@ class AppDeployerTests: XCTestCase {
         var instance = try AppDeployer.parseAsRoot(["-d", "./", "my-function"]) as! AppDeployer
 
         // When calling verifyConfiguration
-        try instance.verifyConfiguration(services: TestServices())
+        try instance.verifyConfiguration(services: testServices)
 
         // Then the directoryPath should be updated
         XCTAssertNotEqual(instance.directoryPath, "./")
@@ -45,15 +52,14 @@ class AppDeployerTests: XCTestCase {
     func testVerifyConfiguration_logsWhenSkippingProducts() throws {
         // Given a product to skip
         let path = try createTempPackage()
-        var instance = try AppDeployer.parseAsRoot(["-s", TestPackage.skipTarget, "-p", path]) as! AppDeployer
-        let testServices = TestServices()
+        var instance = try AppDeployer.parseAsRoot(["-s", ExamplePackage.executableThree, "-p", path]) as! AppDeployer
 
         // When calling verifyConfiguration
         try instance.verifyConfiguration(services: testServices)
 
         // Then a "Skipping $PRODUCT" log should be received
-        let messages = testServices.logCollector.logs.allEntries.map({ $0.message }).joined(separator: "\n")
-        XCTAssertString(messages, contains: "Skipping: \(TestPackage.skipTarget)")
+        let messages = testServices.logCollector.logs.allMessages()
+        XCTAssertString(messages, contains: "Skipping: \(ExamplePackage.executableThree)")
     }
     func testVerifyConfiguration_throwsWithMissingProducts() throws {
         // Given a package without any executables
@@ -62,11 +68,10 @@ class AppDeployerTests: XCTestCase {
         instance.products = []
         instance.skipProducts = ""
         instance.publishBlueGreen = false
-        let testServices = TestServices()
-        ShellExecutor.shellOutAction = { (_, _) throws -> String in
-            return "" // Make the shell check return ""
+        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+            let packageManifest = "{\"products\" : []}"
+            return .stubMessage(level: .trace, message: packageManifest)
         }
-        defer { ShellExecutor.resetAction() }
         
         do {
             // When calling verifyConfiguration
@@ -74,7 +79,7 @@ class AppDeployerTests: XCTestCase {
             
             XCTFail("An error should have been thrown and products should have been empty instead of: \(instance.products)")
         } catch AppDeployerError.missingProducts {
-            // Then an error should be thrown
+            // Then the AppDeployerError.missingProducts error should be thrown
         } catch {
             XCTFail(String(describing: error))
         }
@@ -84,14 +89,12 @@ class AppDeployerTests: XCTestCase {
         // Given a package with a library and multiple executables
         let path = try createTempPackage()
         let instance = AppDeployer()
-        let collector = LogCollector()
-        let logger = CollectingLogger(label: "Test", logCollector: collector)
 
-        // When calling getProducts with a skipProducts list
-        let result = try instance.getProducts(from: path, skipProducts: "SkipMe", logger: logger)
+        // When calling getProducts
+        let result = try instance.getProducts(from: path, logger: testServices.logger)
 
-        // Then only one executable should be returned
-        XCTAssertEqual(result.last, TestPackage.executable)
+        // Then all executables should be returned
+        XCTAssertEqual(result.count, ExamplePackage.executables.count)
     }
     func testGetProducts_throwsWithMissingProducts() throws {
         // Given a package without any executables
@@ -100,8 +103,22 @@ class AppDeployerTests: XCTestCase {
         instance.products = []
         instance.skipProducts = ""
         instance.publishBlueGreen = false
-        ShellExecutor.shellOutAction = { (_, _) throws -> String in
-            return "" // Make the shell check return ""
+        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+            let packageManifest = """
+                {
+                  "products" : [
+                    {
+                      "name" : "Core",
+                      "type" : {
+                        "library" : [
+                          "automatic"
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """
+            return .stubMessage(level: .trace, message: packageManifest)
         }
         defer { ShellExecutor.resetAction() }
         
@@ -119,7 +136,6 @@ class AppDeployerTests: XCTestCase {
 
     func testRunDoesNotThrow() throws {
         // Setup
-        let testServices = TestServices()
         Services.shared = testServices
         defer {
             Services.shared = Services()
@@ -127,8 +143,8 @@ class AppDeployerTests: XCTestCase {
         let functionName = "my-function"
         let archivePath = "/tmp/\(functionName)_yyyymmdd_HHMM.zip"
         FileManager.default.createFile(atPath: archivePath, contents: "File".data(using: .utf8)!, attributes: nil)
-        ShellExecutor.shellOutAction = { (_, _) throws -> String in
-            return archivePath
+        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+            return .stubMessage(level: .trace, message: archivePath)
         }
         defer { ShellExecutor.resetAction() }
         let functionConfiguration = String(
@@ -174,14 +190,14 @@ class AppDeployerTests: XCTestCase {
 
     func testRunWithRealPackage() throws {
         // This is more of an integration test. We won't stub the services
-        let path = try createTempPackage(includeSource: true)
+        let path = try createTempPackage()
         // Configure the CollectingLogger
         let collector = LogCollector()
         Services.shared.logger = CollectingLogger(label: #function, logCollector: collector)
         Services.shared.logger.logLevel = .trace
 
         // Given a valid configuation (not calling publish for the tests)
-        var instance = try AppDeployer.parseAsRoot(["-d", path, "TestPackage"]) as! AppDeployer
+        var instance = try AppDeployer.parseAsRoot(["-d", path, ExamplePackage.executableOne]) as! AppDeployer
 
         // When calling run
         // Then no errors should be thrown
@@ -190,5 +206,22 @@ class AppDeployerTests: XCTestCase {
         let zipPath = collector.logs.allEntries.last?.message.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n").last
         XCTAssertNotNil(zipPath)
         XCTAssertTrue(FileManager.default.fileExists(atPath: zipPath!), "File does not exist: \(zipPath!)")
+    }
+    
+    func testRemoveSkippedProducts() {
+        // Given a list of skipProducts for a process
+        let skipProducts = ExamplePackage.executableThree
+        let processName = ExamplePackage.executableTwo // Simulating that executableTwo is the executable that does the deployment
+        
+        // When calling removeSkippedProducts
+        let result = AppDeployer.removeSkippedProducts(skipProducts,
+                                                       from: ExamplePackage.executables,
+                                                       logger: testServices.logger,
+                                                       processName: processName)
+        
+        // Then the remaining products should not contain the skipProducts
+        XCTAssertFalse(result.contains(skipProducts), "The \"skipProducts\": \(skipProducts) should have been removed.")
+        // or a product with a matching processName
+        XCTAssertFalse(result.contains(processName), "The \"processName\": \(processName) should have been removed.")
     }
 }
