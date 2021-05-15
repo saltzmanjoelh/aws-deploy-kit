@@ -88,9 +88,6 @@ public struct AppDeployer: ParsableCommand {
         let allProducts: [String] = package.products.filter { (product: SwiftPackage.Product) in
             product.isExecutable == (type == .executable)
         }.map({ $0.name })
-        guard allProducts.count > 0 else {
-            throw AppDeployerError.missingProducts
-        }
         return allProducts
     }
     

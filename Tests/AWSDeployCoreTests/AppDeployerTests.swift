@@ -96,44 +96,24 @@ class AppDeployerTests: XCTestCase {
         // Then all executables should be returned
         XCTAssertEqual(result.count, ExamplePackage.executables.count)
     }
-    func testGetProducts_throwsWithMissingProducts() throws {
-        // Given a package without any executables
-        var instance = AppDeployer()
-        instance.directoryPath = "./"
-        instance.products = []
-        instance.skipProducts = ""
-        instance.publishBlueGreen = false
+    func testGetProductsThrowsWithInvalidShellOutput() throws {
+        // Give a failed shell output
         ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
-            let packageManifest = """
-                {
-                  "products" : [
-                    {
-                      "name" : "Core",
-                      "type" : {
-                        "library" : [
-                          "automatic"
-                        ]
-                      }
-                    }
-                  ]
-                }
-                """
-            return .stubMessage(level: .trace, message: packageManifest)
+            return .stubMessage(level: .trace, message: "{\"products\": []}")
         }
-        defer { ShellExecutor.resetAction() }
-        
+        let instance = AppDeployer()
+
+        // When calling getProducts
         do {
-            // When calling getProdcuts
-            let result = try instance.getProducts(from: "")
+            _ = try instance.getProducts(from: "", logger: testServices.logger)
             
-            XCTFail("An error should have been thrown and products should have been empty instead of: \(result)")
-        } catch AppDeployerError.missingProducts {
-            // Then an error should be thrown
+        } catch AppDeployerError.packageDumpFailure {
+            // Then AppDeployerError.packageDumpFailure is thrown
         } catch {
-            XCTFail(String(describing: error))
+            XCTFail(error)
         }
     }
-
+    
     func testRunDoesNotThrow() throws {
         // Setup
         Services.shared = testServices

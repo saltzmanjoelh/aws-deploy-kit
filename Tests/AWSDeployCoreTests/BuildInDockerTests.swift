@@ -147,7 +147,7 @@ class BuildInDockerTests: XCTestCase {
         // Then the correct command should be issued
         let message = services.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "/usr/local/bin/docker")
-        XCTAssertString(message, contains: "run -it --rm -e TERM=dumb")
+        XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
         XCTAssertString(message, contains: "-v /tmp/\(ExamplePackage.name):/tmp/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w /tmp/\(ExamplePackage.name)")
@@ -170,7 +170,7 @@ class BuildInDockerTests: XCTestCase {
         // Then the correct command should be issued and contain the key's path in a volume mount
         let message = services.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "/usr/local/bin/docker")
-        XCTAssertString(message, contains: "run -it --rm -e TERM=dumb")
+        XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
         XCTAssertString(message, contains: "-v /tmp/\(ExamplePackage.name):/tmp/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w /tmp/\(ExamplePackage.name)")

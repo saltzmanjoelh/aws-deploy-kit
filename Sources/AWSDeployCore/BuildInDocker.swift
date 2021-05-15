@@ -99,7 +99,7 @@ public struct BuildInDocker {
         let command = "/usr/local/bin/docker"
         var arguments = [
             "run",
-            "-it",
+            "-i",
             "--rm",
             "-e",
             "TERM=dumb",
