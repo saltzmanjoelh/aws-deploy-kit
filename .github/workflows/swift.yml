@@ -25,6 +25,7 @@ jobs:
     - name: Run tests
       run: |
         eval "$(docker-machine env default)"
+        docker pull swift:5.3-amazonlinux2
         swift test --enable-code-coverage --sanitize=thread
     - name: Convert coverage files
       run: |
