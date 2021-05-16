@@ -96,6 +96,7 @@ public struct BuildInDocker {
     /// - Returns: The output from building in Docker.
     public func buildProductInDocker(_ product: String, at directoryPath: String, logger: Logger, sshPrivateKeyPath: String? = nil) throws -> String {
         logger.trace("-- Building \(product) ---")
+        logger.trace("-- Package.swift?: \(FileManager.default.fileExists(atPath: "\(directoryPath)/Package.swift")) ---")
         let command = "/usr/local/bin/docker"
         var arguments = [
             "run",
@@ -110,7 +111,7 @@ public struct BuildInDocker {
             "-w",
             directoryPath,
         ]
-        let swiftBuildCommand = "swift build -c release --product \(product)"
+        let swiftBuildCommand = "ls -al . && swift build -c release --product \(product)"
         if let privateKeyPath = sshPrivateKeyPath {
             // We need the path to the key mounted and
             // need to use the ssh-agent command
