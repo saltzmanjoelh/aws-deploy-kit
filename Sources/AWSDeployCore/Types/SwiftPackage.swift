@@ -25,11 +25,11 @@ public struct SwiftPackage: Decodable {
             init(from decoder: Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
                 name = try container.decode(String.self, forKey: .name)
-                if container.contains(.productType) {
+                /*if container.contains(.productType) {
                     // <= Swift 4.2
                     let type = try container.decode(String.self, forKey: .productType)
                     isExecutable = type == "executable"
-                } else {
+                } else {*/
                     // > Swift 5.0
                     enum ProductCodingKeys: String, CodingKey {
                         case executable
@@ -38,7 +38,7 @@ public struct SwiftPackage: Decodable {
 
                     let typeContainer = try container.nestedContainer(keyedBy: ProductCodingKeys.self, forKey: .type)
                     isExecutable = typeContainer.contains(.executable)
-                }
+                //}
             }
         }
     

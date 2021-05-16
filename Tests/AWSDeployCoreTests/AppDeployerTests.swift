@@ -15,7 +15,7 @@ import XCTest
 
 class AppDeployerTests: XCTestCase {
     
-    var testServices = TestServices()
+    var testServices: TestServices!
     
     override func setUp() {
         continueAfterFailure = false
@@ -23,6 +23,7 @@ class AppDeployerTests: XCTestCase {
     }
     override func tearDownWithError() throws {
         try super.tearDownWithError()
+        testServices.cleanup()
         ShellExecutor.resetAction()
         try cleanupTestPackage()
     }
@@ -109,10 +110,9 @@ class AppDeployerTests: XCTestCase {
         do {
             _ = try instance.getProducts(from: "", logger: testServices.logger)
             
-        } catch AppDeployerError.packageDumpFailure {
-            // Then AppDeployerError.packageDumpFailure is thrown
         } catch {
-            XCTFail(error)
+            // Then AppDeployerError.packageDumpFailure is thrown
+            XCTAssertEqual("\(error)", AppDeployerError.packageDumpFailure.description)
         }
     }
     
@@ -140,6 +140,7 @@ class AppDeployerTests: XCTestCase {
         // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
         var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         let resultReceived = expectation(description: "Result received")
+        _ = testServices.awsServer // Start the server
 
         // run() uses wait() so do it in the background
         DispatchQueue.global().async {
@@ -157,18 +158,16 @@ class AppDeployerTests: XCTestCase {
             resultReceived.fulfill()
         }
 
-        DispatchQueue.global().async {
-            do {
-                try self.testServices.awsServer.processRaw { request in
-                    guard let result = fixtureResults.popLast() else {
-                        let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
-                        return .error(error, continueProcessing: false)
-                    }
-                    return .result(.init(httpStatus: .ok, body: result), continueProcessing: fixtureResults.count > 0)
+        do {
+            try self.testServices.awsServer.processRaw { request in
+                guard let result = fixtureResults.popLast() else {
+                    let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
+                    return .error(error, continueProcessing: false)
                 }
-            } catch {
-                XCTFail(error)
+                return .result(.init(httpStatus: .ok, body: result), continueProcessing: fixtureResults.count > 0)
             }
+        } catch {
+            XCTFail(error)
         }
         wait(for: [resultReceived], timeout: 2.0)
         XCTAssertEqual(fixtureResults.count, 0, "Not all calls were performed.")

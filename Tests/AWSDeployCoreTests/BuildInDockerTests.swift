@@ -14,18 +14,19 @@ import XCTest
 
 class BuildInDockerTests: XCTestCase {
     
-    var instance = BuildInDocker()
-    var services = TestServices()
+    var instance: BuildInDocker!
+    var testServices: TestServices!
     
     override func setUp() {
         instance = BuildInDocker()
-        services = TestServices()
+        testServices = TestServices()
         ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "/path/to/app.zip")
         }
     }
     override func tearDownWithError() throws {
         try super.tearDownWithError()
+        testServices.cleanup()
         ShellExecutor.resetAction()
         try cleanupTestPackage()
     }
@@ -36,10 +37,10 @@ class BuildInDockerTests: XCTestCase {
         let dockerFile = URL(string: path)!.appendingPathComponent("Dockerfile")
 
         // When calling prepareDockerImage
-        _ = try instance.prepareDockerImage(at: dockerFile.absoluteString, logger: services.logger)
+        _ = try instance.prepareDockerImage(at: dockerFile.absoluteString, logger: testServices.logger)
 
         // Then the correct command should be issued
-        let message = services.logCollector.logs.allMessages()
+        let message = testServices.logCollector.logs.allMessages()
 //        XCTAssertString(message, contains: "/bin/bash -c")
         XCTAssertString(message, contains: "export PATH")
         XCTAssertString(message, contains: "/usr/local/bin/")
@@ -52,12 +53,11 @@ class BuildInDockerTests: XCTestCase {
 
         do {
             // When calling prepareDockerImage
-            _ = try instance.prepareDockerImage(at:path, logger: services.logger)
+            _ = try instance.prepareDockerImage(at:path, logger: testServices.logger)
         
-        } catch BuildInDockerError.invalidDockerfilePath(_) {
-            // Then BuildInDockerError.invalidDockerfilePath should be thrown
         } catch {
-            XCTFail(error)
+            // Then BuildInDockerError.invalidDockerfilePath should be thrown
+            XCTAssertEqual("\(error)", BuildInDockerError.invalidDockerfilePath(path).description)
         }
     }
     func testGetDefaultDockerfilePath() throws {
@@ -65,12 +65,12 @@ class BuildInDockerTests: XCTestCase {
         let path = try createTempPackage(includeSource: true, includeDockerfile: false)
 
         // When calling prepareDockerImage
-        let result = try instance.getDockerfilePath(from: path, logger: services.logger)
+        let result = try instance.getDockerfilePath(from: path, logger: testServices.logger)
 
         // Then a default Dockerfile should be used
         XCTAssertString(result, contains: "/tmp/")
         XCTAssertString(result, contains: "Dockerfile")
-        let message = services.logCollector.logs.allMessages()
+        let message = testServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "Creating temporary Dockerfile")
     }
     func testGetProjectDockerfilePath() throws {
@@ -78,7 +78,7 @@ class BuildInDockerTests: XCTestCase {
         let path = try createTempPackage(includeSource: true, includeDockerfile: true)
 
         // When calling prepareDockerImage
-        let result = try instance.getDockerfilePath(from: path, logger: services.logger)
+        let result = try instance.getDockerfilePath(from: path, logger: testServices.logger)
 
         // Then the Dockerfile from the project should be used
         XCTAssertEqual(result, "\(path)/Dockerfile")
@@ -93,7 +93,7 @@ class BuildInDockerTests: XCTestCase {
         // When calling buildAndPackage
         let result = try instance.buildAndPackageInDocker(product: ExamplePackage.executableOne,
                                                           at: path,
-                                                          logger: services.logger)
+                                                          logger: testServices.logger)
 
         // Then an archive should be returned
         XCTAssertTrue(result.contains(ExamplePackage.executableOne), "Executable name: \(ExamplePackage.executableOne) should have been in the archive name: \(result)")
@@ -146,10 +146,10 @@ class BuildInDockerTests: XCTestCase {
         let instance = BuildInDocker()
 
         // When calling buildProduct
-        _ = try instance.buildProductInDocker(ExamplePackage.executableOne, at: path, logger: services.logger)
+        _ = try instance.buildProductInDocker(ExamplePackage.executableOne, at: path, logger: testServices.logger)
 
         // Then the correct command should be issued
-        let message = services.logCollector.logs.allMessages()
+        let message = testServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "/usr/local/bin/docker")
         XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
@@ -168,11 +168,11 @@ class BuildInDockerTests: XCTestCase {
         // When calling buildProduct with valid input and a private key
         _ = try instance.buildProductInDocker(ExamplePackage.executableOne,
                                                        at: path,
-                                                       logger: services.logger,
+                                                       logger: testServices.logger,
                                                        sshPrivateKeyPath: keyPath)
 
         // Then the correct command should be issued and contain the key's path in a volume mount
-        let message = services.logCollector.logs.allMessages()
+        let message = testServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "/usr/local/bin/docker")
         XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
@@ -191,11 +191,11 @@ class BuildInDockerTests: XCTestCase {
 
         do {
             // When calling buildProductInDocker
-            _ = try instance.buildProductInDocker(ExamplePackage.executableOne, at: path, logger: services.logger)
+            _ = try instance.buildProductInDocker(ExamplePackage.executableOne, at: path, logger: testServices.logger)
 
         } catch _ {
             // Then a suggestion about the path should be logged
-            let message = services.logCollector.logs.allMessages()
+            let message = testServices.logCollector.logs.allMessages()
             XCTAssertString(message, contains: "Did you specify a path to a Swift Package")
         }
     }
@@ -205,10 +205,10 @@ class BuildInDockerTests: XCTestCase {
         let path = try createTempPackage()
 
         // When calling packageProduct
-        _ = try instance.packageProduct(ExamplePackage.executableOne, at: path, logger: services.logger)
+        _ = try instance.packageProduct(ExamplePackage.executableOne, at: path, logger: testServices.logger)
 
         // Then the correct command should be issued
-        let message = services.logCollector.logs.allMessages()
+        let message = testServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "/packageInDocker.sh \(ExamplePackage.tempDirectory)/\(ExamplePackage.name) \(ExamplePackage.executableOne)")
     }
 

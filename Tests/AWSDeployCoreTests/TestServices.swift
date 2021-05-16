@@ -42,10 +42,12 @@ class TestServices: Servicable {
     var publisher: BlueGreenPublisher = .init()
 
     deinit {
+        cleanup()
+    }
+    func cleanup() {
         if didStart {
             XCTAssertNoThrow(try client.syncShutdown())
             XCTAssertNoThrow(try awsServer.stop())
         }
-        
     }
 }

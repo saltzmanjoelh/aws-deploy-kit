@@ -16,7 +16,7 @@ import XCTest
 
 class BlueGreenPublisherTests: XCTestCase {
     
-    var testServices = TestServices()
+    var testServices: TestServices!
     var publisher = BlueGreenPublisher()
     
     override func setUp() {
@@ -27,6 +27,8 @@ class BlueGreenPublisherTests: XCTestCase {
     
     override func tearDownWithError() throws {
         try super.tearDownWithError()
+        testServices.cleanup()
+        ShellExecutor.resetAction()
         try cleanupTestPackage()
     }
     
@@ -296,57 +298,50 @@ class BlueGreenPublisherTests: XCTestCase {
 
     func testPublishMultipleArchives() throws {
         // Setup
-        let functionNames = ["my-function", "my-function-2"]
-        let revisionIds = [Int.random(in: 1..<10), Int.random(in: 1..<10)]
-        let aliasConfigs: [Lambda.AliasConfiguration] = [.init(revisionId: "\(revisionIds[0])"), .init(revisionId: "\(revisionIds[1])")]
-        let functionConfiguration1 = String(
+        let functionName = "my-function"
+        let version = Int.random(in: 1..<10)
+        let aliasConfig: Lambda.AliasConfiguration = .init(functionVersion: "\(version)", revisionId: "\(version)")
+        let functionConfiguration = String(
             data: try JSONEncoder().encode([
-                "FunctionName": functionNames[0],
-                "RevisionId": "\(revisionIds[0])",
-                "Version": "4",
+                "FunctionName": functionName,
+                "RevisionId": "\(version)",
+                "Version": "\(version)",
                 "CodeSha256": UUID().uuidString,
             ]),
             encoding: .utf8
         )!
-        let functionConfiguration2 = String(
-            data: try JSONEncoder().encode([
-                "FunctionName": functionNames[1],
-                "RevisionId": "\(revisionIds[1])",
-                "Version": "4",
-                "CodeSha256": UUID().uuidString,
-            ]),
-            encoding: .utf8
-        )!
-        var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration1), count: 5) +
-            .init(repeating: ByteBuffer(string: functionConfiguration2), count: 5)
-        // Given multiple archives
-        let archiveURLs = [URL(string: "\(ExamplePackage.tempDirectory)/\(functionNames[0])_yyyymmdd_HHMM.zip")!,
-                           URL(string: "\(ExamplePackage.tempDirectory)/\(functionNames[1])_yyyymmdd_HHMM.zip")!]
-        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+        // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
+        var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
+        // Given an archive
+        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
+        try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                 withIntermediateDirectories: false,
                                                 attributes: nil)
-        FileManager.default.createFile(atPath: archiveURLs[0].absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
-        FileManager.default.createFile(atPath: archiveURLs[1].absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
+        let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        try publisher.publishArchives(archiveURLs, services: testServices)
+        try publisher.publishArchives([archiveURL], services: testServices)
             .whenComplete { (publishResult: Result<[Lambda.AliasConfiguration], Error>) in
-                
-                // Then a String that represents the revisionId should be returned
+                // Then the updated version number should be included in the results
                 do {
                     let result = try publishResult.get()
-                    XCTAssertEqual(result.count, 2)
-                    XCTAssertEqual(result[0].revisionId, aliasConfigs[0].revisionId)
-                    XCTAssertEqual(result[1].revisionId, aliasConfigs[1].revisionId)
+                    XCTAssertEqual(result[0].revisionId, aliasConfig.revisionId)
+                    //XCTAssertEqual(result[0].functionVersion, aliasConfig.functionVersion)
                 } catch {
                     XCTFail(String(describing: error))
                 }
+                resultReceived.fulfill()
             }
 
-        try testServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            guard let result = fixtureResults.popLast() else { return .error(.internal, continueProcessing: false) }
+        try testServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
+            guard let result = fixtureResults.popLast() else {
+                let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
+                return .error(error, continueProcessing: false)
+            }
             return .result(.init(httpStatus: .ok, body: result), continueProcessing: fixtureResults.count > 0)
         }
+        wait(for: [resultReceived], timeout: 2.0)
         XCTAssertEqual(fixtureResults.count, 0, "There were fixtureResults left over. Not all calls were performed.")
     }
 
