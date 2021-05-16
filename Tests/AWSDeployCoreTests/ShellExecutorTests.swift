@@ -14,6 +14,10 @@ class ShellExecutorTests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
     }
+    override func tearDownWithError() throws {
+        try super.tearDownWithError()
+        try cleanupTestPackage()
+    }
     
     func testStdOutAndStdErrCombinedOutput() throws {
         // Messages printed to stderr should be included in the output

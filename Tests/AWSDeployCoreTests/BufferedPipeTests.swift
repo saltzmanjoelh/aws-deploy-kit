@@ -11,6 +11,11 @@ import XCTest
 
 class BufferedPipeTests: XCTestCase {
     
+    override func tearDownWithError() throws {
+        try super.tearDownWithError()
+        try cleanupTestPackage()
+    }
+    
     func testPartialStringWrite() {
         // Given a partial String
         let data = "testing\n".data(using: .utf8)!

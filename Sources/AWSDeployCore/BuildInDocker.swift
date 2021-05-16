@@ -110,7 +110,7 @@ public struct BuildInDocker {
             "-w",
             directoryPath,
         ]
-        let swiftBuildCommand = "pwd && ls -al . && swift build -c release --product \(product)"
+        let swiftBuildCommand = "swift build -c release --product \(product)"
         if let privateKeyPath = sshPrivateKeyPath {
             // We need the path to the key mounted and
             // need to use the ssh-agent command

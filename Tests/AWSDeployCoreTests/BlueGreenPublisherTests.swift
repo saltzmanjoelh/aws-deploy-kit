@@ -15,51 +15,64 @@ import SotoS3
 import XCTest
 
 class BlueGreenPublisherTests: XCTestCase {
+    
+    var testServices = TestServices()
+    var publisher = BlueGreenPublisher()
+    
+    override func setUp() {
+        super.setUp()
+        testServices = TestServices()
+        publisher = BlueGreenPublisher()
+    }
+    
+    override func tearDownWithError() throws {
+        try super.tearDownWithError()
+        try cleanupTestPackage()
+    }
+    
     func testParseFunctionName() throws {
         // Given a valid archive name
         let functionName = "my-function"
         let archiveName = "\(functionName)_yyyymmdd_HHMM.zip"
 
         // When calling parseFunctionName
-        let result = try BlueGreenPublisher.parseFunctionName(from: URL(string: "/tmp/\(archiveName)")!)
+        let result = try BlueGreenPublisher.parseFunctionName(from: URL(string: "\(ExamplePackage.tempDirectory)/\(archiveName)")!)
 
         // Then we should receive the function prefix
         XCTAssertEqual(result, functionName)
     }
 
-    func testParseFunctionNameThrowsWithInvalidArchivename() throws {
+    func testParseFunctionNameThrowsWithInvalidArchiveName() throws {
         // Given an invalid archive name
         let functionName = "my-function"
         let archiveName = "\(functionName).zip"
 
         // When calling parseFunctionName
         // Then an error should be thrown
-        XCTAssertThrowsError(try BlueGreenPublisher.parseFunctionName(from: URL(string: "/tmp/\(archiveName)")!))
+        XCTAssertThrowsError(try BlueGreenPublisher.parseFunctionName(from: URL(string: "\(ExamplePackage.tempDirectory)/\(archiveName)")!))
     }
 
     func testUpdateFunctionCode() throws {
         // Given an archive
         let functionName = UUID().uuidString
-        let archiveURL = URL(string: "/tmp/\(functionName)_yyyymmdd_HHMM.zip")!
+        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
+        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                 withIntermediateDirectories: true,
+                                                 attributes: nil)
         FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let sha256 = UUID().uuidString
-        let resultReceived = expectation(description: "Result received")
 
-        // When calling updateCode
-        let future = publisher.updateFunctionCode(
+        // When calling updateFunctionCode
+        publisher.updateFunctionCode(
             .init(functionName: functionName, revisionId: UUID().uuidString),
             archiveURL: archiveURL,
             services: testServices
         )
-
-        // Then we should receive a codeSha256
-        future.whenComplete { (result: Result<Lambda.FunctionConfiguration, Error>) in
+        .whenComplete { (result: Result<Lambda.FunctionConfiguration, Error>) in
+            // Then we should receive a codeSha256
             do {
                 let config = try result.get()
                 XCTAssertEqual(config.codeSha256, sha256)
-                resultReceived.fulfill()
             } catch {
                 XCTFail(String(describing: error))
             }
@@ -69,16 +82,16 @@ class BlueGreenPublisherTests: XCTestCase {
             let buffer = ByteBuffer(string: "{\"CodeSha256\": \"\(sha256)\"}")
             return .result(.init(httpStatus: .ok, body: buffer))
         }
-        wait(for: [resultReceived], timeout: 2.0)
     }
 
     func testUpdateFunctionCodeThrowsWithInvalidArchive() throws {
         // Given an archive
         let functionName = UUID().uuidString
-        let archiveURL = URL(string: "/tmp/\(functionName)_yyyymmdd_HHMM.zip")!
-        FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "".data(using: .utf8)!, attributes: nil)
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
+        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
+        try? FileManager.default.createDirectory(atPath: archiveURL.path,
+                                                 withIntermediateDirectories: true,
+                                                 attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "contents".data(using: .utf8)!, attributes: nil)
         let resultReceived = expectation(description: "Result received")
 
         // When calling updateCode
@@ -104,9 +117,13 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCodeThrowsWithMissingFunctionName() {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init()
-        let publisher = BlueGreenPublisher()
-        let archiveURL = URL(string: "/tmp/my-function_yyyymmdd_HHMM.zip")!
-        let testServices = TestServices()
+        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/my-function_yyyymmdd_HHMM.zip")!
+        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                 withIntermediateDirectories: false,
+                                                 attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.path,
+                                       contents: "contents".data(using: .utf8),
+                                       attributes: nil)
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionCode
@@ -123,9 +140,13 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCodeThrowsWithMissingRevisionId() {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function")
-        let publisher = BlueGreenPublisher()
-        let archiveURL = URL(string: "/tmp/my-function_yyyymmdd_HHMM.zip")!
-        let testServices = TestServices()
+        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/my-function_yyyymmdd_HHMM.zip")!
+        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                 withIntermediateDirectories: true,
+                                                 attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.path,
+                                       contents: "contents".data(using: .utf8),
+                                       attributes: nil)
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionCode
@@ -142,8 +163,6 @@ class BlueGreenPublisherTests: XCTestCase {
     func testPublishLatestThrowsWithMissingFunctionName() {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init()
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishLatest
@@ -160,8 +179,6 @@ class BlueGreenPublisherTests: XCTestCase {
     func testPublishLatestThrowsWithMissingCodeSha256() {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function")
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishLatest
@@ -178,8 +195,6 @@ class BlueGreenPublisherTests: XCTestCase {
     func testPublishLatest() throws {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(codeSha256: "12345", functionName: "my-function")
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let resultReceived = expectation(description: "Result received")
 
         // When calling publishLatest
@@ -198,13 +213,11 @@ class BlueGreenPublisherTests: XCTestCase {
 
     func testGetFunctionConfigurationThrowsWithMissingFunctionName() throws {
         // Given an invalid archive path
-        let testServices = TestServices()
-        let instance = BlueGreenPublisher()
         let archiveURL = URL(string: "invalid.zip")!
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishArchive
-        instance.getFunctionConfiguration(archiveURL: archiveURL, services: testServices)
+        publisher.getFunctionConfiguration(archiveURL: archiveURL, services: testServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.absoluteString).description)
@@ -216,14 +229,12 @@ class BlueGreenPublisherTests: XCTestCase {
 
     func testPublishArchiveErrorsAreLogged() throws {
         // Setup
-        let testServices = TestServices()
-        let instance = BlueGreenPublisher()
         let errorReceived = expectation(description: "Error received")
         // Given an invalid zip path
-        let archiveURL = URL(string: "/tmp/invalid.zip")!
+        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/invalid.zip")!
 
         // When calling publishArchive
-        instance.publishArchive(archiveURL, services: testServices)
+        publisher.publishArchive(archiveURL, services: testServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.absoluteString).description)
@@ -237,8 +248,6 @@ class BlueGreenPublisherTests: XCTestCase {
 
     func testPublishArchive() throws {
         // Setup
-        let testServices = TestServices()
-        let instance = BlueGreenPublisher()
         let functionName = "my-function"
         let revisionId = Int.random(in: 1..<10)
         let aliasConfig: Lambda.AliasConfiguration = .init(revisionId: "\(revisionId)")
@@ -254,12 +263,15 @@ class BlueGreenPublisherTests: XCTestCase {
         // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
         var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         // Given an archive
-        let archiveURL = URL(string: "/tmp/\(functionName)_yyyymmdd_HHMM.zip")!
+        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
+        try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                withIntermediateDirectories: false,
+                                                attributes: nil)
         FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        instance.publishArchive(archiveURL, services: testServices)
+        publisher.publishArchive(archiveURL, services: testServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then a String that represents the revisionId should be returned
                 do {
@@ -278,14 +290,12 @@ class BlueGreenPublisherTests: XCTestCase {
             }
             return .result(.init(httpStatus: .ok, body: result), continueProcessing: fixtureResults.count > 0)
         }
-        XCTAssertEqual(fixtureResults.count, 0, "There were fixtureResults left over. Not all calls were performed.")
         wait(for: [resultReceived], timeout: 2.0)
+        XCTAssertEqual(fixtureResults.count, 0, "There were fixtureResults left over. Not all calls were performed.")
     }
 
     func testPublishMultipleArchives() throws {
         // Setup
-        let testServices = TestServices()
-        let instance = BlueGreenPublisher()
         let functionNames = ["my-function", "my-function-2"]
         let revisionIds = [Int.random(in: 1..<10), Int.random(in: 1..<10)]
         let aliasConfigs: [Lambda.AliasConfiguration] = [.init(revisionId: "\(revisionIds[0])"), .init(revisionId: "\(revisionIds[1])")]
@@ -309,14 +319,19 @@ class BlueGreenPublisherTests: XCTestCase {
         )!
         var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration1), count: 5) +
             .init(repeating: ByteBuffer(string: functionConfiguration2), count: 5)
-        // Given an archive
-        let archiveURLs = [URL(string: "/tmp/\(functionNames[0])_yyyymmdd_HHMM.zip")!, URL(string: "/tmp/\(functionNames[1])_yyyymmdd_HHMM.zip")!]
+        // Given multiple archives
+        let archiveURLs = [URL(string: "\(ExamplePackage.tempDirectory)/\(functionNames[0])_yyyymmdd_HHMM.zip")!,
+                           URL(string: "\(ExamplePackage.tempDirectory)/\(functionNames[1])_yyyymmdd_HHMM.zip")!]
+        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                withIntermediateDirectories: false,
+                                                attributes: nil)
         FileManager.default.createFile(atPath: archiveURLs[0].absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
         FileManager.default.createFile(atPath: archiveURLs[1].absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
 
         // When publishing
-        try instance.publishArchives(archiveURLs, services: testServices)
+        try publisher.publishArchives(archiveURLs, services: testServices)
             .whenComplete { (publishResult: Result<[Lambda.AliasConfiguration], Error>) in
+                
                 // Then a String that represents the revisionId should be returned
                 do {
                     let result = try publishResult.get()
@@ -338,8 +353,6 @@ class BlueGreenPublisherTests: XCTestCase {
     func testVerifyLambdaThrowsWithMissingFunctionName() {
         // Given a missing functionName in a FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init()
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
@@ -356,8 +369,6 @@ class BlueGreenPublisherTests: XCTestCase {
     func testVerifyLambdaThrowsWithMissingVersion() {
         // Given a missing version in a FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function")
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
@@ -374,8 +385,6 @@ class BlueGreenPublisherTests: XCTestCase {
     func testVerifyLambda() throws {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function", version: "2")
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let resultReceived = expectation(description: "Result received")
 
         // When calling verifyLambda
@@ -395,8 +404,6 @@ class BlueGreenPublisherTests: XCTestCase {
         // Given an invalid FunctionConfiguration
         let functionName = "my-function"
         let configuration: Lambda.FunctionConfiguration = .init(functionName: functionName, version: "2")
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let errorReceived = expectation(description: "Error received")
         let payload = "{\"errorMessage\":\"RequestId: 590ec71e-14c1-4498-8edf-2bd808dc3c0e Error: Runtime exited without providing a reason\",\"errorType\":\"Runtime.ExitError\"}"
 
@@ -417,8 +424,6 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionVersionThrowsWithMissingFunctionName() throws {
         // Given a missing FunctioName in the FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init()
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionVersion
@@ -435,8 +440,6 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionVersionThrowsWithMissingVersion() throws {
         // Given a missing FunctioName in the FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function")
-        let publisher = BlueGreenPublisher()
-        let testServices = TestServices()
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionVersion
@@ -457,7 +460,6 @@ class BlueGreenPublisherTests: XCTestCase {
 //
 //        // Then
 //        let expectedResponse = expectation(description: "response")
-//        let instance = BlueGreenPublisher()
 //        //arn:aws:lambda:us-west-1:796145072238:function:login
 //        //arn:aws:lambda:us-west-1:796145072238:function:error
 //        instance.verifyLambda(Lambda.FunctionConfiguration.init(codeSha256: "", functionName: "login:13"), services: Services.shared)//TestServices()

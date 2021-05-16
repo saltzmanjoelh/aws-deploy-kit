@@ -11,7 +11,13 @@ import Logging
 import LogKit
 @testable import AWSDeployCore
 
+
 enum ExamplePackage {
+    static var tempDirectory: String = {
+        return URL(string: FileManager.default.currentDirectoryPath)!
+            .appendingPathComponent("tmp")
+            .path
+    }()
     static var name = "ExamplePackage"
     static var library = "Core"
     static var executableOne = "executableOne"
@@ -59,7 +65,7 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
     )
 
     """
-    let packageDirectory = URL(fileURLWithPath: "/tmp/\(ExamplePackage.name)")
+    let packageDirectory = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
     try? FileManager.default.removeItem(at: packageDirectory)
     try FileManager.default.createDirectory(
         at: packageDirectory,
@@ -95,6 +101,12 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
     }
     let _: String = try ShellExecutor.run("/usr/local/bin/docker rm \(BuildInDocker.DockerConfig.containerName) || true")
     return packageDirectory.path
+}
+
+func cleanupTestPackage() throws {
+    if FileManager.default.fileExists(atPath: ExamplePackage.tempDirectory) {
+        try FileManager.default.removeItem(atPath: ExamplePackage.tempDirectory)
+    }
 }
 
 // MARK: - XCTestCase

@@ -24,8 +24,10 @@ class BuildInDockerTests: XCTestCase {
             return .stubMessage(level: .trace, message: "/path/to/app.zip")
         }
     }
-    override func tearDown() {
+    override func tearDownWithError() throws {
+        try super.tearDownWithError()
         ShellExecutor.resetAction()
+        try cleanupTestPackage()
     }
     
     func testPrepareDockerImage() throws {
@@ -82,14 +84,16 @@ class BuildInDockerTests: XCTestCase {
         XCTAssertEqual(result, "\(path)/Dockerfile")
     }
 
-    func testBuildAndPackage_returnsArchivePath() throws {
+    func testPackageProduct_returnsArchivePath() throws {
         // Live run within Docker
-        ShellExecutor.resetAction()
+        ShellExecutor.resetAction() // Don't use the stub from setup
         // Given a valid package
         let path = try createTempPackage()
 
         // When calling buildAndPackage
-        let result = try instance.buildAndPackageInDocker(product: ExamplePackage.executableOne, at: path, logger: services.logger)
+        let result = try instance.buildAndPackageInDocker(product: ExamplePackage.executableOne,
+                                                          at: path,
+                                                          logger: services.logger)
 
         // Then an archive should be returned
         XCTAssertTrue(result.contains(ExamplePackage.executableOne), "Executable name: \(ExamplePackage.executableOne) should have been in the archive name: \(result)")
@@ -149,8 +153,8 @@ class BuildInDockerTests: XCTestCase {
         XCTAssertString(message, contains: "/usr/local/bin/docker")
         XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
-        XCTAssertString(message, contains: "-v /tmp/\(ExamplePackage.name):/tmp/\(ExamplePackage.name)")
-        XCTAssertString(message, contains: "-w /tmp/\(ExamplePackage.name)")
+        XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
+        XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: BuildInDocker.DockerConfig.containerName)
         XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --product \(ExamplePackage.executableOne)\"")
     }
@@ -159,7 +163,7 @@ class BuildInDockerTests: XCTestCase {
         // Setup
         let path = try createTempPackage()
         // Given an ssh key path
-        let keyPath = "/tmp/ssh/key"
+        let keyPath = "\(ExamplePackage.tempDirectory)/ssh/key"
 
         // When calling buildProduct with valid input and a private key
         _ = try instance.buildProductInDocker(ExamplePackage.executableOne,
@@ -172,8 +176,8 @@ class BuildInDockerTests: XCTestCase {
         XCTAssertString(message, contains: "/usr/local/bin/docker")
         XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
-        XCTAssertString(message, contains: "-v /tmp/\(ExamplePackage.name):/tmp/\(ExamplePackage.name)")
-        XCTAssertString(message, contains: "-w /tmp/\(ExamplePackage.name)")
+        XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
+        XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-v \(keyPath):\(keyPath)")
         XCTAssertString(message, contains: BuildInDocker.DockerConfig.containerName)
         XCTAssertString(message, contains: "ssh-agent bash -c")
@@ -183,7 +187,7 @@ class BuildInDockerTests: XCTestCase {
     func testBuildProductsHandlesInvalidDirectory() throws {
         // If there is no Swift package at the path, there should be a useful tip about it.
         // Given a invalid package path
-        let path = "/tmp/invalid"
+        let path = "\(ExamplePackage.tempDirectory)/invalid"
 
         do {
             // When calling buildProductInDocker
@@ -205,7 +209,7 @@ class BuildInDockerTests: XCTestCase {
 
         // Then the correct command should be issued
         let message = services.logCollector.logs.allMessages()
-        XCTAssertString(message, contains: "/packageInDocker.sh /tmp/\(ExamplePackage.name) \(ExamplePackage.executableOne)")
+        XCTAssertString(message, contains: "/packageInDocker.sh \(ExamplePackage.tempDirectory)/\(ExamplePackage.name) \(ExamplePackage.executableOne)")
     }
 
     func testRunBundledScriptThrowsWithInvalidScript() {

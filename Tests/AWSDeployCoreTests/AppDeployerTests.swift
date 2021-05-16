@@ -21,8 +21,10 @@ class AppDeployerTests: XCTestCase {
         continueAfterFailure = false
         testServices = TestServices()
     }
-    override func tearDown() {
+    override func tearDownWithError() throws {
+        try super.tearDownWithError()
         ShellExecutor.resetAction()
+        try cleanupTestPackage()
     }
 
     func testVerifyConfiguration_directoryPathUpdateWithDot() throws {
@@ -116,17 +118,16 @@ class AppDeployerTests: XCTestCase {
     
     func testRunDoesNotThrow() throws {
         // Setup
-        Services.shared = testServices
-        defer {
-            Services.shared = Services()
-        }
         let functionName = "my-function"
-        let archivePath = "/tmp/\(functionName)_yyyymmdd_HHMM.zip"
+        let archivePath = "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip"
+        print(archivePath)
+        try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                withIntermediateDirectories: false,
+                                                attributes: nil)
         FileManager.default.createFile(atPath: archivePath, contents: "File".data(using: .utf8)!, attributes: nil)
         ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: archivePath)
         }
-        defer { ShellExecutor.resetAction() }
         let functionConfiguration = String(
             data: try JSONEncoder().encode([
                 "FunctionName": functionName,
@@ -147,28 +148,33 @@ class AppDeployerTests: XCTestCase {
                 var instance = try AppDeployer.parseAsRoot(["-p", "my-function"]) as! AppDeployer
 
                 // When calling run
-                try instance.run()
-
+                try instance.run(services: self.testServices)
+                print("done")
             } catch {
                 // Then no errors should be thrown
-                XCTFail(String(describing: error))
+                XCTFail(error)
             }
             resultReceived.fulfill()
         }
 
-        // Wait for the server to process
-        try testServices.awsServer.processRaw { request in
-            guard let result = fixtureResults.popLast() else {
-                let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
-                return .error(error, continueProcessing: false)
+        DispatchQueue.global().async {
+            do {
+                try self.testServices.awsServer.processRaw { request in
+                    guard let result = fixtureResults.popLast() else {
+                        let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
+                        return .error(error, continueProcessing: false)
+                    }
+                    return .result(.init(httpStatus: .ok, body: result), continueProcessing: fixtureResults.count > 0)
+                }
+            } catch {
+                XCTFail(error)
             }
-            return .result(.init(httpStatus: .ok, body: result), continueProcessing: fixtureResults.count > 0)
         }
-        XCTAssertEqual(fixtureResults.count, 0, "Not all calls were performed.")
         wait(for: [resultReceived], timeout: 2.0)
+        XCTAssertEqual(fixtureResults.count, 0, "Not all calls were performed.")
     }
 
-    func testRunWithRealPackage() throws {
+    func testLiveRunPackage() throws {
         // This is more of an integration test. We won't stub the services
         let path = try createTempPackage()
         // Configure the CollectingLogger
