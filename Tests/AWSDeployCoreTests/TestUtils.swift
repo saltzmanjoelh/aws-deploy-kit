@@ -68,6 +68,7 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
     )
     let manifestURL = packageDirectory.appendingPathComponent("Package.swift")
     try packageManifest.write(to: manifestURL, atomically: true, encoding: .utf8)
+    print("Created package manifest: \(manifestURL.path) success: \(FileManager.default.fileExists(atPath: manifestURL.path))")
     try FileManager.default.setAttributes([FileAttributeKey.posixPermissions: 0o777], ofItemAtPath: manifestURL.path)
     if includeSource {
         let products = [ExamplePackage.library, ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
@@ -82,6 +83,7 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
             let source = "print(\"Hello Test Package!\")"
             let sourceFileURL = productDirectory.appendingPathComponent("main.swift")
             try source.write(to: sourceFileURL, atomically: true, encoding: .utf8)
+            print("Created source file: \(sourceFileURL) success: \(FileManager.default.fileExists(atPath: sourceFileURL.path))")
         }
     }
     if includeDockerfile {
@@ -89,6 +91,7 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
         let dockerfile = packageDirectory.appendingPathComponent("Dockerfile")
         let contents = "FROM \(BuildInDocker.DockerConfig.imageName)\nRUN yum -y install zip"
         try contents.write(to: dockerfile, atomically: true, encoding: .utf8)
+        print("Created dockerfile: \(dockerfile.path) success: \(FileManager.default.fileExists(atPath: dockerfile.path))")
     }
     let _: String = try ShellExecutor.run("/usr/local/bin/docker rm \(BuildInDocker.DockerConfig.containerName) || true")
     return packageDirectory.path
