@@ -102,7 +102,9 @@ public struct AppDeployer: ParsableCommand {
                                       from products: [String],
                                       logger: Logger,
                                       processName: String = ProcessInfo.processInfo.processName) -> [String] {
-        var skips = skipProducts.components(separatedBy: ",")
+        var skips = skipProducts
+            .components(separatedBy: ",")
+            .filter({ $0.trimmingCharacters(in: .whitespacesAndNewlines).count > 0 })
         var remainingProducts = products
         if remainingProducts.contains(processName) {
             skips.append(processName)

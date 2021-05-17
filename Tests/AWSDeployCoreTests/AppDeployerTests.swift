@@ -121,7 +121,7 @@ class AppDeployerTests: XCTestCase {
         let functionName = "my-function"
         let archivePath = "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip"
         print(archivePath)
-        try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                 withIntermediateDirectories: false,
                                                 attributes: nil)
         FileManager.default.createFile(atPath: archivePath, contents: "File".data(using: .utf8)!, attributes: nil)
@@ -173,11 +173,32 @@ class AppDeployerTests: XCTestCase {
         XCTAssertEqual(fixtureResults.count, 0, "Not all calls were performed.")
     }
 
-    func testLiveRunPackage() throws {
+    func testFullRunThrough() throws {
         // This is more of an integration test. We won't stub the services
         let path = try createTempPackage()
-        // Configure the CollectingLogger
         let collector = LogCollector()
+        if isBandwidthLimited() {
+            // Running in a github workflow, bandwidth is limited mock the results
+            // instead of actually running in Docker
+            try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                    withIntermediateDirectories: true,
+                                                    attributes: nil)
+            let archivePath = "\(ExamplePackage.tempDirectory)/archive.zip"
+            try "contents".data(using: .utf8)?.write(to: URL(fileURLWithPath: archivePath))
+            Services.shared = TestServices()
+            ShellExecutor.shellOutAction = { (command: String, path: String, logger: Logger?) throws -> LogCollector.Logs in
+                if command.contains("packageInDocker.sh") {
+                    collector.log(level: .trace, message: "\(archivePath)")
+                    return .stubMessage(level: .trace, message: archivePath)
+                }
+                return .stubMessage(level: .trace, message: "")
+            }
+        }
+        defer {
+            if isBandwidthLimited() { // Restore regular services when the test is done
+                Services.shared = Services()
+            }
+        }
         Services.shared.logger = CollectingLogger(label: #function, logCollector: collector)
         Services.shared.logger.logLevel = .trace
 

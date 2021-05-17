@@ -79,7 +79,7 @@ public struct BuildInDocker {
         guard let directory = URL(string: dockerfilePath)?.deletingLastPathComponent() else {
             throw BuildInDockerError.invalidDockerfilePath(dockerfilePath)
         }
-        let command = "export PATH=$PATH:/usr/local/bin/ && pwd && /usr/local/bin/docker build --file \(dockerfilePath) . -t \(DockerConfig.containerName)  --no-cache"
+        let command = "export PATH=$PATH:/usr/local/bin/ && /usr/local/bin/docker build --file \(dockerfilePath) . -t \(DockerConfig.containerName)  --no-cache"
         let output: String = try ShellExecutor.run(
             command,
             arguments: [],

@@ -266,7 +266,7 @@ class BlueGreenPublisherTests: XCTestCase {
         var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         // Given an archive
         let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
-        try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                 withIntermediateDirectories: false,
                                                 attributes: nil)
         FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
@@ -314,7 +314,7 @@ class BlueGreenPublisherTests: XCTestCase {
         var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         // Given an archive
         let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
-        try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                 withIntermediateDirectories: false,
                                                 attributes: nil)
         FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)

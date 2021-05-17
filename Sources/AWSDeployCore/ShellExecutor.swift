@@ -54,7 +54,7 @@ extension ShellExecutor {
         Self.shellOutAction = defaultAction
     }
     /// The default action we perform is Process.launchBash(_:arguments:at:logger:)
-    private static let defaultAction = { (command: String, path: String, logger: Logger?) throws -> LogCollector.Logs in
+    static let defaultAction = { (command: String, path: String, logger: Logger?) throws -> LogCollector.Logs in
         let process = Process.init()
         return try process.launchBash(command, at: path, logger: logger)
     }

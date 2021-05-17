@@ -14,9 +14,10 @@ import LogKit
 
 enum ExamplePackage {
     static var tempDirectory: String = {
-        return URL(string: FileManager.default.currentDirectoryPath)!
-            .appendingPathComponent("tmp")
-            .path
+//        return URL(string: FileManager.default.currentDirectoryPath)!
+//            .appendingPathComponent("tmp")
+//            .path
+        return "/tmp"
     }()
     static var name = "ExamplePackage"
     static var library = "Core"
@@ -104,9 +105,9 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
 }
 
 func cleanupTestPackage() throws {
-    if FileManager.default.fileExists(atPath: ExamplePackage.tempDirectory) {
-        try FileManager.default.removeItem(atPath: ExamplePackage.tempDirectory)
-    }
+//    if FileManager.default.fileExists(atPath: ExamplePackage.tempDirectory) {
+        try? FileManager.default.removeItem(atPath: ExamplePackage.tempDirectory)
+//    }
 }
 
 // MARK: - XCTestCase
@@ -116,6 +117,12 @@ func XCTAssertString(_ result: String, contains search: String, file: StaticStri
 
 public func XCTFail(_ error: Error, file: StaticString = #filePath, line: UInt = #line) {
     XCTFail("Unexpected error: \(error)", file: file, line: line)
+}
+
+extension XCTestCase {
+    func isBandwidthLimited() -> Bool {
+        ProcessInfo.processInfo.environment["CODECOV_TOKEN"] != nil
+    }
 }
 
 // MARK: - LogCollector

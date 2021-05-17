@@ -86,7 +86,32 @@ class BuildInDockerTests: XCTestCase {
 
     func testPackageProduct_returnsArchivePath() throws {
         // Live run within Docker
-        ShellExecutor.resetAction() // Don't use the stub from setup
+        let collector = LogCollector()
+        if isBandwidthLimited() {
+            // Running in a github workflow, bandwidth is limited mock the results
+            // instead of actually running in Docker
+            try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                    withIntermediateDirectories: true,
+                                                    attributes: nil)
+            let archivePath = "\(ExamplePackage.tempDirectory)/\(ExamplePackage.executableOne)_date_.zip"
+            try "contents".data(using: .utf8)?.write(to: URL(fileURLWithPath: archivePath))
+            Services.shared = TestServices()
+            ShellExecutor.shellOutAction = { (command: String, path: String, logger: Logger?) throws -> LogCollector.Logs in
+                if command.contains("packageInDocker.sh") {
+                    collector.log(level: .trace, message: "\(archivePath)")
+                    return .stubMessage(level: .trace, message: archivePath)
+                }
+                return .stubMessage(level: .trace, message: "")
+            }
+        } else {
+            ShellExecutor.resetAction() // Don't use the stub from setup
+        }
+        defer {
+            if isBandwidthLimited() { // Restore regular services when the test is done
+                Services.shared = Services()
+            }
+        }
+        
         // Given a valid package
         let path = try createTempPackage()
 
