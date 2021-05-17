@@ -87,7 +87,7 @@ class BuildInDockerTests: XCTestCase {
     func testPackageProduct_returnsArchivePath() throws {
         // Live run within Docker
         let collector = LogCollector()
-        if isBandwidthLimited() {
+        if isGitHubAction() {
             // Running in a github workflow, bandwidth is limited mock the results
             // instead of actually running in Docker
             try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
@@ -107,7 +107,7 @@ class BuildInDockerTests: XCTestCase {
             ShellExecutor.resetAction() // Don't use the stub from setup
         }
         defer {
-            if isBandwidthLimited() { // Restore regular services when the test is done
+            if isGitHubAction() { // Restore regular services when the test is done
                 Services.shared = Services()
             }
         }

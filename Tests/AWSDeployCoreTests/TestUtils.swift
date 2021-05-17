@@ -120,8 +120,8 @@ public func XCTFail(_ error: Error, file: StaticString = #filePath, line: UInt =
 }
 
 extension XCTestCase {
-    func isBandwidthLimited() -> Bool {
-        ProcessInfo.processInfo.environment["CODECOV_TOKEN"] != nil
+    func isGitHubAction() -> Bool {
+        ProcessInfo.processInfo.environment["GITHUB_ACTION"] != nil
     }
 }
 

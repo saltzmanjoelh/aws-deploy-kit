@@ -29,9 +29,6 @@ class AppDeployerTests: XCTestCase {
     }
 
     func testVerifyConfiguration_directoryPathUpdateWithDot() throws {
-        print("------------ ENV -------------")
-        print(ProcessInfo.processInfo.environment)
-        print("------------------------------")
         // Given a "." path
         var instance = try AppDeployer.parseAsRoot(["-d", ".", "my-function"]) as! AppDeployer
 
@@ -180,7 +177,7 @@ class AppDeployerTests: XCTestCase {
         // This is more of an integration test. We won't stub the services
         let path = try createTempPackage()
         let collector = LogCollector()
-        if isBandwidthLimited() {
+        if isGitHubAction() {
             // Running in a github workflow, bandwidth is limited mock the results
             // instead of actually running in Docker
             try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
@@ -198,7 +195,7 @@ class AppDeployerTests: XCTestCase {
             }
         }
         defer {
-            if isBandwidthLimited() { // Restore regular services when the test is done
+            if isGitHubAction() { // Restore regular services when the test is done
                 Services.shared = Services()
             }
         }
