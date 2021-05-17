@@ -29,6 +29,9 @@ class AppDeployerTests: XCTestCase {
     }
 
     func testVerifyConfiguration_directoryPathUpdateWithDot() throws {
+        print("------------ ENV -------------")
+        print(ProcessInfo.processInfo.environment)
+        print("------------------------------")
         // Given a "." path
         var instance = try AppDeployer.parseAsRoot(["-d", ".", "my-function"]) as! AppDeployer
 
