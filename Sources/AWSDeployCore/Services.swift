@@ -9,9 +9,11 @@ import Foundation
 import Logging
 import SotoLambda
 import SotoS3
+import Mocking
 
 public protocol Servicable {
     var logger: Logger { get set }
+    var fileManager: FileManageable { get set }
     var s3: S3 { get set }
     var lambda: Lambda { get set }
     /// Optionally get logs for aws services
@@ -36,6 +38,7 @@ public class Services: Servicable {
     }
 
     public var logger: Logger
+    public var fileManager: FileManageable
     public var client: AWSClient
     public var s3: S3
     public var lambda: Lambda
@@ -49,6 +52,7 @@ public class Services: Servicable {
         self.client = client
         self.s3 = Self.createS3Service(region: region, client: client)
         self.lambda = Self.createLambdaService(region: region, client: client)
+        self.fileManager = FileManager.default
         self.logger = Logger(label: "AWSDeployKit")
         self.logger.logLevel = .trace
     }

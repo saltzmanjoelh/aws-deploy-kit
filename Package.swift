@@ -5,6 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "AWSDeployKit",
+    platforms: [
+        .macOS(.v10_12)
+    ],
     products: [
         .library(
             name: "AWSDeployCore",
@@ -16,7 +19,8 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/saltzmanjoelh/LogKit", .branch("main")),
+        .package(url: "https://github.com/saltzmanjoelh/mocking", .branch("main")),
+        .package(url: "https://github.com/saltzmanjoelh/log-kit", .branch("main")),
         .package(url: "https://github.com/apple/swift-argument-parser", .branch("main")),
         .package(url: "https://github.com/swift-server/swift-aws-lambda-runtime.git", .branch("main")),
         .package(url: "https://github.com/apple/swift-log", .branch("main")),
@@ -28,7 +32,8 @@ let package = Package(
         .target(
             name: "AWSDeployCore",
             dependencies: [
-                .product(name: "LogKit", package: "LogKit"),
+                .product(name: "Mocking", package: "mocking"),
+                .product(name: "LogKit", package: "log-kit"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "SotoS3", package: "soto"),
                 .product(name: "SotoLambda", package: "soto"),
@@ -47,7 +52,8 @@ let package = Package(
             name: "AWSDeployCoreTests",
             dependencies: [
                 "AWSDeployCore",
-                .product(name: "LogKit", package: "LogKit"),
+                .product(name: "Mocking", package: "mocking"),
+                .product(name: "LogKit", package: "log-kit"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "SotoS3", package: "soto"),
                 .product(name: "SotoLambda", package: "soto"),
@@ -66,7 +72,7 @@ let package = Package(
             name: "aws-deploy",
             dependencies: [
                 "AWSDeployCore",
-                .product(name: "LogKit", package: "LogKit"),
+                .product(name: "LogKit", package: "log-kit"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "SotoS3", package: "soto"),
                 .product(name: "SotoLambda", package: "soto"),

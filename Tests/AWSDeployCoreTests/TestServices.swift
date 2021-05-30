@@ -13,8 +13,10 @@ import SotoLambda
 import SotoS3
 import SotoTestUtils
 import XCTest
+import Mocking
 
 class TestServices: Servicable {
+    
     private var didStart = false
     let logCollector = LogCollector()
     lazy var logger: Logger = {
@@ -22,6 +24,8 @@ class TestServices: Servicable {
         result.logLevel = .trace
         return result
     }()
+    var fileManager: FileManageable = MockFileManager()
+    var mockFileManager: MockFileManager { fileManager as! MockFileManager }
 
     lazy var awsServer: AWSTestServer = {
         didStart = true

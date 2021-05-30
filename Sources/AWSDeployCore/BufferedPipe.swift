@@ -1,5 +1,5 @@
 //
-//  Redirect.swift
+//  BufferedPipe.swift
 //  
 //
 //  Created by Joel Saltzman on 5/6/21.
@@ -20,7 +20,8 @@ public class BufferedPipe {
 
     open var fileHandleForWriting: FileHandle { internalPipe.fileHandleForWriting }
     
-    /// @param readabilityHandler A closure that you want executed once a valid String is available.
+    /// - Parameters:
+    ///    - readabilityHandler: A closure that you want executed once a valid String is available.
     public init(readabilityHandler: @escaping (String) -> Void) {
         internalPipe = Pipe()
         fileHandleForReading.readabilityHandler = { [weak self] handle in

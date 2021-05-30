@@ -14,7 +14,7 @@ import LogKit
 
 enum ExamplePackage {
     static var tempDirectory: String = {
-//        return URL(string: FileManager.default.currentDirectoryPath)!
+//        return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 //            .appendingPathComponent("tmp")
 //            .path
         return "/tmp"
@@ -27,7 +27,10 @@ enum ExamplePackage {
     static var executables = [ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
 }
 
-func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = true) throws -> String {
+func tempPackageDirectory() -> URL {
+    return URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
+}
+func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = true) throws -> URL {
     let packageManifest = """
     // swift-tools-version:5.3
     import PackageDescription
@@ -66,7 +69,7 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
     )
 
     """
-    let packageDirectory = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
+    let packageDirectory = tempPackageDirectory()
     try? FileManager.default.removeItem(at: packageDirectory)
     try FileManager.default.createDirectory(
         at: packageDirectory,
@@ -78,7 +81,21 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
     print("Created package manifest: \(manifestURL.path) success: \(FileManager.default.fileExists(atPath: manifestURL.path))")
     try FileManager.default.setAttributes([FileAttributeKey.posixPermissions: 0o777], ofItemAtPath: manifestURL.path)
     if includeSource {
-        let products = [ExamplePackage.library, ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
+        let libraries = [ExamplePackage.library]
+        for library in libraries {
+            let sourcesURL = packageDirectory.appendingPathComponent("Sources")
+            let libraryDirectory = sourcesURL.appendingPathComponent(library)
+            try FileManager.default.createDirectory(
+                at: libraryDirectory,
+                withIntermediateDirectories: true,
+                attributes: [FileAttributeKey.posixPermissions: 0o777]
+            )
+            let source = ""
+            let sourceFileURL = libraryDirectory.appendingPathComponent("main.swift")
+            try source.write(to: sourceFileURL, atomically: true, encoding: .utf8)
+            print("Created source file: \(sourceFileURL) success: \(FileManager.default.fileExists(atPath: sourceFileURL.path))")
+        }
+        let products = [ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
         for product in products {
             let sourcesURL = packageDirectory.appendingPathComponent("Sources")
             let productDirectory = sourcesURL.appendingPathComponent(product)
@@ -96,12 +113,12 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
     if includeDockerfile {
         // Create the Dockerfile
         let dockerfile = packageDirectory.appendingPathComponent("Dockerfile")
-        let contents = "FROM \(BuildInDocker.DockerConfig.imageName)\nRUN yum -y install zip"
+        let contents = "FROM \(Docker.Config.imageName)\nRUN yum -y install zip"
         try contents.write(to: dockerfile, atomically: true, encoding: .utf8)
         print("Created dockerfile: \(dockerfile.path) success: \(FileManager.default.fileExists(atPath: dockerfile.path))")
     }
-    let _: String = try ShellExecutor.run("/usr/local/bin/docker rm \(BuildInDocker.DockerConfig.containerName) || true")
-    return packageDirectory.path
+    let _: String = try ShellExecutor.run("/usr/local/bin/docker rm \(Docker.Config.containerName) || true")
+    return packageDirectory
 }
 
 func cleanupTestPackage() throws {
@@ -130,6 +147,13 @@ extension LogCollector.Logs {
     static func stubMessage(level: Logger.Level, message: String) -> LogCollector.Logs {
         let logs = LogCollector.Logs()
         logs.append(level: level, message: .init(stringLiteral: "\(message)"), metadata: nil)
+        return logs
+    }
+    static func lddLogs() -> LogCollector.Logs {
+        let logs = LogCollector.Logs()
+        logs.append(level: .trace, message: "   libswiftCore.so => /usr/lib/swift/linux/libswiftCore.so (0x00007fb41d09c000)", metadata: nil)
+        logs.append(level: .trace, message: "   libc.so.6 => /lib64/libc.so.6 (0x00007fb41ccf1000)", metadata: nil)
+        logs.append(level: .trace, message: "   libicudataswift.so.65 => /usr/lib/swift/linux/libicudataswift.so.65 (0x00007fb41a2f1000)", metadata: nil)
         return logs
     }
 }

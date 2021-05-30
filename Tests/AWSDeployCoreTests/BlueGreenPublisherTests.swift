@@ -35,10 +35,10 @@ class BlueGreenPublisherTests: XCTestCase {
     func testParseFunctionName() throws {
         // Given a valid archive name
         let functionName = "my-function"
-        let archiveName = "\(functionName)_yyyymmdd_HHMM.zip"
+        let archiveName = "\(functionName)_ISO8601Date.zip"
 
         // When calling parseFunctionName
-        let result = try BlueGreenPublisher.parseFunctionName(from: URL(string: "\(ExamplePackage.tempDirectory)/\(archiveName)")!)
+        let result = try BlueGreenPublisher.parseFunctionName(from: URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(archiveName)"))
 
         // Then we should receive the function prefix
         XCTAssertEqual(result, functionName)
@@ -51,17 +51,17 @@ class BlueGreenPublisherTests: XCTestCase {
 
         // When calling parseFunctionName
         // Then an error should be thrown
-        XCTAssertThrowsError(try BlueGreenPublisher.parseFunctionName(from: URL(string: "\(ExamplePackage.tempDirectory)/\(archiveName)")!))
+        XCTAssertThrowsError(try BlueGreenPublisher.parseFunctionName(from: URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(archiveName)")))
     }
 
     func testUpdateFunctionCode() throws {
         // Given an archive
         let functionName = UUID().uuidString
-        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName)_ISO8601Date.zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                  withIntermediateDirectories: true,
                                                  attributes: nil)
-        FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.path, contents: "File".data(using: .utf8)!, attributes: nil)
         let sha256 = UUID().uuidString
 
         // When calling updateFunctionCode
@@ -89,11 +89,11 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCodeThrowsWithInvalidArchive() throws {
         // Given an archive
         let functionName = UUID().uuidString
-        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName)_ISO8601Date.zip")
         try? FileManager.default.createDirectory(atPath: archiveURL.path,
                                                  withIntermediateDirectories: true,
                                                  attributes: nil)
-        FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "contents".data(using: .utf8)!, attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.path, contents: "contents".data(using: .utf8)!, attributes: nil)
         let resultReceived = expectation(description: "Result received")
 
         // When calling updateCode
@@ -108,7 +108,7 @@ class BlueGreenPublisherTests: XCTestCase {
                 XCTFail("An error should have been thrown.")
             } catch {
                 // Then an error should be thrown
-                XCTAssertEqual("\(error)", BlueGreenPublisherError.archiveDoesNotExist(archiveURL.absoluteString).description)
+                XCTAssertEqual("\(error)", BlueGreenPublisherError.archiveDoesNotExist(archiveURL.path).description)
             }
             resultReceived.fulfill()
         }
@@ -119,7 +119,7 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCodeThrowsWithMissingFunctionName() {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init()
-        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/my-function_yyyymmdd_HHMM.zip")!
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/my-function_ISO8601Date.zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                  withIntermediateDirectories: false,
                                                  attributes: nil)
@@ -142,7 +142,7 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCodeThrowsWithMissingRevisionId() {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function")
-        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/my-function_yyyymmdd_HHMM.zip")!
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/my-function_ISO8601Date.zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                  withIntermediateDirectories: true,
                                                  attributes: nil)
@@ -215,14 +215,14 @@ class BlueGreenPublisherTests: XCTestCase {
 
     func testGetFunctionConfigurationThrowsWithMissingFunctionName() throws {
         // Given an invalid archive path
-        let archiveURL = URL(string: "invalid.zip")!
+        let archiveURL = URL(fileURLWithPath: "invalid.zip")
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishArchive
         publisher.getFunctionConfiguration(archiveURL: archiveURL, services: testServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
-                XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.absoluteString).description)
+                XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
                 errorReceived.fulfill()
             }
 
@@ -233,13 +233,13 @@ class BlueGreenPublisherTests: XCTestCase {
         // Setup
         let errorReceived = expectation(description: "Error received")
         // Given an invalid zip path
-        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/invalid.zip")!
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/invalid.zip")
 
         // When calling publishArchive
         publisher.publishArchive(archiveURL, services: testServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
-                XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.absoluteString).description)
+                XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
                 errorReceived.fulfill()
             }
 
@@ -265,11 +265,11 @@ class BlueGreenPublisherTests: XCTestCase {
         // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
         var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         // Given an archive
-        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName)_ISO8601Date.zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                 withIntermediateDirectories: false,
                                                 attributes: nil)
-        FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.path, contents: "File".data(using: .utf8)!, attributes: nil)
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
@@ -313,11 +313,11 @@ class BlueGreenPublisherTests: XCTestCase {
         // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
         var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         // Given an archive
-        let archiveURL = URL(string: "\(ExamplePackage.tempDirectory)/\(functionName)_yyyymmdd_HHMM.zip")!
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName)_ISO8601Date.zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                 withIntermediateDirectories: false,
                                                 attributes: nil)
-        FileManager.default.createFile(atPath: archiveURL.absoluteString, contents: "File".data(using: .utf8)!, attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.path, contents: "File".data(using: .utf8)!, attributes: nil)
         let resultReceived = expectation(description: "Result received")
 
         // When publishing

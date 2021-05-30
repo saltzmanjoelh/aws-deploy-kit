@@ -35,7 +35,7 @@ public struct AppDeployer: ParsableCommand {
 
     public mutating func run(services: Servicable) throws {
         try self.verifyConfiguration(services: services)
-        let archiveURLs = try services.builder.buildProducts(self.products, at: self.directoryPath, logger: services.logger)
+        let archiveURLs = try services.builder.buildProducts(products, at: URL(fileURLWithPath: directoryPath), services: services)
         if self.publishBlueGreen == true {
             _ = try services.publisher.publishArchives(archiveURLs, services: services).wait()
         }

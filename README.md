@@ -18,10 +18,10 @@ It will read your Swift package and from within Docker and build all of the exec
 
 The Docker image `swift:5.3-amazonlinux2` will be used by default. You can override this by adding a Dockerfile to the root of the package's directory. 
 
-The built products will be available at `./build/lambda/$EXECUTABLE/`. You will also find a zip in there which contains everything that can be uploaded to the AWS Lambda. The archive will be in the format `$EXECUTABLE_yyyymmdd_HHMM.zip`, where the date is the date when the build occurred.
+The built products will be available at `./build/lambda/$EXECUTABLE/`. You will also find a zip in there which contains everything that can be uploaded to the AWS Lambda. The archive will be in the format `$EXECUTABLE_ISO8601Date.zip`, where the date is the date when the build occurred.
 
 ### Blue/green publish changes
-If you pass the `-p` or `--publishBlueGreen` flag, it will publish the changes to a Lambda function. By default, we assume that the Lambda function name matches the executable's name which will also be the prefix of the archive's filename `$EXECUTABLE_yyyymmdd_HHMM.zip`. So, you have an executable target in your Swift package called `example-lambda`, the archive will be named `example-lambda_yyyymmdd_HHMM.zip` and the matching Lamba should be named `example-lambda`. We assume that the Lambda has already been setup. This will simply handle the updates.
+If you pass the `-p` or `--publishBlueGreen` flag, it will publish the changes to a Lambda function. By default, we assume that the Lambda function name matches the executable's name which will also be the prefix of the archive's filename `$EXECUTABLE_ISO8601Date.zip`. So, you have an executable target in your Swift package called `example-lambda`, the archive will be named `example-lambda_ISO8601Date.zip` and the matching Lamba should be named `example-lambda`. We assume that the Lambda has already been setup. This will simply handle the updates.
 
 The blue/green deployment steps are as follows:
 * Update the Lambda function code. [UpdateFunctionCode](https://docs.aws.amazon.com/lambda/latest/dg/API_UpdateFunctionCode.html)
@@ -68,7 +68,6 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 
 
 TODO:
-* Replace packageInDocker script?
 * Ask to create the Lambda if it doesn't exist.
 * Allow executing a custom command like `aws sam-deploy`
 * Add a readme for the cli args

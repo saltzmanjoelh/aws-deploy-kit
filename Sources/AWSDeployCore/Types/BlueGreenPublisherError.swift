@@ -20,7 +20,7 @@ public enum BlueGreenPublisherError: Error, CustomStringConvertible {
         case .invokeLambdaFailed(let functionName, let message):
             return "There was an error invoking the \(functionName) lambda. Message: \(message))"
         case .invalidArchiveName(let path):
-            return "Invalid archive name: \(path). It should be in the format: $executable_yyyymmdd_HHMM.zip"
+            return "Invalid archive name: \(path). It should be in the format: $executable_ISO8601Date.zip"
         case .invalidFunctionConfiguration(let field, let source):
             return "Invalid FunctionConfiguration. Required field \"\(field)\" was missing in \(source)."
         }
