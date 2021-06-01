@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "AWSDeployKit",
+    name: "aws-deploy-kit",
     platforms: [
         .macOS(.v10_12)
     ],
