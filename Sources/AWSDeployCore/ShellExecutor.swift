@@ -8,70 +8,69 @@
 import Foundation
 import Logging
 import LogKit
+import Mocking
 
-public enum ShellExecutor {
-    
-    /// Executes a shell script and returns both the stdout and stderr UTF8 Strings combined as a single String.
-    @discardableResult
-    public static func run(
+public protocol ShellExecutable {
+    func run(
         _ command: String,
-        arguments: [String] = [],
-        at path: String = ".",
-        logger: Logger? = nil
-    ) throws -> String {
-        let output = try run(command, arguments: arguments, at: path, logger: logger).allMessages(joined: "")
-        return output.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
+        at workingDirectory: URL?,
+        logger: Logger?
+    ) throws -> LogCollector.Logs
     
+    func run(
+        _ command: String,
+        at workingDirectory: URL?,
+        logger: Logger?
+    ) throws -> String
+    
+    func launchBash(command: String, at workingDirectory: URL?, logger: Logger?) throws -> LogCollector.Logs
+}
+
+extension ShellExecutable {
     /// Executes a shell script and returns the raw `LogCollector.Logs`.
     /// stdout messages have .trace LogLevel and stderr have .error LogLevel.
     @discardableResult
-    public static func run(
-        _ command: String,
-        arguments: [String] = [],
-        at path: String = ".",
-        logger: Logger? = nil
-    ) throws -> LogCollector.Logs {
-        let shellCommand = "\(command) \(arguments.joined(separator: " "))"
-        logger?.trace("Running shell command: \(shellCommand) at: \(path)")
-        return try Self.shellOutAction(shellCommand, path, logger)
+    public func run(_ command: String, at workingDirectory: URL? = nil, logger: Logger? = nil) throws -> LogCollector.Logs {
+        if let dir = workingDirectory {
+            logger?.trace("Running shell command: \(command) at: \(dir.path)")
+        } else {
+            logger?.trace("Running shell command: \(command)")
+        }
+        return try launchBash(command: command, at: workingDirectory, logger: logger)
+    }
+    
+    /// Executes a shell script and returns both the stdout and stderr UTF8 Strings combined as a single String.
+    @discardableResult
+    public func run(_ command: String, at workingDirectory: URL? = nil, logger: Logger? = nil) throws -> String {
+        let output = try run(command, at: workingDirectory, logger: logger).allMessages(joined: "")
+        return output.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
-// MARK: - Testing Helpers
-extension ShellExecutor {
+public struct Shell: ShellExecutable {
+    public init() {}
     
-    /// The function to perform the shellOut action. You only need to modify this for tests.
-    /// You could set this to a custom closure that simply returns a fixed String to test how
-    /// your code handles specific output. Make sure to reset it for the next test though.
-    /// ```swift
-    /// ShellExecutor.shellOutAction = { _, _, _ in return "File not found." }
-    /// defer { ShellExecutor.resetAction() }
-    /// ```
-    public static var shellOutAction: (String, String, Logger?) throws -> LogCollector.Logs = Self.defaultAction
-    
-    public static func resetAction() {
-        Self.shellOutAction = defaultAction
-    }
-    /// The default action we perform is Process.launchBash(_:arguments:at:logger:)
-    static let defaultAction = { (command: String, path: String, logger: Logger?) throws -> LogCollector.Logs in
+    public func launchBash(command: String, at workingDirectory: URL?, logger: Logger?) throws -> LogCollector.Logs {
         let process = Process.init()
-        return try process.launchBash(command, at: path, logger: logger)
+        return try process.launchBash(command, at: workingDirectory, logger: logger)
     }
 }
+
 
 
 // MARK: - ShellOut
 /// Modified version of [Shellout](https://github.com/JohnSundell/ShellOut)
 /// We return both stdout + stderr as the in the LogCollector.Logs
 /// stdout messages have .trace LogLevel and stderr have .error LogLevel.
-private extension Process {
+extension Process {
     @discardableResult func launchBash(_ shellCommand: String,
-                                       at path: String = ".",
+                                       at path: URL? = nil,
                                        logger: Logger? = nil) throws -> LogCollector.Logs {
-        self.currentDirectoryPath = path
+        if let currentPath = path {
+            self.currentDirectoryPath = currentPath.path
+        }
         self.launchPath = "/bin/bash"
-        self.arguments = ["-c", "cd \(path) && \(shellCommand)"]
+        self.arguments = ["-c", shellCommand]
         
 
         // Because FileHandle's readabilityHandler might be called from a
@@ -118,12 +117,6 @@ private extension Process {
             }
             return logs
         }
-    }
-}
-
-private extension String {
-    var escapingSpaces: String {
-        return replacingOccurrences(of: " ", with: "\\ ")
     }
 }
 

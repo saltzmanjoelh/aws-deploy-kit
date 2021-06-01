@@ -19,6 +19,7 @@ public protocol Servicable {
     /// Optionally get logs for aws services
     var awsLogger: Logger { get set }
 
+    var shell: ShellExecutable { get set }
     var builder: BuildInDocker { get set }
 //    var uploader: ArchiveUploader { get set }
     var publisher: BlueGreenPublisher { get set }
@@ -44,6 +45,7 @@ public class Services: Servicable {
     public var lambda: Lambda
     public var awsLogger: Logger = AWSClient.loggingDisabled
 
+    public var shell: ShellExecutable = Shell()
     public var builder: BuildInDocker = .init()
     public var publisher: BlueGreenPublisher = .init()
 

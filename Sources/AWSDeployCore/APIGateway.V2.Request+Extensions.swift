@@ -13,10 +13,10 @@ public extension APIGateway.V2.Request {
     /// it in a dictionary that the APIGateway would use if you
     /// make a request to an APIGateway route.
     /// - Parameters:
-    ///   - url: The url for the APIGateway route
-    ///   - httpMethod: The HTTPMethod used when requesting the route
-    ///   - body: The raw Lambda body you want wrapped
-    /// - Returns: Dictionary with the keys required to create an APIGateway.V2.Request
+    ///   - url: The url for the APIGateway route.
+    ///   - httpMethod: The HTTPMethod used when requesting the route.
+    ///   - body: The raw Lambda body you want wrapped.
+    /// - Returns: Dictionary with the keys required to create an APIGateway.V2.Request.
     static func wrapRawBody(
         url: URL,
         httpMethod: HTTPMethod,

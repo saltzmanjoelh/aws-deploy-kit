@@ -27,7 +27,6 @@ class PackageInDockerTests: XCTestCase {
     override func tearDown() {
         super.tearDown()
         testServices.cleanup()
-        ShellExecutor.resetAction()
     }
     
     func testCopyExecutable() throws {
@@ -46,7 +45,7 @@ class PackageInDockerTests: XCTestCase {
         
         // Then no errors should be thrown
         // and copyItem should have been called with the destination
-        let expectedSource = instance.URLForBuiltExecutable(ExamplePackage.executableOne)
+        let expectedSource = BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: testServices)
         let expectedDestination = URL(fileURLWithPath: destinationDirectory.appendingPathComponent(ExamplePackage.executableOne).path)
         let result = testServices.mockFileManager.$copyItem.wasCalled(with: .init([expectedSource, expectedDestination]))
         XCTAssertTrue(result, "Source and/or destination were not used")
@@ -68,7 +67,7 @@ class PackageInDockerTests: XCTestCase {
             XCTFail("An error should have been thrown")
         } catch PackageInDockerError.executableNotFound(let path){
             // Then PackageInDockerError.executableNotFound should be thrown
-            XCTAssertEqual(path, instance.URLForBuiltExecutable(ExamplePackage.executableOne).path)
+            XCTAssertEqual(path, BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: testServices).path)
         } catch {
             XCTFail(error)
         }
@@ -112,7 +111,7 @@ class PackageInDockerTests: XCTestCase {
     
     func testGetLddDependencies() throws {
         // Given the logs from running ldd
-        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             LogCollector.Logs.lddLogs()
         }
         let packageDirectory = try createTempPackage()
@@ -130,7 +129,7 @@ class PackageInDockerTests: XCTestCase {
     
     func testCopySwiftDependencies() throws {
         // Given some URLs to dependencies
-        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             LogCollector.Logs.lddLogs()
         }
         testServices.mockFileManager.copyItem = { _  in }
@@ -150,7 +149,7 @@ class PackageInDockerTests: XCTestCase {
     
     func testAddBootstrap() throws {
         // Given a successful run
-        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             return LogCollector.Logs() // No output, only outputs on error
         }
         
@@ -164,7 +163,7 @@ class PackageInDockerTests: XCTestCase {
     }
     func testAddBootstrap_throwsOnFailure() throws {
         // Given a failed symlink
-        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let logs = LogCollector.Logs()
             logs.append(level: .error, message: "ln: failed to create symbolic link 'bootstrap': File exists", metadata: nil)
             return logs
@@ -192,7 +191,7 @@ class PackageInDockerTests: XCTestCase {
     }
     func testArchiveContents() throws {
         // Given a succesful zip
-        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let logs = LogCollector.Logs()
             logs.append(level: .trace, message: "adding: bootstrap (stored 0%)", metadata: nil)
             return logs
@@ -208,7 +207,7 @@ class PackageInDockerTests: XCTestCase {
     }
     func testArchiveContents_throwsOnFailure() throws {
         // Given a failed zip
-        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let logs = LogCollector.Logs()
             logs.append(level: .error, message: "error", metadata: nil)
             return logs

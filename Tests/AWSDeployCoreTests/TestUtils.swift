@@ -117,7 +117,7 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
         try contents.write(to: dockerfile, atomically: true, encoding: .utf8)
         print("Created dockerfile: \(dockerfile.path) success: \(FileManager.default.fileExists(atPath: dockerfile.path))")
     }
-    let _: String = try ShellExecutor.run("/usr/local/bin/docker rm \(Docker.Config.containerName) || true")
+    let _: String = try Shell().run("/usr/local/bin/docker rm \(Docker.Config.containerName) || true")
     return packageDirectory
 }
 

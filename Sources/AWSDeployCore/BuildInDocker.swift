@@ -16,7 +16,7 @@ public struct BuildInDocker {
     public init() {}
 
     /// Build the products in Docker.
-    /// - Returns: Array of URLs to the built archives. Their filenames will be in the format $executable-ISO8601Date.zip in UTC
+    /// - Returns: Array of URLs to the built archives. Their filenames will be in the format $executable-ISO8601Date.zip in UTC.
     public func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL] {
         let dockerfilePath = try getDockerfilePath(from: packageDirectory, services: services)
         _ = try prepareDockerImage(at: dockerfilePath, services: services)
@@ -44,7 +44,7 @@ public struct BuildInDocker {
     }
     
     /// If a dockerfile was not provided, we create a temporary one to create a Swift Docker image from.
-    /// - Returns: Path to the temporary Dockerfile
+    /// - Returns: Path to the temporary Dockerfile.
     func createTemporyDockerfile(services: Servicable) throws -> URL {
         services.logger.trace("Creating temporary Dockerfile")
         let dockerfile = URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile")
@@ -57,7 +57,7 @@ public struct BuildInDocker {
 
     /// Builds a new Docker image to build the products with.
     /// - Parameters:
-    ///    - dockerfilePath: The directory where the Dockerfile is
+    ///    - dockerfilePath: The directory where the Dockerfile is.
     /// - Returns: The output from building the new image.
     public func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String {
         services.logger.trace("Preparing Docker image.")
@@ -66,16 +66,15 @@ public struct BuildInDocker {
         }
         let directory = dockerfilePath.deletingLastPathComponent()
         let command = "/usr/local/bin/docker build --file \(dockerfilePath.path) . -t \(Docker.Config.containerName)  --no-cache"
-        let output: String = try ShellExecutor.run(
+        let output: String = try services.shell.run(
             command,
-            arguments: [],
-            at: directory.path,
+            at: directory,
             logger: services.logger
         )
         return output
     }
 
-    /// Build a Swift product in Docker
+    /// Build a Swift product in Docker.
     /// - Parameters:
     ///   - product: The name of the product to build.
     ///   - packageDirectory: The directory to find the package in.
@@ -85,7 +84,7 @@ public struct BuildInDocker {
         let swiftBuildCommand = "swift build -c release --product \(product)"
         let logs: LogCollector.Logs
         do {
-            logs = try Docker.runShellCommand(swiftBuildCommand, at: packageDirectory, logger: services.logger, sshPrivateKeyPath: sshPrivateKeyPath)
+            logs = try Docker.runShellCommand(swiftBuildCommand, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
         } catch {
             if "\(error)".contains("root manifest not found") {
                 services.logger.error("Did you specify a path to a Swift Package: \(packageDirectory)")
@@ -94,11 +93,26 @@ public struct BuildInDocker {
         }
         return logs
     }
-    func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
-        let url = packageDirectory
+    
+    /// - Parameters
+    ///   - executable: The built executable target that should be in the release directory.
+    /// - Returns: URL destination for packaging everything before we zip it up.
+    static func URLForBuiltExecutable(at packageDirectory: URL, for product: String, services: Servicable) -> URL {
+        return packageDirectory
             .appendingPathComponent(".build")
             .appendingPathComponent("release")
             .appendingPathComponent(product)
+    }
+    /// Get's the URL for the built product.
+    /// - Parameters:
+    ///   - packageDirectory: The directory to find the package in.
+    ///   - product: The name of the product to build.
+    /// - Returns: URL to the build product.
+    /// - Throws: If the built product is not available.
+    func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
+        let url = Self.URLForBuiltExecutable(at: packageDirectory,
+                                             for: product,
+                                             services: services)
         guard services.fileManager.fileExists(atPath: url.path) else {
             throw BuildInDockerError.builtProductNotFound(url.path)
         }

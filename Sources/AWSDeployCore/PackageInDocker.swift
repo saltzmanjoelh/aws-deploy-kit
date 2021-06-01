@@ -78,7 +78,7 @@ public struct PackageInDocker {
     /// - Throws: If there was a problem copying the .env file to the destination.
     func copyExecutable(executable: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
         services.logger.trace("Copy Executable: \(executable)")
-        let executableFile = URLForBuiltExecutable(executable)
+        let executableFile = BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: executable, services: services)
         guard services.fileManager.fileExists(atPath: executableFile.path) else {
             throw PackageInDockerError.executableNotFound(executableFile.path)
         }
@@ -135,7 +135,7 @@ public struct PackageInDocker {
     /// ```
     func getLddDependencies(for executable: String, at packageDirectory: URL, services: Servicable) throws -> [URL] {
         let lddCommand = "ldd .build/release/\(executable)"
-        let logs: [URL] = try Docker.runShellCommand(lddCommand, at: packageDirectory, logger: services.logger)
+        let logs: [URL] = try Docker.runShellCommand(lddCommand, at: packageDirectory, services: services)
             .allEntries
             .map({ $0.message.trimmingCharacters(in: .whitespacesAndNewlines) }) // Get the raw message
             .filter({ $0.contains("swift") }) // Filter only the lines that contain "swift"
@@ -143,11 +143,8 @@ public struct PackageInDocker {
                 let components = $0.components(separatedBy: " ")
                 return components.first// [0] == "libswiftCore.so", [1] == "=>", [2] == "/usr/lib/swift/linux/libswiftCore.so", [3] == "(0x00007fb41d09c000)"
             })
-            .map({ packageDirectory // Prefix the packageDirectory and ".build/release/" to the names to get the full path
-                .appendingPathComponent(".build")
-                .appendingPathComponent("release")
-                .appendingPathComponent($0)
-            })
+            // Prefix the packageDirectory and ".build/release/" to the names to get the full path
+            .map({ BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: $0, services: services) })
         
         return logs
     }
@@ -162,7 +159,7 @@ public struct PackageInDocker {
     func addBootstrap(for executable: String, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
         services.logger.trace("Adding bootstrap: \(executable)")
         let command = "ln -s \(executable) bootstrap"
-        let logs: LogCollector.Logs = try ShellExecutor.run(command)
+        let logs: LogCollector.Logs = try services.shell.run(command, at: nil, logger: services.logger)
         let errors = logs.allEntries.filter({ entry in
             return entry.level == .error
         })
@@ -184,7 +181,7 @@ public struct PackageInDocker {
         services.logger.trace("Archiving contents: \(executable)")
         let archive = archivePath(for: executable, in: destinationDirectory)
         let command = "zip --symlinks \(archive) * .env"
-        let logs: LogCollector.Logs = try ShellExecutor.run(command)
+        let logs: LogCollector.Logs = try services.shell.run(command, at: nil, logger: services.logger)
         let errors = logs.allEntries.filter({ entry in
             return entry.level == .error
         })
@@ -198,14 +195,7 @@ public struct PackageInDocker {
 
 
 extension PackageInDocker {
-    /// - Parameters
-    ///   - executable: The built executable target that should be in the release directory
-    /// - Returns: URL destination for packaging everything before we zip it up
-    func URLForBuiltExecutable(_ executable: String) -> URL {
-        return URL(fileURLWithPath: ".build")
-            .appendingPathComponent("release")
-            .appendingPathComponent(executable)
-    }
+    
     /// - Parameters
     ///   - executable: The executable target that we are packaging
     /// - Returns: URL destination for packaging everything before we zip it up

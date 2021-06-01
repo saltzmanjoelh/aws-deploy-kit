@@ -46,12 +46,12 @@ public struct AppDeployer: ParsableCommand {
         if self.directoryPath == "./" ||
             self.directoryPath == "."
         {
-            self.directoryPath = FileManager.default.currentDirectoryPath
+            self.directoryPath = services.fileManager.currentDirectoryPath
         }
         services.logger.trace("Working in: \(self.directoryPath)")
 
         if self.products.count == 0 {
-            self.products = try self.getProducts(from: self.directoryPath, of: .executable, logger: services.logger)
+            self.products = try self.getProducts(from: URL(fileURLWithPath: self.directoryPath), of: .executable, services: services)
         }
         self.products = Self.removeSkippedProducts(self.skipProducts, from: self.products, logger: services.logger)
         if self.products.count == 0 {
@@ -67,19 +67,21 @@ public struct AppDeployer: ParsableCommand {
     ///   - directoryPath: String path to the directory that contains the package.
     ///   - type: The ProductTypes you want to get.
     /// - Returns: Array of product names in the package.
-    public func getProducts(from directoryPath: String, of type: ProductType = .executable, logger: Logger? = nil) throws -> [String] {
+    public func getProducts(from directoryPath: URL, of type: ProductType = .executable, services: Servicable) throws -> [String] {
         let command = "swift package dump-package"
-        let logs: LogCollector.Logs = try ShellExecutor.run(
+        let logs: LogCollector.Logs = try services.shell.run(
             command,
             at: directoryPath,
-            logger: logger
+            logger: services.logger
         )
 
-        // For some unknown reason, we get this error in stderr
-        // Failed to open macho file at /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift for reading: Too many levels of symbolic links
-        // Filter the logs so that we only read trace level messages and ignore that error that came from stderr
-        guard let output = logs.filter(level: .trace).last?.message, // Get the last line of output, it should be json
-            let data = output.data(using: .utf8) else {
+        // For some unknown reason, we get this error in stderr.
+        // Failed to open macho file at /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift for reading: Too many levels of symbolic links.
+        // Filter the logs so that we only read trace level messages and ignore that error that came from stderr.
+        guard let output = logs.filter(level: .trace).last?.message, // Get the last line of output, it should be json.
+            let data = output.data(using: .utf8),
+            data.count > 0
+        else {
             throw AppDeployerError.packageDumpFailure
         }
         let package = try JSONDecoder().decode(SwiftPackage.self, from: data)

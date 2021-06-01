@@ -28,7 +28,6 @@ class BlueGreenPublisherTests: XCTestCase {
     override func tearDownWithError() throws {
         try super.tearDownWithError()
         testServices.cleanup()
-        ShellExecutor.resetAction()
         try cleanupTestPackage()
     }
     

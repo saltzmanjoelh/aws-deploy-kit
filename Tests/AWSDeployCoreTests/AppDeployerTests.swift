@@ -24,7 +24,6 @@ class AppDeployerTests: XCTestCase {
     override func tearDownWithError() throws {
         try super.tearDownWithError()
         testServices.cleanup()
-        ShellExecutor.resetAction()
         try cleanupTestPackage()
     }
 
@@ -71,7 +70,7 @@ class AppDeployerTests: XCTestCase {
         instance.products = []
         instance.skipProducts = ""
         instance.publishBlueGreen = false
-        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
+        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let packageManifest = "{\"products\" : []}"
             return .stubMessage(level: .trace, message: packageManifest)
         }
@@ -94,22 +93,23 @@ class AppDeployerTests: XCTestCase {
         let instance = AppDeployer()
 
         // When calling getProducts
-        let result = try instance.getProducts(from: packageDirectory.path, logger: testServices.logger)
+        let result = try instance.getProducts(from: packageDirectory, services: testServices)
 
         // Then all executables should be returned
         XCTAssertEqual(result.count, ExamplePackage.executables.count)
     }
     func testGetProductsThrowsWithInvalidShellOutput() throws {
         // Give a failed shell output
-        ShellExecutor.shellOutAction = { (_, _, _) throws -> LogCollector.Logs in
-            return .stubMessage(level: .trace, message: "{\"products\": []}")
+        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+            return .stubMessage(level: .trace, message: "")
         }
         let instance = AppDeployer()
 
         // When calling getProducts
         do {
-            _ = try instance.getProducts(from: "", logger: testServices.logger)
+            _ = try instance.getProducts(from: URL(fileURLWithPath: ""), services: testServices)
             
+            XCTFail("An error should have been thrown.")
         } catch {
             // Then AppDeployerError.packageDumpFailure is thrown
             XCTAssertEqual("\(error)", AppDeployerError.packageDumpFailure.description)
@@ -121,6 +121,7 @@ class AppDeployerTests: XCTestCase {
         let packageDirectory = try createTempPackage()
         let collector = LogCollector()
         if isGitHubAction() {
+            print("GITHUB Action")
             // Running in a github workflow, bandwidth is limited mock the results
             // instead of actually running in Docker
             try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
@@ -129,13 +130,6 @@ class AppDeployerTests: XCTestCase {
             let archivePath = "\(ExamplePackage.tempDirectory)/archive.zip"
             try "contents".data(using: .utf8)?.write(to: URL(fileURLWithPath: archivePath))
             Services.shared = TestServices()
-            ShellExecutor.shellOutAction = { (command: String, path: String, logger: Logger?) throws -> LogCollector.Logs in
-                if command.contains("packageInDocker.sh") {
-                    collector.log(level: .trace, message: "\(archivePath)")
-                    return .stubMessage(level: .trace, message: archivePath)
-                }
-                return .stubMessage(level: .trace, message: "")
-            }
         }
         defer {
             if isGitHubAction() { // Restore regular services when the test is done

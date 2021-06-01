@@ -31,10 +31,10 @@ public struct BlueGreenPublisher {
     }
 
     /// Publishes a new version of the Lambda function by doing the following:
-    /// * Update the function's code
-    /// * Lock the new code and give it a new version number
-    /// * Verify that the code starts up by invoking it
-    /// * Updates the supplied alias to point to the new version
+    /// * Update the function's code.
+    /// * Lock the new code and give it a new version number.
+    /// * Verify that the code starts up by invoking it.
+    /// * Updates the supplied alias to point to the new version.
     /// - Parameters:
     ///   - archiveURL: A URL to the archive which will be used as the function's new code.
     ///   - alias: The alias that will point to the updated code.
@@ -50,13 +50,13 @@ public struct BlueGreenPublisher {
                     services: services
                 )
             }
-            // Lock the code by publishing a new version
+            // Lock the code by publishing a new version.
             .flatMap { self.publishLatest($0, services: services) }
 
-            // Make sure that it's still working
+            // Make sure that it's still working.
             .flatMap { self.verifyLambda($0, services: services) }
 
-            // Update the alias to point to the new revision
+            // Update the alias to point to the new revision.
             .flatMap { updateFunctionVersion($0, alias: alias, services: services) }
 
             .map {
@@ -69,7 +69,7 @@ public struct BlueGreenPublisher {
             }
     }
 
-    /// Uses `Lambda.getFunctionConfiguration` to get the functions current configuration
+    /// Uses `Lambda.getFunctionConfiguration` to get the functions current configuration.
     /// - Parameters:
     ///   - archiveURL: A URL to the archive which will be used as the function's new code.
     /// - Returns: FunctionConfiguration of the updated Lambda function.
@@ -86,7 +86,7 @@ public struct BlueGreenPublisher {
         )
     }
 
-    /// The default format for an archive is function_ISO8601Date.zip
+    /// The default format for an archive is function_ISO8601Date.zip.
     /// If your archive names are in a different format you can override this parser with a custom function
     /// to handle parsing the function name a different way.
     public var functionNameParser: (URL) throws -> String = Self.parseFunctionName
@@ -102,7 +102,7 @@ public struct BlueGreenPublisher {
             // At very least there should be the function_ISO8601Date.zip
             throw BlueGreenPublisherError.invalidArchiveName(archiveURL.path)
         }
-        // In the case of one or more underscores in the function name, we should return all but the last 1 component since it's the date and time
+        // In the case of one or more underscores in the function name, we should return all but the last 1 component since it's the date and time.
         components.removeLast()
         return components.joined(separator: "_") // components were joined by dashes we are just dropping the last two.
     }
@@ -118,7 +118,7 @@ public struct BlueGreenPublisher {
         services: Servicable
     ) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         services.logger.trace("Update function code")
-        guard let data = FileManager.default.contents(atPath: archiveURL.path),
+        guard let data = services.fileManager.contents(atPath: archiveURL.path),
               data.count > 0
         else {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.archiveDoesNotExist(archiveURL.path))
@@ -159,9 +159,9 @@ public struct BlueGreenPublisher {
     /// JWT messages in the body of an APIGateway.V2.Request. Once the OmniHandler is working we can simply invoke
     /// the function.
     /// - Parameters:
-    ///    - configuration: FunctionConfiguration result from calling `updateFunctionCode`
-    /// - Throws: Errors if the Lambda had issues being invoked
-    /// - Returns: codeSha256 for success, throws if errors are encountered
+    ///    - configuration: FunctionConfiguration result from calling `updateFunctionCode`.
+    /// - Throws: Errors if the Lambda had issues being invoked.
+    /// - Returns: codeSha256 for success, throws if errors are encountered.
     public func verifyLambda(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         services.logger.trace("Verify Lambda")
         guard let functionName = configuration.functionName else {
@@ -190,7 +190,7 @@ public struct BlueGreenPublisher {
                 }
         }
         
-        // Delay the execution for a second while AWS wraps up
+        // Delay the execution for a second while AWS wraps up.
         return services.lambda.eventLoopGroup.next().flatScheduleTask(in: TimeAmount.milliseconds(250)) { () -> EventLoopFuture<Lambda.FunctionConfiguration> in
             action()
         }.futureResult

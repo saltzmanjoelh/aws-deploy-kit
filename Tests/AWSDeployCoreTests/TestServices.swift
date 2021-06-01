@@ -42,6 +42,9 @@ class TestServices: Servicable {
     lazy var s3: S3 = { S3(client: client, region: .uswest1, endpoint: awsServer.address) }()
     var awsLogger: Logger = AWSClient.loggingDisabled
 
+    var shell: ShellExecutable = MockShell()
+    var mockShell: MockShell { shell as! MockShell }
+    
     var builder: BuildInDocker = .init()
     var publisher: BlueGreenPublisher = .init()
 
