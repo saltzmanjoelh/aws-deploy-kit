@@ -117,25 +117,10 @@ class AppDeployerTests: XCTestCase {
     }
 
     func testFullRunThrough() throws {
+        guard !isGitHubAction() else { return }
         // This is more of an integration test. We won't stub the services
         let packageDirectory = try createTempPackage()
         let collector = LogCollector()
-        if isGitHubAction() {
-            print("GITHUB Action")
-            // Running in a github workflow, bandwidth is limited mock the results
-            // instead of actually running in Docker
-            try FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
-                                                    withIntermediateDirectories: true,
-                                                    attributes: nil)
-            let archivePath = "\(ExamplePackage.tempDirectory)/archive.zip"
-            try "contents".data(using: .utf8)?.write(to: URL(fileURLWithPath: archivePath))
-            Services.shared = TestServices()
-        }
-        defer {
-            if isGitHubAction() { // Restore regular services when the test is done
-                Services.shared = Services()
-            }
-        }
         Services.shared.logger = CollectingLogger(label: #function, logCollector: collector)
         Services.shared.logger.logLevel = .trace
 
