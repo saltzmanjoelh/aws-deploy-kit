@@ -89,7 +89,7 @@ public struct BuildInDocker: Builder {
         let logs: LogCollector.Logs
         do {
             logs = try Docker.runShellCommand(swiftBuildCommand, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
-        } catch {
+        } catch let error {
             if "\(error)".contains("root manifest not found") {
                 services.logger.error("Did you specify a path to a Swift Package: \(packageDirectory)")
             }

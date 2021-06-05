@@ -181,8 +181,11 @@ class BuildInDockerTests: XCTestCase {
     func testBuildProductHandlesInvalidDirectory() throws {
         // If there is no Swift package at the path, there should be a useful tip about it.
         // Given a invalid package path
-        let packageDirectory = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/invalid")
-        mockServices.mockShell.$launchBash.resetLoader() // Let it return an error
+        let packageDirectory = URL(fileURLWithPath: "/tmp")
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+            throw ShellOutError.init(terminationStatus: 127, output: "root manifest not found")
+        }
+//        mockServices.mockShell.$launchBash.resetLoader()
 
         do {
             // When calling buildProductInDocker
