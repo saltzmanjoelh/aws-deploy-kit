@@ -21,10 +21,12 @@ class ShellExecutorTests: XCTestCase {
     
     func testStdOutAndStdErrCombinedOutput() throws {
         // Messages printed to stderr should be included in the output
-        let testServices = TestServices()
+        let testServices = MockServices()
         let cmd = "echo \"stdout\" >> /dev/stdout && echo \"stderr\" >> /dev/stderr"
         let output: String = try Shell().run(cmd, logger: testServices.logger)
-        XCTAssertString(output, contains: "stdout\nstderr")
+        XCTAssertString(output, contains: "stdout")
+        XCTAssertString(output, contains: "\n")
+        XCTAssertString(output, contains: "stderr")
         let messages = testServices.logCollector.logs.allMessages()
         XCTAssertString(messages, contains: "stdout\n")
         XCTAssertString(messages, contains: "stderr\n")

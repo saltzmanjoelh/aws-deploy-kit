@@ -15,24 +15,24 @@ import LogKit
 class PackageInDockerTests: XCTestCase {
     
     var instance: PackageInDocker!
-    var testServices: TestServices!
+    var mockServices: MockServices!
     var packageDirectory: URL!
     
     override func setUp() {
         super.setUp()
         instance = PackageInDocker()
-        testServices = TestServices()
+        mockServices = MockServices()
         packageDirectory = tempPackageDirectory()
     }
     override func tearDown() {
         super.tearDown()
-        testServices.cleanup()
+        mockServices.cleanup()
     }
     
     func testCopyExecutable() throws {
         // Setup
-        testServices.mockFileManager.fileExists = { _ in true } // Simulate that it exists
-        testServices.mockFileManager.copyItem = { _ in } // Simulate a successful copy
+        mockServices.mockFileManager.fileExists = { _ in true } // Simulate that it exists
+        mockServices.mockFileManager.copyItem = { _ in } // Simulate a successful copy
         
         // Given a valid configuration
         let destinationDirectory = PackageInDocker.destinationDirectory
@@ -41,18 +41,18 @@ class PackageInDockerTests: XCTestCase {
         try instance.copyExecutable(executable: ExamplePackage.executableOne,
                                     at: packageDirectory,
                                     destinationDirectory: destinationDirectory,
-                                    services: testServices)
+                                    services: mockServices)
         
         // Then no errors should be thrown
         // and copyItem should have been called with the destination
-        let expectedSource = BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: testServices)
+        let expectedSource = BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices)
         let expectedDestination = URL(fileURLWithPath: destinationDirectory.appendingPathComponent(ExamplePackage.executableOne).path)
-        let result = testServices.mockFileManager.$copyItem.wasCalled(with: .init([expectedSource, expectedDestination]))
+        let result = mockServices.mockFileManager.$copyItem.wasCalled(with: .init([expectedSource, expectedDestination]))
         XCTAssertTrue(result, "Source and/or destination were not used")
     }
     func testCopyExecutable_failsWhenExecutableDoesNotExist() throws {
         // Setup
-        testServices.mockFileManager.fileExists = { _ in false } // Simulate that does not exist
+        mockServices.mockFileManager.fileExists = { _ in false } // Simulate that does not exist
         
         // Given a valid configuration
         let destinationDirectory = PackageInDocker.destinationDirectory
@@ -62,12 +62,12 @@ class PackageInDockerTests: XCTestCase {
             try instance.copyExecutable(executable: ExamplePackage.executableOne,
                                         at: packageDirectory,
                                         destinationDirectory: destinationDirectory,
-                                        services: testServices)
+                                        services: mockServices)
             
             XCTFail("An error should have been thrown")
         } catch PackageInDockerError.executableNotFound(let path){
             // Then PackageInDockerError.executableNotFound should be thrown
-            XCTAssertEqual(path, BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: testServices).path)
+            XCTAssertEqual(path, BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices).path)
         } catch {
             XCTFail(error)
         }
@@ -75,8 +75,8 @@ class PackageInDockerTests: XCTestCase {
     
     func testCopyEnvFile() throws {
         // Setup
-        testServices.mockFileManager.fileExists = { _ in true } // Simulate that it exists
-        testServices.mockFileManager.copyItem = { _ in } // Simulate a successful copy
+        mockServices.mockFileManager.fileExists = { _ in true } // Simulate that it exists
+        mockServices.mockFileManager.copyItem = { _ in } // Simulate a successful copy
         
         // Given a valid configuration
         let destinationDirectory = PackageInDocker.destinationDirectory
@@ -85,33 +85,33 @@ class PackageInDockerTests: XCTestCase {
         try instance.copyEnvFile(at: packageDirectory,
                                  executable: ExamplePackage.executableOne,
                                  destinationDirectory: destinationDirectory,
-                                 services: testServices)
+                                 services: mockServices)
         
         // Then no errors should be thrown
         // and copyItem should have been called with the destination
         let expectedSourceFile = instance.URLForEnvFile(packageDirectory: packageDirectory,
                                                     executable: ExamplePackage.executableOne)
-        XCTAssertTrue(testServices.mockFileManager.$copyItem.wasCalled(with: expectedSourceFile), "Source was not used. \(testServices.mockFileManager.$copyItem.usage.history[0].context.inputs)")
+        XCTAssertTrue(mockServices.mockFileManager.$copyItem.wasCalled(with: expectedSourceFile), "Source was not used. \(mockServices.mockFileManager.$copyItem.usage.history[0].context.inputs)")
         let expectedDestinationFile = destinationDirectory.appendingPathComponent(".env")
-        XCTAssertTrue(testServices.mockFileManager.$copyItem.wasCalled(with: expectedDestinationFile), "Destination were not used")
+        XCTAssertTrue(mockServices.mockFileManager.$copyItem.wasCalled(with: expectedDestinationFile), "Destination were not used")
     }
     func testCopyEnvFile_continuesWhenFileDoesNotExist() throws {
         // Given a non-existent .env file
-        testServices.mockFileManager.fileExists = { _ in false } // Simulate that it does not exist
+        mockServices.mockFileManager.fileExists = { _ in false } // Simulate that it does not exist
         
         // When calling copyEnvFile
         try instance.copyEnvFile(at: packageDirectory,
                                  executable: ExamplePackage.executableOne,
                                  destinationDirectory: PackageInDocker.destinationDirectory,
-                                 services: testServices)
+                                 services: mockServices)
         
         // Then the mock should not be called
-        XCTAssertFalse(testServices.mockFileManager.$copyItem.wasCalled, "copyItem should not have been called.")
+        XCTAssertFalse(mockServices.mockFileManager.$copyItem.wasCalled, "copyItem should not have been called.")
     }
     
     func testGetLddDependencies() throws {
         // Given the logs from running ldd
-        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             LogCollector.Logs.lddLogs()
         }
         let packageDirectory = try createTempPackage()
@@ -119,7 +119,7 @@ class PackageInDockerTests: XCTestCase {
         // When calling getLddDependencies
         let result = try instance.getLddDependencies(for: ExamplePackage.executableOne,
                                                      at: packageDirectory,
-                                                     services: testServices)
+                                                     services: mockServices)
         
         // Then the dependencies should be returend
         XCTAssertEqual(result.count, 2)
@@ -129,41 +129,41 @@ class PackageInDockerTests: XCTestCase {
     
     func testCopySwiftDependencies() throws {
         // Given some URLs to dependencies
-        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             LogCollector.Logs.lddLogs()
         }
-        testServices.mockFileManager.copyItem = { _  in }
+        mockServices.mockFileManager.copyItem = { _  in }
         let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne)
         
         // When calling copySwiftDependencies
         try instance.copySwiftDependencies(for: ExamplePackage.executableOne,
                                            at: packageDirectory,
                                            to: destinationDirectory,
-                                           services: testServices)
+                                           services: mockServices)
         
         // Then those URLs should be copied to the destination
-        XCTAssertTrue(testServices.mockFileManager.$copyItem.wasCalled)
-        XCTAssertTrue(testServices.mockFileManager.$copyItem.wasCalled(with: destinationDirectory))
-        XCTAssertEqual(testServices.mockFileManager.$copyItem.usage.history.count, 2)
+        XCTAssertTrue(mockServices.mockFileManager.$copyItem.wasCalled)
+        XCTAssertTrue(mockServices.mockFileManager.$copyItem.wasCalled(with: destinationDirectory))
+        XCTAssertEqual(mockServices.mockFileManager.$copyItem.usage.history.count, 2)
     }
     
     func testAddBootstrap() throws {
         // Given a successful run
-        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             return LogCollector.Logs() // No output, only outputs on error
         }
         
         // When calling addBootstrap
         let result: LogCollector.Logs = try instance.addBootstrap(for: ExamplePackage.executableOne,
                                                                   in: packageDirectory,
-                                                                  services: testServices)
+                                                                  services: mockServices)
         
         // Then empty logs should be received
         XCTAssertEqual(result.allEntries.count, 0)
     }
     func testAddBootstrap_throwsOnFailure() throws {
         // Given a failed symlink
-        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let logs = LogCollector.Logs()
             logs.append(level: .error, message: "ln: failed to create symbolic link 'bootstrap': File exists", metadata: nil)
             return logs
@@ -173,7 +173,7 @@ class PackageInDockerTests: XCTestCase {
             // When calling addBootstrap
             _ = try instance.addBootstrap(for: ExamplePackage.executableOne,
                                           in: packageDirectory,
-                                          services: testServices)
+                                          services: mockServices)
             
             XCTFail("An error should have been thrown.")
         } catch PackageInDockerError.bootstrapFailure(_) {
@@ -191,23 +191,24 @@ class PackageInDockerTests: XCTestCase {
     }
     func testArchiveContents() throws {
         // Given a succesful zip
-        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let logs = LogCollector.Logs()
             logs.append(level: .trace, message: "adding: bootstrap (stored 0%)", metadata: nil)
             return logs
         }
+        mockServices.mockFileManager.fileExists = { _ in return true }
         
         // When calling archiveContents
         let result = try instance.archiveContents(for: ExamplePackage.executableOne,
                                          in: packageDirectory,
-                                         services: testServices)
+                                         services: mockServices)
         
         // Then the archive path should be returned
         XCTAssertTrue(result.path.contains(".zip"))
     }
     func testArchiveContents_throwsOnFailure() throws {
         // Given a failed zip
-        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let logs = LogCollector.Logs()
             logs.append(level: .error, message: "error", metadata: nil)
             return logs
@@ -217,7 +218,7 @@ class PackageInDockerTests: XCTestCase {
             // When calling archiveContents
             _ = try instance.archiveContents(for: ExamplePackage.executableOne,
                                              in: packageDirectory,
-                                             services: testServices)
+                                             services: mockServices)
             
             XCTFail("An error should have been thrown.")
         } catch PackageInDockerError.archivingFailure(_) {
@@ -226,49 +227,73 @@ class PackageInDockerTests: XCTestCase {
             XCTFail(error)
         }
     }
-//    func testGetArchivePath() throws {
-//        // Given the output from building a package
-//        let path = "/tmp/package/.build/release/lambda/executable/archive_date.zip"
-//        let logs = LogCollector.Logs.init()
-//        logs.append(level: .trace, message: "first", metadata: nil)
-//        logs.append(level: .trace, message: "\(path)", metadata: nil)
-//        testServices.mockFileManager.fileExists = { _ in return true }
-//        
-//        // When calling getArchivePath
-//        let result = try instance.getArchivePath(from: logs, for: "executable", services: testServices)
-//        
-//        // Then the archive path is returned
-//        XCTAssertEqual(result.path, path)
-//    }
-//    func testGetArchivePath_handlesMissingPath() throws {
-//        // Given logs without a path
-//        let logs = LogCollector.Logs.init()
-//        
-//        // When calling getArchivePath
-//        do {
-//            _ = try instance.getArchivePath(from: logs, for: "executable", services: testServices)
-//            
-//            XCTFail("An error should have been thrown")
-//        } catch BuildInDockerError.archivePathNotReceived(_) {
-//            // Then BuildInDockerError.archivePathNotReceived should be thrown
-//        } catch {
-//            XCTFail(error)
-//        }
-//    }
-//    func testGetArchivePath_handlesInvalidPath() throws {
-//        // Given logs with a bad path
-//        let logs = LogCollector.Logs.init()
-//        logs.append(level: .trace, message: "first", metadata: nil)
-//        
-//        // When calling getArchivePath
-//        do {
-//            _ = try instance.getArchivePath(from: logs, for: "executable", services: testServices)
-//            
-//            XCTFail("An error should have been thrown")
-//        } catch BuildInDockerError.archiveNotFound(_) {
-//            // Then BuildInDockerError.archiveNotFound should be thrown
-//        } catch {
-//            XCTFail(error)
-//        }
-//    }
+    func testArchiveContents_throwsWithMissingArchive() throws {
+        // Given a successful zip where the archive gets deleted
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+            return LogCollector.Logs()
+        }
+        mockServices.mockFileManager.fileExists = { _ in return false }
+        
+        do {
+            // When calling archiveContents
+            _ = try instance.archiveContents(for: ExamplePackage.executableOne,
+                                             in: packageDirectory,
+                                             services: mockServices)
+            
+            XCTFail("An error should have been thrown.")
+        } catch PackageInDockerError.archiveNotFound(_) {
+            // Then an error should be thrown
+        } catch {
+            XCTFail(error)
+        }
+    }
+    
+    func testCreateDestinationDirectory() {
+        // This is a control function that simply calls other functions.
+        // We test those functions separately. This is more
+        // for the code coverage. Note that we call the mockPackager
+        // instead of the instance.
+        mockServices.mockFileManager.removeItem = { _ in }
+        mockServices.mockFileManager.createDirectory = { _ in }
+        
+        XCTAssertNoThrow(try mockServices.mockPackager.createDestinationDirectory(URL(fileURLWithPath: ""), services: mockServices))
+        XCTAssertEqual(mockServices.mockFileManager.$removeItem.usage.history.count, 1, "removeItem should have been called.")
+        XCTAssertEqual(mockServices.mockFileManager.$createDirectory.usage.history.count, 1, "createDirectory should have been called.")
+    }
+    
+    func testPrepareDestinationDirectory() {
+        // This is a control function that simply calls other functions.
+        // We test those functions separately. This is more
+        // for the code coverage. Note that we call the mockPackager
+        // instead of the instance.
+        mockServices.mockPackager.copyExecutable = { _ in }
+        mockServices.mockPackager.copyEnvFile = { _ in }
+        mockServices.mockPackager.copySwiftDependencies = { _ in }
+        mockServices.mockPackager.addBootstrap = { _ in return .init() }
+        
+        XCTAssertNoThrow(try mockServices.mockPackager.prepareDestinationDirectory(executable: "",
+                                                                                   packageDirectory: URL(fileURLWithPath: ""),
+                                                                                   destinationDirectory: URL(fileURLWithPath: ""),
+                                                                                   services: mockServices))
+        XCTAssertEqual(mockServices.mockPackager.$copyExecutable.usage.history.count, 1, "copyExecutable should have been called.")
+        XCTAssertEqual(mockServices.mockPackager.$copyEnvFile.usage.history.count, 1, "copyEnvFile should have been called.")
+        XCTAssertEqual(mockServices.mockPackager.$copySwiftDependencies.usage.history.count, 1, "copySwiftDependencies should have been called.")
+        XCTAssertEqual(mockServices.mockPackager.$addBootstrap.usage.history.count, 1, "addBootstrap should have been called.")
+    }
+    
+    
+    func testPackageExecutable() throws {
+        // This is a control function that simply calls other functions.
+        // We test those functions separately. This is more
+        // for the code coverage. Note that we call the mockPackager
+        // instead of the instance.
+        mockServices.mockPackager.createDestinationDirectory = { _ in }
+        mockServices.mockPackager.prepareDestinationDirectory = { _ in }
+        mockServices.mockPackager.archiveContents = { _ throws in return URL(fileURLWithPath: "file.zip") }
+        
+        XCTAssertNoThrow(try mockServices.mockPackager.packageExecutable("", at: URL(fileURLWithPath: ""), services: mockServices))
+        XCTAssertEqual(mockServices.mockPackager.$createDestinationDirectory.usage.history.count, 1, "createDestinationDirectory should have been called.")
+        XCTAssertEqual(mockServices.mockPackager.$prepareDestinationDirectory.usage.history.count, 1, "prepareDestinationDirectory should have been called.")
+        XCTAssertEqual(mockServices.mockPackager.$archiveContents.usage.history.count, 1, "archiveContents should have been called.")
+    }
 }

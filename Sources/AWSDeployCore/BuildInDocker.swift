@@ -11,7 +11,11 @@ import LogKit
 import NIO
 import SotoS3
 
-public struct BuildInDocker {
+public protocol Builder {
+    func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL]
+}
+
+public struct BuildInDocker: Builder {
     
     public init() {}
 

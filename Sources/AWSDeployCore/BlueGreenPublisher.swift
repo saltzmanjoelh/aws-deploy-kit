@@ -13,7 +13,11 @@ import NIO
 import SotoLambda
 import SotoS3
 
-public struct BlueGreenPublisher {
+public protocol Publisher {
+    func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]>
+}
+
+public struct BlueGreenPublisher: Publisher {
     public init() {}
 
     /// Creates a new Lambda function. Then, invokes the function to make sure that it's not crashing.

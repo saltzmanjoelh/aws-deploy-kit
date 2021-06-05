@@ -15,15 +15,15 @@ import XCTest
 
 class AppDeployerTests: XCTestCase {
     
-    var testServices: TestServices!
+    var mockServices: MockServices!
     
     override func setUp() {
         continueAfterFailure = false
-        testServices = TestServices()
+        mockServices = MockServices()
     }
     override func tearDownWithError() throws {
         try super.tearDownWithError()
-        testServices.cleanup()
+        mockServices.cleanup()
         try cleanupTestPackage()
     }
 
@@ -32,7 +32,7 @@ class AppDeployerTests: XCTestCase {
         var instance = try AppDeployer.parseAsRoot(["-d", ".", "my-function"]) as! AppDeployer
 
         // When calling verifyConfiguration
-        try instance.verifyConfiguration(services: testServices)
+        try instance.verifyConfiguration(services: mockServices)
 
         // Then the directoryPath should be updated
         XCTAssertNotEqual(instance.directoryPath, "./")
@@ -44,7 +44,7 @@ class AppDeployerTests: XCTestCase {
         var instance = try AppDeployer.parseAsRoot(["-d", "./", "my-function"]) as! AppDeployer
 
         // When calling verifyConfiguration
-        try instance.verifyConfiguration(services: testServices)
+        try instance.verifyConfiguration(services: mockServices)
 
         // Then the directoryPath should be updated
         XCTAssertNotEqual(instance.directoryPath, "./")
@@ -54,13 +54,13 @@ class AppDeployerTests: XCTestCase {
     func testVerifyConfiguration_logsWhenSkippingProducts() throws {
         // Given a product to skip
         let packageDirectory = try createTempPackage()
-        var instance = try AppDeployer.parseAsRoot(["-s", ExamplePackage.executableThree, "-p", packageDirectory.path]) as! AppDeployer
+        var instance = try AppDeployer.parseAsRoot(["-s", ExamplePackage.executableThree, "-d", packageDirectory.path]) as! AppDeployer
 
         // When calling verifyConfiguration
-        try instance.verifyConfiguration(services: testServices)
+        try instance.verifyConfiguration(services: mockServices)
 
         // Then a "Skipping $PRODUCT" log should be received
-        let messages = testServices.logCollector.logs.allMessages()
+        let messages = mockServices.logCollector.logs.allMessages()
         XCTAssertString(messages, contains: "Skipping: \(ExamplePackage.executableThree)")
     }
     func testVerifyConfiguration_throwsWithMissingProducts() throws {
@@ -70,14 +70,14 @@ class AppDeployerTests: XCTestCase {
         instance.products = []
         instance.skipProducts = ""
         instance.publishBlueGreen = false
-        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let packageManifest = "{\"products\" : []}"
             return .stubMessage(level: .trace, message: packageManifest)
         }
         
         do {
             // When calling verifyConfiguration
-            try instance.verifyConfiguration(services: testServices)
+            try instance.verifyConfiguration(services: mockServices)
             
             XCTFail("An error should have been thrown and products should have been empty instead of: \(instance.products)")
         } catch AppDeployerError.missingProducts {
@@ -93,27 +93,41 @@ class AppDeployerTests: XCTestCase {
         let instance = AppDeployer()
 
         // When calling getProducts
-        let result = try instance.getProducts(from: packageDirectory, services: testServices)
+        let result = try instance.getProducts(from: packageDirectory, services: mockServices)
 
         // Then all executables should be returned
         XCTAssertEqual(result.count, ExamplePackage.executables.count)
     }
     func testGetProductsThrowsWithInvalidShellOutput() throws {
         // Give a failed shell output
-        testServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "")
         }
         let instance = AppDeployer()
 
         // When calling getProducts
         do {
-            _ = try instance.getProducts(from: URL(fileURLWithPath: ""), services: testServices)
+            _ = try instance.getProducts(from: URL(fileURLWithPath: ""), services: mockServices)
             
             XCTFail("An error should have been thrown.")
         } catch {
             // Then AppDeployerError.packageDumpFailure is thrown
             XCTAssertEqual("\(error)", AppDeployerError.packageDumpFailure.description)
         }
+    }
+    
+    func testDeployerRun() throws {
+        // Given a valid configuration
+        let packageDirectory = tempPackageDirectory()
+        var instance = try! AppDeployer.parseAsRoot(["-p", packageDirectory.path]) as! AppDeployer
+        Services.shared = mockServices
+        mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
+            return []
+        }
+        
+        // When calling run()
+        // Then no errors are thrown
+        XCTAssertNoThrow(try instance.run())
     }
 
     func testFullRunThrough() throws {
@@ -123,9 +137,10 @@ class AppDeployerTests: XCTestCase {
         let collector = LogCollector()
         Services.shared.logger = CollectingLogger(label: #function, logCollector: collector)
         Services.shared.logger.logLevel = .trace
+        Services.shared.publisher = MockBlueGreenPublisher()
 
         // Given a valid configuation (not calling publish for the tests)
-        var instance = try AppDeployer.parseAsRoot(["-d", packageDirectory.path, ExamplePackage.executableOne]) as! AppDeployer
+        var instance = try AppDeployer.parseAsRoot(["-d", packageDirectory.path, "-p", ExamplePackage.executableOne]) as! AppDeployer
 
         // When calling run
         // Then no errors should be thrown
@@ -140,7 +155,7 @@ class AppDeployerTests: XCTestCase {
         // When calling removeSkippedProducts
         let result = AppDeployer.removeSkippedProducts(skipProducts,
                                                        from: ExamplePackage.executables,
-                                                       logger: testServices.logger,
+                                                       logger: mockServices.logger,
                                                        processName: processName)
         
         // Then the remaining products should not contain the skipProducts

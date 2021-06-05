@@ -16,18 +16,18 @@ import XCTest
 
 class BlueGreenPublisherTests: XCTestCase {
     
-    var testServices: TestServices!
+    var mockServices: MockServices!
     var publisher = BlueGreenPublisher()
     
     override func setUp() {
         super.setUp()
-        testServices = TestServices()
+        mockServices = MockServices()
         publisher = BlueGreenPublisher()
     }
     
     override func tearDownWithError() throws {
         try super.tearDownWithError()
-        testServices.cleanup()
+        mockServices.cleanup()
         try cleanupTestPackage()
     }
     
@@ -67,7 +67,7 @@ class BlueGreenPublisherTests: XCTestCase {
         publisher.updateFunctionCode(
             .init(functionName: functionName, revisionId: UUID().uuidString),
             archiveURL: archiveURL,
-            services: testServices
+            services: mockServices
         )
         .whenComplete { (result: Result<Lambda.FunctionConfiguration, Error>) in
             // Then we should receive a codeSha256
@@ -79,7 +79,7 @@ class BlueGreenPublisherTests: XCTestCase {
             }
         }
 
-        try testServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
+        try mockServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
             let buffer = ByteBuffer(string: "{\"CodeSha256\": \"\(sha256)\"}")
             return .result(.init(httpStatus: .ok, body: buffer))
         }
@@ -99,7 +99,7 @@ class BlueGreenPublisherTests: XCTestCase {
         publisher.updateFunctionCode(
             .init(functionName: functionName, revisionId: UUID().uuidString),
             archiveURL: archiveURL,
-            services: testServices
+            services: mockServices
         )
         .whenComplete { (result: Result<Lambda.FunctionConfiguration, Error>) in
             do {
@@ -128,7 +128,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionCode
-        publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: testServices)
+        publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "updateFunctionCode").description)
@@ -151,7 +151,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionCode
-        publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: testServices)
+        publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("revisionId", "updateFunctionCode").description)
@@ -167,7 +167,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishLatest
-        publisher.publishLatest(configuration, services: testServices)
+        publisher.publishLatest(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "publishLatest").description)
@@ -183,7 +183,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishLatest
-        publisher.publishLatest(configuration, services: testServices)
+        publisher.publishLatest(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("codeSha256", "publishLatest").description)
@@ -199,13 +199,13 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When calling publishLatest
-        publisher.publishLatest(configuration, services: testServices)
+        publisher.publishLatest(configuration, services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 // Then a success result should be received
                 resultReceived.fulfill()
             }
 
-        try testServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
+        try mockServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
             let buffer = ByteBuffer(string: "{\"CodeSha256\": \"12345\"}")
             return .result(.init(httpStatus: .ok, body: buffer))
         }
@@ -218,7 +218,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishArchive
-        publisher.getFunctionConfiguration(archiveURL: archiveURL, services: testServices)
+        publisher.getFunctionConfiguration(archiveURL: archiveURL, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -235,7 +235,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/invalid.zip")
 
         // When calling publishArchive
-        publisher.publishArchive(archiveURL, services: testServices)
+        publisher.publishArchive(archiveURL, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -244,7 +244,7 @@ class BlueGreenPublisherTests: XCTestCase {
 
         wait(for: [errorReceived], timeout: 2.0)
         // Then an error should b received
-        XCTAssertTrue("\(testServices.logCollector.logs.allEntries)".contains("Error publishing"), "\"Error publishing\" was not found in the logs: \(testServices.logCollector.logs.allEntries)")
+        XCTAssertTrue("\(mockServices.logCollector.logs.allEntries)".contains("Error publishing"), "\"Error publishing\" was not found in the logs: \(mockServices.logCollector.logs.allEntries)")
     }
 
     func testPublishArchive() throws {
@@ -272,7 +272,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        publisher.publishArchive(archiveURL, services: testServices)
+        publisher.publishArchive(archiveURL, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then a String that represents the revisionId should be returned
                 do {
@@ -284,7 +284,7 @@ class BlueGreenPublisherTests: XCTestCase {
                 resultReceived.fulfill()
             }
 
-        try testServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
+        try mockServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
             guard let result = fixtureResults.popLast() else {
                 let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
                 return .error(error, continueProcessing: false)
@@ -320,7 +320,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        try publisher.publishArchives([archiveURL], services: testServices)
+        try publisher.publishArchives([archiveURL], services: mockServices)
             .whenComplete { (publishResult: Result<[Lambda.AliasConfiguration], Error>) in
                 // Then the updated version number should be included in the results
                 do {
@@ -333,7 +333,7 @@ class BlueGreenPublisherTests: XCTestCase {
                 resultReceived.fulfill()
             }
 
-        try testServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
+        try mockServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
             guard let result = fixtureResults.popLast() else {
                 let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
                 return .error(error, continueProcessing: false)
@@ -350,7 +350,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        publisher.verifyLambda(configuration, services: testServices)
+        publisher.verifyLambda(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda").description)
@@ -366,7 +366,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        publisher.verifyLambda(configuration, services: testServices)
+        publisher.verifyLambda(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "verifyLambda").description)
@@ -382,12 +382,12 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When calling verifyLambda
-        publisher.verifyLambda(configuration, services: testServices)
+        publisher.verifyLambda(configuration, services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 resultReceived.fulfill()
             }
 
-        try testServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
+        try mockServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
             let buffer = ByteBuffer(string: "{\"CodeSha256\": \"12345\", \"Version\": \"1\"}")
             return .result(.init(httpStatus: .ok, body: buffer))
         }
@@ -402,13 +402,13 @@ class BlueGreenPublisherTests: XCTestCase {
         let payload = "{\"errorMessage\":\"RequestId: 590ec71e-14c1-4498-8edf-2bd808dc3c0e Error: Runtime exited without providing a reason\",\"errorType\":\"Runtime.ExitError\"}"
 
         // When calling verifyLambda
-        publisher.verifyLambda(configuration, services: testServices)
+        publisher.verifyLambda(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invokeLambdaFailed(functionName, payload).description)
                 errorReceived.fulfill()
             }
 
-        try testServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
+        try mockServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
             let buffer = ByteBuffer(string: payload)
             return .result(.init(httpStatus: .ok, headers: ["X-Amz-Function-Error": "Unhandled"], body: buffer))
         }
@@ -421,7 +421,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionVersion
-        publisher.updateFunctionVersion(configuration, alias: "production", services: testServices)
+        publisher.updateFunctionVersion(configuration, alias: "production", services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "updateFunctionVersion").description)
@@ -437,7 +437,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionVersion
-        publisher.updateFunctionVersion(configuration, alias: "production", services: testServices)
+        publisher.updateFunctionVersion(configuration, alias: "production", services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "updateFunctionVersion").description)
