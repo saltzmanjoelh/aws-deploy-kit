@@ -1,5 +1,5 @@
 //
-//  PackageInDocker.swift
+//  Packager.swift
 //  
 //
 //  Created by Joel Saltzman on 5/16/21.
@@ -9,8 +9,9 @@ import Foundation
 import Logging
 import LogKit
 
-public protocol Packager {
+public protocol ExecutablePackable {
     func packageExecutable(_ executable: String, at packageDirectory: URL, services: Servicable) throws -> URL
+    func destinationURLForExecutable(_ executable: String, in packageDirectory: URL) -> URL
     func createDestinationDirectory(_ destinationDirectory: URL, services: Servicable) throws
     func prepareDestinationDirectory(executable: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws
     func copyExecutable(executable: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws
@@ -19,18 +20,16 @@ public protocol Packager {
     @discardableResult
     func addBootstrap(for executable: String, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs
     func archiveContents(for executable: String, in destinationDirectory: URL, services: Servicable) throws -> URL
+    func archivePath(for executable: String, in destinationDirectory: URL) -> URL
 }
 
-public struct PackageInDocker: Packager {
+public struct Packager: ExecutablePackable {
     
     let dateFormatter: ISO8601DateFormatter = {
         let result = ISO8601DateFormatter()
         return result
     }()
     public init() {}
-    
-    /// The sub-directory to copy packaged results to
-    static var destinationDirectory = URL(fileURLWithPath: ".build").appendingPathComponent("lambda")
     
     /// After you have built an executable in Docker, this will package it and it's library dependencies into a zip archive
     /// and store it in the `destinationDirectory`. The default for this directory is a custom `lambda` sub-directory
@@ -41,10 +40,10 @@ public struct PackageInDocker: Packager {
     /// - Returns URL to the zip archive which contain the built executable, dependencies and "bootstrap" symlink
     /// - Throws: If one of the steps has an error.
     public func packageExecutable(_ executable: String, at packageDirectory: URL, services: Servicable) throws -> URL {
-        services.logger.trace("Package Executable: \(executable)")
+        services.logger.trace("--- Packaging : \(executable) ---")
         // We will be copying the built binary in the packageDirectory to the destination
         // The destination defaults to .build/lambda/$executable/
-        let destinationDirectory = destinationURLForExecutable(executable)
+        let destinationDirectory = destinationURLForExecutable(executable, in: packageDirectory)
         
         try services.packager.createDestinationDirectory(destinationDirectory, services: services)
         
@@ -103,7 +102,7 @@ public struct PackageInDocker: Packager {
                                            services: services)
     }
     
-    /// Copies the built executable in the package directory to a destination directory.
+    /// Copies the built executable in the releases directory to a destination directory.
     /// - Parameters:
     ///   - executable: The name of the executable to copy
     ///   - packageDirectory: The directory of the executable's Swift Package
@@ -113,10 +112,10 @@ public struct PackageInDocker: Packager {
         services.logger.trace("Copy Executable: \(executable)")
         let executableFile = BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: executable, services: services)
         guard services.fileManager.fileExists(atPath: executableFile.path) else {
-            throw PackageInDockerError.executableNotFound(executableFile.path)
+            throw PackagerError.executableNotFound(executableFile.path)
         }
         
-        let destinationFile = URL(fileURLWithPath: destinationDirectory.appendingPathComponent(executable).path)
+        let destinationFile = destinationDirectory.appendingPathComponent(executable, isDirectory: false)
         try? services.fileManager.removeItem(at: destinationFile)
         try services.fileManager.copyItem(at: executableFile, to: destinationFile)
     }
@@ -151,7 +150,8 @@ public struct PackageInDocker: Packager {
         let dependencies = try getLddDependencies(for: executable, at: packageDirectory, services: services)
         // Iterate the URLs and copy the files
         try dependencies.forEach({
-            try services.fileManager.copyItem(at: $0, to: destinationDirectory)
+//            Should be a docker command to copy the files
+            try copyDependency($0, in: packageDirectory, to: destinationDirectory, services: services)
         })
     }
     
@@ -168,18 +168,37 @@ public struct PackageInDocker: Packager {
     /// ```
     func getLddDependencies(for executable: String, at packageDirectory: URL, services: Servicable) throws -> [URL] {
         let lddCommand = "ldd .build/release/\(executable)"
-        let logs: [URL] = try Docker.runShellCommand(lddCommand, at: packageDirectory, services: services)
+        let lines = try Docker.runShellCommand(lddCommand, at: packageDirectory, services: services)
             .allEntries
-            .map({ $0.message.trimmingCharacters(in: .whitespacesAndNewlines) }) // Get the raw message
-            .filter({ $0.contains("swift") }) // Filter only the lines that contain "swift"
-            .compactMap({ // Get the third column for each line
-                let components = $0.components(separatedBy: " ")
-                return components.first// [0] == "libswiftCore.so", [1] == "=>", [2] == "/usr/lib/swift/linux/libswiftCore.so", [3] == "(0x00007fb41d09c000)"
+            .map({ (entry: LogCollector.Logs.Entry) -> String in // Get the raw message
+                entry.message.trimmingCharacters(in: .whitespacesAndNewlines)
             })
-            // Prefix the packageDirectory and ".build/release/" to the names to get the full path
-            .map({ BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: $0, services: services) })
-        
-        return logs
+            .filter({ $0.contains("swift") }) // Filter only the lines that contain "swift"
+            .map({ (output: String) -> [String] in
+                output.components(separatedBy: "\n")
+            })
+            .flatMap({ $0 })
+        return lines.compactMap { (line: String) -> String? in
+            // Get the third column for each line
+            // [0] == "libswiftCore.so", [1] == "=>", [2] == "/usr/lib/swift/linux/libswiftCore.so", [3] == "(0x00007fb41d09c000)"
+            let components = line.components(separatedBy: " ")
+            guard components.count == 4 else { return nil }
+            return components[2]
+        }
+        // Prefix the packageDirectory and ".build/release/" to the names to get the full path
+        .map({ URL(fileURLWithPath: $0) })
+    }
+    
+    /// Uses Docker to copy a dependency to the destination directory.
+    func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
+        let logs = try Docker.runShellCommand("cp \(dependency.path) \(destinationDirectory.path)",
+                                              at: packageDirectory,
+                                              services: services)
+        let errors = logs.filter(level: .error)
+        if errors.count > 0 {
+            let message = errors.map({ $0.message }).joined(separator: "\n")
+            throw PackagerError.dependencyFailure(dependency, message)
+        }
     }
     
     /// AWS Lambda requires a bootstrap file. It's simply a symlink to the executable to run.
@@ -192,13 +211,13 @@ public struct PackageInDocker: Packager {
     public func addBootstrap(for executable: String, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
         services.logger.trace("Adding bootstrap: \(executable)")
         let command = "ln -s \(executable) bootstrap"
-        let logs: LogCollector.Logs = try services.shell.run(command, at: nil, logger: services.logger)
+        let logs: LogCollector.Logs = try services.shell.run(command, at: destinationDirectory, logger: services.logger)
         let errors = logs.allEntries.filter({ entry in
             return entry.level == .error
         })
         guard errors.count == 0 else {
             let messages = errors.compactMap({ $0.message }).joined(separator: "\n")
-            throw PackageInDockerError.bootstrapFailure(messages)
+            throw PackagerError.bootstrapFailure(messages)
         }
         return logs
     }
@@ -213,30 +232,33 @@ public struct PackageInDocker: Packager {
         // echo -e "Built product at:\n$zipName"
         services.logger.trace("Archiving contents: \(executable)")
         let archive = archivePath(for: executable, in: destinationDirectory)
-        let command = "zip --symlinks \(archive) * .env"
-        let logs: LogCollector.Logs = try services.shell.run(command, at: nil, logger: services.logger)
+        let command = "zip --symlinks \(archive.path) * .env"
+        let logs: LogCollector.Logs = try services.shell.run(command, at: destinationDirectory, logger: services.logger)
         let errors = logs.allEntries.filter({ entry in
             return entry.level == .error
         })
         guard errors.count == 0 else {
             let messages = errors.compactMap({ $0.message }).joined(separator: "\n")
-            throw PackageInDockerError.archivingFailure(messages)
+            throw PackagerError.archivingFailure(messages)
         }
         guard services.fileManager.fileExists(atPath: archive.path) else {
-            throw PackageInDockerError.archiveNotFound(archive.path)
+            throw PackagerError.archiveNotFound(archive.path)
         }
         return archive
     }
 }
 
 
-extension PackageInDocker {
+extension Packager {
     
     /// - Parameters
     ///   - executable: The executable target that we are packaging
     /// - Returns: URL destination for packaging everything before we zip it up
-    func destinationURLForExecutable(_ executable: String) -> URL {
-        return Self.destinationDirectory.appendingPathComponent(executable)
+    public func destinationURLForExecutable(_ executable: String, in packageDirectory: URL) -> URL {
+        return packageDirectory
+            .appendingPathComponent(".build")
+            .appendingPathComponent("lambda")
+            .appendingPathComponent(executable)
     }
     /// - Parameters
     ///   - packageDirectory:  The original directory of the package we are targeting
@@ -252,7 +274,7 @@ extension PackageInDocker {
     ///   - executable: The executable target that we are packaging
     ///   - destinationDirectory: The directory that we are copying files to before zipping it up
     /// - Returns: URL destination for packaging everything before we zip it up
-    func archivePath(for executable: String, in destinationDirectory: URL) -> URL {
+    public func archivePath(for executable: String, in destinationDirectory: URL) -> URL {
         let timestamp = dateFormatter.string(from: Date())
         return destinationDirectory
             .appendingPathComponent("\(executable)_\(timestamp).zip")
