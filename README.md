@@ -68,6 +68,5 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 
 
 TODO:
-* Ask to create the Lambda if it doesn't exist.
 * Allow executing a custom command like `aws sam-deploy`
 * Add a readme for the cli args
