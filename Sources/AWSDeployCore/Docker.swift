@@ -15,6 +15,14 @@ public enum Docker {
         public static let containerName = "awsdeploykit-builder"
     }
     static func runShellCommand(_ shellCommand: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> LogCollector.Logs {
+        let shellCommand = createShellCommand(shellCommand, at: packageDirectory, sshPrivateKeyPath: sshPrivateKeyPath)
+        return try services.shell.run(
+            shellCommand,
+            at: packageDirectory,
+            logger: services.logger
+        )
+    }
+    static func createShellCommand(_ shellCommand: String, at packageDirectory: URL, sshPrivateKeyPath: URL? = nil) -> String {
         let dockerCommand = "export PATH=$PATH:/usr/local/bin/ && /usr/local/bin/docker"
         var arguments = [
             "run",
@@ -50,11 +58,7 @@ public enum Docker {
             ]
         }
         let shellCommand = ([dockerCommand] + arguments).joined(separator: " ")
-        return try services.shell.run(
-            shellCommand,
-            at: nil,
-            logger: services.logger
-        )
+        return shellCommand
     }
 }
 

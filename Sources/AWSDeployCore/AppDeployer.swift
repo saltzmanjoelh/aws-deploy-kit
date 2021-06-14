@@ -26,16 +26,26 @@ public struct AppDeployer: ParsableCommand {
 
     @Flag(name: [.short, .long], help: "Publish the updated Lambda functions with a blue green process. A new Lambda version will be created for an existing function that uses the same product name from the archive. Archives are created with the format 'PRODUCT_DATE.zip'. Next, the Lamdba will be invoked to make sure that it hasn't crashed on startup. Finally, the 'production' alias for the Lambda will be updated to point to the new revision.")
     var publishBlueGreen: Bool = false
-
+    
+    @Option(name: [.short, .long],
+            help: "If you need to create the function, this is the role being used to execute the function. If this is a new role, it will use the arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole policy. This policy can execute the Lambda and upload logs to Amazon CloudWatch Logs (logs::CreateLogGroup, logs::CreateLogStream and logs::PutLogEvents). If you don't provide a value for this the default will be used in the format $FUNCTION-role-$RANDOM.",
+            transform: { return $0 })
+    var functionRole: String? = nil
+    
     public init() {}
 
     public mutating func run() throws {
+        Services.shared.publisher.functionRole = functionRole
         try self.run(services: Services.shared)
     }
 
     public mutating func run(services: Servicable) throws {
         try self.verifyConfiguration(services: services)
-        let archiveURLs = try services.builder.buildProducts(products, at: URL(fileURLWithPath: directoryPath), services: services)
+        let packageDirectory = URL(fileURLWithPath: directoryPath)
+        let archiveURLs = try services.builder.buildProducts(products, at: packageDirectory, services: services)
+            .map({ executableURL in
+                try services.packager.packageExecutable(executableURL.lastPathComponent, at: packageDirectory, services: services)
+            })
         if self.publishBlueGreen == true {
             _ = try services.publisher.publishArchives(archiveURLs, services: services).wait()
         }

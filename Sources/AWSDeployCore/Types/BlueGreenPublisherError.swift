@@ -6,12 +6,15 @@
 //
 
 import Foundation
+import SotoIAM
 
 public enum BlueGreenPublisherError: Error, CustomStringConvertible {
     case archiveDoesNotExist(String)
     case invokeLambdaFailed(String, String)
     case invalidArchiveName(String)
     case invalidFunctionConfiguration(String, String)
+    case accountIdUnavailable
+    case invalidCreateRoleResponse(String, String)
 
     public var description: String {
         switch self {
@@ -23,6 +26,10 @@ public enum BlueGreenPublisherError: Error, CustomStringConvertible {
             return "Invalid archive name: \(path). It should be in the format: $executable_ISO8601Date.zip"
         case .invalidFunctionConfiguration(let field, let source):
             return "Invalid FunctionConfiguration. Required field \"\(field)\" was missing in \(source)."
+        case .accountIdUnavailable:
+            return "The account id from STS was unavailable. Please provide the full arn for the role."
+        case .invalidCreateRoleResponse(let expectedRoleName, let receivedRoleName):
+            return "Unexpected role received from createRole. Expected: \(expectedRoleName), received: \(receivedRoleName)"
         }
     }
 }

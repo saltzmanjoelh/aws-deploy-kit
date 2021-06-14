@@ -10,6 +10,7 @@ import Foundation
 import Logging
 import LogKit
 import SotoS3
+import SotoLambda
 @testable import SotoTestUtils
 import XCTest
 
@@ -27,6 +28,25 @@ class AppDeployerTests: XCTestCase {
         try cleanupTestPackage()
     }
 
+    func testFunctionRoleGetsApplied() throws {
+        // Setup
+        Services.shared = mockServices
+        defer { Services.shared = Services() }
+        mockServices.mockBuilder.buildProducts = { _ in return [] }
+        mockServices.mockPublisher.publishArchives = { _ in
+            return self.mockServices.awsServer.eventLoopGroup.next().makeSucceededFuture([.init(name: "my-function")])
+        }
+        // Given a functionRole provided in cli
+        let role = "example-role"
+        var instance = try AppDeployer.parseAsRoot(["my-function", "--function-role", role]) as! AppDeployer
+        
+        // When running
+        try instance.run()
+        
+        // Then the publisher should receive the value
+        XCTAssertEqual(mockServices.publisher.functionRole, role)
+    }
+    
     func testVerifyConfiguration_directoryPathUpdateWithDot() throws {
         // Given a "." path
         var instance = try AppDeployer.parseAsRoot(["-d", ".", "my-function"]) as! AppDeployer
@@ -116,18 +136,26 @@ class AppDeployerTests: XCTestCase {
         }
     }
     
-    func testDeployerRun() throws {
+    func testRunWithMocks() throws {
         // Given a valid configuration
         let packageDirectory = tempPackageDirectory()
-        var instance = try! AppDeployer.parseAsRoot(["-p", packageDirectory.path]) as! AppDeployer
+        var instance = try! AppDeployer.parseAsRoot(["-p", packageDirectory.path, ExamplePackage.executableOne]) as! AppDeployer
         Services.shared = mockServices
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return []
+            return [BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]
+        }
+        mockServices.mockPackager.packageExecutable = { _ throws -> URL in
+            return self.mockServices.packager.archivePath(for: ExamplePackage.executableOne, in: packageDirectory)
+        }
+        mockServices.mockPublisher.publishArchives = { _ throws -> EventLoopFuture<[Lambda.AliasConfiguration]> in
+            return self.mockServices.stubAliasConfiguration()
+                .map({ [$0] })
         }
         
         // When calling run()
         // Then no errors are thrown
         XCTAssertNoThrow(try instance.run())
+        XCTAssertTrue(mockServices.mockPackager.$packageExecutable.wasCalled)
     }
 
     func testFullRunThrough() throws {

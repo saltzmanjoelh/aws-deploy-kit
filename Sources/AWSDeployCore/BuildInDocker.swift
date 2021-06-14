@@ -20,16 +20,16 @@ public struct BuildInDocker: Builder {
     public init() {}
 
     /// Build the products in Docker.
-    /// - Returns: Array of URLs to the built archives. Their filenames will be in the format $executable-ISO8601Date.zip in UTC.
+    /// - Returns: Array of URLs to the built executables.
     public func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL] {
         let dockerfilePath = try getDockerfilePath(from: packageDirectory, services: services)
         _ = try prepareDockerImage(at: dockerfilePath, services: services)
-        let archiveURLs = try products.map { (product: String) -> URL in
+        let executableURLs = try products.map { (product: String) -> URL in
             _ = try self.buildProduct(product, at: packageDirectory, services: services)
             let url = try self.getBuiltProductPath(at: packageDirectory, for: product, services: services)
             return url
         }
-        return archiveURLs
+        return executableURLs
     }
 
     
@@ -54,7 +54,7 @@ public struct BuildInDocker: Builder {
         let dockerfile = URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile")
         try? services.fileManager.removeItem(at: dockerfile)
         // Create the Dockerfile
-        let contents = "FROM \(Docker.Config.imageName)\nRUN yum -y install zip"
+        let contents = "FROM \(Docker.Config.imageName)\nRUN yum install -y zip"
         try contents.write(to: dockerfile, atomically: true, encoding: .utf8)
         return dockerfile
     }

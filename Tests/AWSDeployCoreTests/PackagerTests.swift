@@ -1,5 +1,5 @@
 //
-//  PackageInDockerTests.swift
+//  PackagerTests.swift
 //  
 //
 //  Created by Joel Saltzman on 5/17/21.
@@ -12,15 +12,15 @@ import Logging
 import LogKit
 @testable import AWSDeployCore
 
-class PackageInDockerTests: XCTestCase {
+class PackagerTests: XCTestCase {
     
-    var instance: PackageInDocker!
+    var instance: Packager!
     var mockServices: MockServices!
     var packageDirectory: URL!
     
     override func setUp() {
         super.setUp()
-        instance = PackageInDocker()
+        instance = Packager()
         mockServices = MockServices()
         packageDirectory = tempPackageDirectory()
     }
@@ -35,7 +35,7 @@ class PackageInDockerTests: XCTestCase {
         mockServices.mockFileManager.copyItem = { _ in } // Simulate a successful copy
         
         // Given a valid configuration
-        let destinationDirectory = PackageInDocker.destinationDirectory
+        let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory)
         
         // When calling copyExecutable
         try instance.copyExecutable(executable: ExamplePackage.executableOne,
@@ -46,7 +46,7 @@ class PackageInDockerTests: XCTestCase {
         // Then no errors should be thrown
         // and copyItem should have been called with the destination
         let expectedSource = BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices)
-        let expectedDestination = URL(fileURLWithPath: destinationDirectory.appendingPathComponent(ExamplePackage.executableOne).path)
+        let expectedDestination = destinationDirectory.appendingPathComponent(ExamplePackage.executableOne, isDirectory: false)
         let result = mockServices.mockFileManager.$copyItem.wasCalled(with: .init([expectedSource, expectedDestination]))
         XCTAssertTrue(result, "Source and/or destination were not used")
     }
@@ -55,7 +55,7 @@ class PackageInDockerTests: XCTestCase {
         mockServices.mockFileManager.fileExists = { _ in false } // Simulate that does not exist
         
         // Given a valid configuration
-        let destinationDirectory = PackageInDocker.destinationDirectory
+        let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory)
         
         // When calling copyExecutable
         do {
@@ -65,7 +65,7 @@ class PackageInDockerTests: XCTestCase {
                                         services: mockServices)
             
             XCTFail("An error should have been thrown")
-        } catch PackageInDockerError.executableNotFound(let path){
+        } catch PackagerError.executableNotFound(let path){
             // Then PackageInDockerError.executableNotFound should be thrown
             XCTAssertEqual(path, BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices).path)
         } catch {
@@ -79,7 +79,7 @@ class PackageInDockerTests: XCTestCase {
         mockServices.mockFileManager.copyItem = { _ in } // Simulate a successful copy
         
         // Given a valid configuration
-        let destinationDirectory = PackageInDocker.destinationDirectory
+        let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory)
         
         // When calling copyEnvFile
         try instance.copyEnvFile(at: packageDirectory,
@@ -102,7 +102,7 @@ class PackageInDockerTests: XCTestCase {
         // When calling copyEnvFile
         try instance.copyEnvFile(at: packageDirectory,
                                  executable: ExamplePackage.executableOne,
-                                 destinationDirectory: PackageInDocker.destinationDirectory,
+                                 destinationDirectory: instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory),
                                  services: mockServices)
         
         // Then the mock should not be called
@@ -123,17 +123,62 @@ class PackageInDockerTests: XCTestCase {
         
         // Then the dependencies should be returend
         XCTAssertEqual(result.count, 2)
-        XCTAssertTrue(result.description.contains("libswiftCore.so"), "\(result.description) should contain: libswiftCore.so")
-        XCTAssertTrue(result.description.contains("libicudataswift.so.65"), "\(result.description) should contain: libicudataswift.so.65")
+        XCTAssertTrue(result.description.contains("/usr/lib/swift/linux/libswiftCore.so"), "\(result.description) should contain: libswiftCore.so")
+        XCTAssertTrue(result.description.contains("/usr/lib/swift/linux/libicudataswift.so.65"), "\(result.description) should contain: libicudataswift.so.65")
+    }
+    func testCopyDependency() throws {
+        // Given a valid URL to a dependency
+        let dependency = URL(fileURLWithPath: "/usr/lib/swift/linux/libswiftCore.so")
+        let packageDirectory = tempPackageDirectory()
+        let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory)
+        mockServices.mockShell.launchBash = { _ in return .init() }// Call doesn't return an errors
+        
+        // When calling copyDependency
+        try instance.copyDependency(dependency, in: packageDirectory, to: destinationDirectory, services: mockServices)
+        
+        // Then the shell should be called
+        XCTAssertTrue(mockServices.mockShell.$launchBash.wasCalled, "Shell command was not executed.")
+        let expectedCommand = Docker.createShellCommand("cp \(dependency.path) \(destinationDirectory.path)", at: packageDirectory)
+        let expectedInput = EquatableTuple([try CodableInput(expectedCommand), try CodableInput(packageDirectory)])
+        XCTAssertTrue(mockServices.mockShell.$launchBash.wasCalled(with: expectedInput), "Unexpected shell command.")
+    }
+    func testCopyDependencyThrowsWithErrors() throws {
+        // Given an invalid URL to a dependency
+        let dependency = URL(fileURLWithPath: "/usr/lib/swift/linux/libswiftCore.so")
+        let packageDirectory = tempPackageDirectory()
+        let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory)
+        mockServices.mockShell.launchBash = { _ in
+            let logs = LogCollector.Logs.init()
+            logs.append(level: .error, message: "File not found.", metadata: nil)
+            return logs
+        }
+        
+        do {
+            // When calling copyDependency
+            try instance.copyDependency(dependency, in: packageDirectory, to: destinationDirectory, services: mockServices)
+        } catch {
+            XCTAssertEqual("\(error)", PackagerError.dependencyFailure(dependency, "File not found.").description, "Unexpected error: \(error)")
+        }
+        
+        // Then the shell should be called
+        XCTAssertTrue(mockServices.mockShell.$launchBash.wasCalled, "Shell command was not executed.")
+        let expectedCommand = Docker.createShellCommand("cp \(dependency.path) \(destinationDirectory.path)", at: packageDirectory)
+        let expectedInput = EquatableTuple([try CodableInput(expectedCommand), try CodableInput(packageDirectory)])
+        XCTAssertTrue(mockServices.mockShell.$launchBash.wasCalled(with: expectedInput), "Unexpected shell command.")
     }
     
     func testCopySwiftDependencies() throws {
-        // Given some URLs to dependencies
-        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
-            LogCollector.Logs.lddLogs()
+        // Given a successful run
+        mockServices.mockShell.launchBash = { (tuple: EquatableTuple<CodableInput>) throws -> LogCollector.Logs in
+            let command: String = try! tuple.inputs[0].decode()
+            if command.contains("ldd") { // getLddDependencies
+                return LogCollector.Logs.lddLogs()
+            } else { // copyDependency
+                return .init() // no errors
+            }
         }
         mockServices.mockFileManager.copyItem = { _  in }
-        let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne)
+        let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory)
         
         // When calling copySwiftDependencies
         try instance.copySwiftDependencies(for: ExamplePackage.executableOne,
@@ -142,9 +187,8 @@ class PackageInDockerTests: XCTestCase {
                                            services: mockServices)
         
         // Then those URLs should be copied to the destination
-        XCTAssertTrue(mockServices.mockFileManager.$copyItem.wasCalled)
-        XCTAssertTrue(mockServices.mockFileManager.$copyItem.wasCalled(with: destinationDirectory))
-        XCTAssertEqual(mockServices.mockFileManager.$copyItem.usage.history.count, 2)
+        XCTAssertTrue(mockServices.mockShell.$launchBash.wasCalled)
+        XCTAssertEqual(mockServices.mockShell.$launchBash.usage.history.count, 3, "At least 2 shell commands should have been called. One for getting the dependencies and 1 for each dependency.")
     }
     
     func testAddBootstrap() throws {
@@ -176,14 +220,14 @@ class PackageInDockerTests: XCTestCase {
                                           services: mockServices)
             
             XCTFail("An error should have been thrown.")
-        } catch PackageInDockerError.bootstrapFailure(_) {
+        } catch PackagerError.bootstrapFailure(_) {
             // Then an error should be thrown
         }
     }
     
     func testArchiveName() {
         let archivePath = instance.archivePath(for: ExamplePackage.executableOne,
-                                               in: instance.destinationURLForExecutable(ExamplePackage.executableOne))
+                                               in: instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory))
         XCTAssertTrue(archivePath.description.contains(ExamplePackage.executableOne), "The archive path should contain the executable name")
         XCTAssertTrue(archivePath.description.contains("_"), "The archive path should contain an underscore to separate the executable name and timestamp.")
         XCTAssertTrue(archivePath.description.contains(":"), "The archive path should contain a colon in the timestamp.")
@@ -191,6 +235,7 @@ class PackageInDockerTests: XCTestCase {
     }
     func testArchiveContents() throws {
         // Given a succesful zip
+        let destinationDirectory = instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory)
         mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
             let logs = LogCollector.Logs()
             logs.append(level: .trace, message: "adding: bootstrap (stored 0%)", metadata: nil)
@@ -200,7 +245,7 @@ class PackageInDockerTests: XCTestCase {
         
         // When calling archiveContents
         let result = try instance.archiveContents(for: ExamplePackage.executableOne,
-                                         in: packageDirectory,
+                                         in: destinationDirectory,
                                          services: mockServices)
         
         // Then the archive path should be returned
@@ -221,7 +266,7 @@ class PackageInDockerTests: XCTestCase {
                                              services: mockServices)
             
             XCTFail("An error should have been thrown.")
-        } catch PackageInDockerError.archivingFailure(_) {
+        } catch PackagerError.archivingFailure(_) {
             // Then an error should be thrown
         } catch {
             XCTFail(error)
@@ -241,7 +286,7 @@ class PackageInDockerTests: XCTestCase {
                                              services: mockServices)
             
             XCTFail("An error should have been thrown.")
-        } catch PackageInDockerError.archiveNotFound(_) {
+        } catch PackagerError.archiveNotFound(_) {
             // Then an error should be thrown
         } catch {
             XCTFail(error)

@@ -52,13 +52,14 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
                 name: "\(ExamplePackage.executableThree)",
                 targets: ["\(ExamplePackage.executableThree)"]),
         ],
+        dependencies: [ .package(url: "https://github.com/swift-server/swift-aws-lambda-runtime.git", .branch("main")) ],
         targets: [
             .target(
                 name: "\(ExamplePackage.library)",
                 dependencies: []),
             .target(
                 name: "\(ExamplePackage.executableOne)",
-                dependencies: []),
+                dependencies: [ .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"), ]),
             .target(
                 name: "\(ExamplePackage.executableTwo)",
                 dependencies: []),
@@ -104,7 +105,13 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
                 withIntermediateDirectories: true,
                 attributes: [FileAttributeKey.posixPermissions: 0o777]
             )
-            let source = "print(\"Hello Test Package!\")"
+            let source = """
+                print("Hello Test Package!")
+                import AWSLambdaRuntime
+                Lambda.run { (context, name: String, callback: @escaping (Result<String, Error>) -> Void) in
+                  callback(.success("Hello, \\(name)"))
+                }
+                """
             let sourceFileURL = productDirectory.appendingPathComponent("main.swift")
             try source.write(to: sourceFileURL, atomically: true, encoding: .utf8)
             print("Created source file: \(sourceFileURL) success: \(FileManager.default.fileExists(atPath: sourceFileURL.path))")
@@ -113,7 +120,7 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
     if includeDockerfile {
         // Create the Dockerfile
         let dockerfile = packageDirectory.appendingPathComponent("Dockerfile")
-        let contents = "FROM \(Docker.Config.imageName)\nRUN yum -y install zip"
+        let contents = "FROM \(Docker.Config.imageName)\nRUN yum install -y zip"
         try contents.write(to: dockerfile, atomically: true, encoding: .utf8)
         print("Created dockerfile: \(dockerfile.path) success: \(FileManager.default.fileExists(atPath: dockerfile.path))")
     }
