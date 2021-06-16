@@ -68,5 +68,5 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 
 
 TODO:
-* Allow executing a custom command like `aws sam-deploy`
+* Convert control functions to static functions
 * Add a readme for the cli args

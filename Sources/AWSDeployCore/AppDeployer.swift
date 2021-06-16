@@ -13,16 +13,13 @@ import SotoLambda
 import SotoS3
 
 public struct AppDeployer: ParsableCommand {
-    public static let configuration = CommandConfiguration(abstract: "Helps with building Swift packages in Linux and deploying to Lambda. Currently, we only support building executable targets.")
+    public static let configuration = CommandConfiguration(abstract: "Helps with building Swift packages in Linux and deploying to Lambda. Currently, we only support building executable targets.\n\nDocker is used for building and packaging. You can use a custom Dockerfile in the root of the Package directory to customize the build container that is used. Otherwise, \(Docker.Config.imageName) will be used by default.\n\nOnce built and packaged, you should find the binary and it's shared libraries in .build/.lambda/$executableName/. You will also find a zip with all those files in that directory as well. Please take a look at the README for more details.")
 
     @Option(name: [.short, .long], help: "Provide a custom path to the project directory instead of using the current working directory.")
     var directoryPath: String = "./"
 
     @Option(name: [.short, .long], help: "Skip specific products. Use a comma separted string. Example: -s SkipThis,SkipThat. This is only applicable if you didn't specify the products.")
     var skipProducts: String = ""
-
-    @Argument(help: "You can either specify which products you want to include. Or if you don't specify any, all will be used. You can optionally skip some products using the --skip-products (-s) flag.")
-    var products: [String] = []
 
     @Flag(name: [.short, .long], help: "Publish the updated Lambda functions with a blue green process. A new Lambda version will be created for an existing function that uses the same product name from the archive. Archives are created with the format 'PRODUCT_DATE.zip'. Next, the Lamdba will be invoked to make sure that it hasn't crashed on startup. Finally, the 'production' alias for the Lambda will be updated to point to the new revision.")
     var publishBlueGreen: Bool = false
@@ -32,10 +29,23 @@ public struct AppDeployer: ParsableCommand {
             transform: { return $0 })
     var functionRole: String? = nil
     
+    @Option(name: [.customShort("q"), .long],
+            help: "Run a custom shell command before the build phase. The command will be executed in the same directory as the product(s) that you specify. If you don't specify any products and all products are built, then this command will be ran with each product in their source directory.")
+    var preBuildCommand: String = ""
+    
+    @Option(name: [.customShort("r"), .long],
+            help: "Run a custom shell command like \"aws sam-deploy\" after the build phase. The command will be executed in the same directory as the product(s) that you specify. If you don't specify any products and all products are built, then this command will be ran with each product in their source directory.")
+    var postBuildCommand: String = ""
+    
+    @Argument(help: "You can either specify which products you want to include. Or if you don't specify any, all will be used. You can optionally skip some products using the --skip-products (-s) flag.")
+    var products: [String] = []
+    
     public init() {}
 
     public mutating func run() throws {
         Services.shared.publisher.functionRole = functionRole
+        Services.shared.builder.preBuildCommand = preBuildCommand
+        Services.shared.builder.postBuildCommand = postBuildCommand
         try self.run(services: Services.shared)
     }
 
@@ -49,6 +59,7 @@ public struct AppDeployer: ParsableCommand {
         if self.publishBlueGreen == true {
             _ = try services.publisher.publishArchives(archiveURLs, services: services).wait()
         }
+        
     }
 
     /// Verifies the configuration and throws when it's invalid.

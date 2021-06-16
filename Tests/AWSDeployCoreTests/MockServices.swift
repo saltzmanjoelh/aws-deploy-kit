@@ -46,14 +46,14 @@ class MockServices: Servicable {
     var shell: ShellExecutable = MockShell()
     var mockShell: MockShell { shell as! MockShell }
     
-    var builder: Builder = MockBuildInDocker()
-    var mockBuilder: MockBuildInDocker { return builder as! MockBuildInDocker }
+    var builder: Builder = MockBuilder()
+    var mockBuilder: MockBuilder { return builder as! MockBuilder }
     
-    var packager: ExecutablePackable = MockPackageInDocker()
-    var mockPackager: MockPackageInDocker { return packager as! MockPackageInDocker }
+    var packager: ExecutablePackable = MockPackager()
+    var mockPackager: MockPackager { return packager as! MockPackager }
     
-    var publisher: Publisher = MockBlueGreenPublisher()
-    var mockPublisher: MockBlueGreenPublisher { return publisher as! MockBlueGreenPublisher }
+    var publisher: Publisher = MockPublisher()
+    var mockPublisher: MockPublisher { return publisher as! MockPublisher }
 
     deinit {
         cleanup()
@@ -79,8 +79,8 @@ class MockServices: Servicable {
 
 // MARK: - MockShell
 public struct MockShell: ShellExecutable {
-    public func launchBash(command: String, at workingDirectory: URL?, logger: Logger?) throws -> LogCollector.Logs {
-        return try _launchBash.getValue(EquatableTuple([CodableInput(command), CodableInput(workingDirectory)]))
+    public func launchShell(command: String, at workingDirectory: URL?, logger: Logger?) throws -> LogCollector.Logs {
+        return try _launchShell.getValue(EquatableTuple([CodableInput(command), CodableInput(workingDirectory)]))
     }
     
     /// The function to perform in bash. You can modify this for tests.
@@ -91,14 +91,18 @@ public struct MockShell: ShellExecutable {
     /// defer { ShellExecutor.resetAction() }
     /// ```
     @ThrowingMock
-    public var launchBash = { (tuple: EquatableTuple<CodableInput>) throws -> LogCollector.Logs in
+    public var launchShell = { (tuple: EquatableTuple<CodableInput>) throws -> LogCollector.Logs in
         let process = Process.init()
         return try process.launchBash(try tuple.inputs[0].decode(), at: try tuple.inputs[1].decode(), logger: nil)
     }
 }
 
-// MARK: - MockBuildInDocker
-class MockBuildInDocker: Builder {
+// MARK: - MockBuilder
+class MockBuilder: Builder {
+    
+    var preBuildCommand: String = ""
+    var postBuildCommand: String = ""
+    
     static var liveBuilder = BuildInDocker()
     
     func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL] {
@@ -108,10 +112,50 @@ class MockBuildInDocker: Builder {
     var buildProducts = { (products: [String], packageDirectory: URL, services: Servicable) throws -> [URL] in
         return try liveBuilder.buildProducts(products, at: packageDirectory, services: services)
     }
+    
+    func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL {
+        return try $getDockerfilePath.getValue((packageDirectory, services))
+    }
+    @ThrowingMock
+    var getDockerfilePath = { (packageDirectory: URL, services: Servicable) throws -> URL in
+        return try liveBuilder.getDockerfilePath(from: packageDirectory, services: services)
+    }
+    
+    func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String {
+        return try $prepareDockerImage.getValue((dockerfilePath, services))
+    }
+    @ThrowingMock
+    var prepareDockerImage = { (dockerfilePath: URL, services: Servicable) throws -> String in
+        return try liveBuilder.prepareDockerImage(at: dockerfilePath, services: services)
+    }
+    
+    func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws {
+        return try $executeShellCommand.getValue((command, product, packageDirectory, services))
+    }
+    @ThrowingMock
+    var executeShellCommand = { (command: String, product: String, packageDirectory: URL, services: Servicable) throws in
+        try liveBuilder.executeShellCommand(command, for: product, at: packageDirectory, services: services)
+    }
+    
+    func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs {
+        return try $buildProduct.getValue((product, packageDirectory, services, sshPrivateKeyPath))
+    }
+    @ThrowingMock
+    var buildProduct = { (product: String, packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs in
+        return try liveBuilder.buildProduct(product, at: packageDirectory, services: services)
+    }
+    
+    func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
+        return try $getBuiltProductPath.getValue((packageDirectory, product, services))
+    }
+    @ThrowingMock
+    var getBuiltProductPath = { (packageDirectory: URL, product: String, services: Servicable) throws -> URL in
+        return try liveBuilder.getBuiltProductPath(at: packageDirectory, for: product, services: services)
+    }
 }
 
 // MARK: - MockPackageInDocker
-class MockPackageInDocker: ExecutablePackable {
+class MockPackager: ExecutablePackable {
     
     static var livePackager = Packager()
     
@@ -204,8 +248,8 @@ class MockPackageInDocker: ExecutablePackable {
     }
 }
 
-// MARK: - MockBlueGreenPublisher
-class MockBlueGreenPublisher: Publisher {
+// MARK: - MockPublisher
+class MockPublisher: Publisher {
     
     static var livePublisher = BlueGreenPublisher()
     
@@ -213,7 +257,7 @@ class MockBlueGreenPublisher: Publisher {
     
     @ThrowingMock
     var publishArchives = { (archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> in
-        try MockBlueGreenPublisher.livePublisher.publishArchives(archiveURLs, services: services)
+        try MockPublisher.livePublisher.publishArchives(archiveURLs, services: services)
     }
     func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> {
         return try $publishArchives.getValue((archiveURLs, services))

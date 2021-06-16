@@ -12,21 +12,35 @@ import NIO
 import SotoS3
 
 public protocol Builder {
+    
+    var preBuildCommand: String { get set }
+    var postBuildCommand: String { get set }
+    
     func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL]
+    func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL
+    func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String
+    func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws
+    func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs
+    func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL
 }
 
 public struct BuildInDocker: Builder {
+    
+    public var preBuildCommand: String = ""
+    public var postBuildCommand: String = ""
     
     public init() {}
 
     /// Build the products in Docker.
     /// - Returns: Array of URLs to the built executables.
     public func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL] {
-        let dockerfilePath = try getDockerfilePath(from: packageDirectory, services: services)
-        _ = try prepareDockerImage(at: dockerfilePath, services: services)
+        let dockerfilePath = try services.builder.getDockerfilePath(from: packageDirectory, services: services)
+        _ = try services.builder.prepareDockerImage(at: dockerfilePath, services: services)
         let executableURLs = try products.map { (product: String) -> URL in
-            _ = try self.buildProduct(product, at: packageDirectory, services: services)
-            let url = try self.getBuiltProductPath(at: packageDirectory, for: product, services: services)
+            try services.builder.executeShellCommand(preBuildCommand, for: product, at: packageDirectory, services: services)
+            _ = try services.builder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: nil)
+            let url = try services.builder.getBuiltProductPath(at: packageDirectory, for: product, services: services)
+            try services.builder.executeShellCommand(postBuildCommand, for: product, at: packageDirectory, services: services)
             return url
         }
         return executableURLs
@@ -37,7 +51,7 @@ public struct BuildInDocker: Builder {
     /// - Parameters:
     ///    - packagePath: A path to the Package's directory.
     /// - Returns:Path to the projects Dockerfile if it exists. Otherwise, the path to a temporary Dockerfile.
-    func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL {
+    public func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL {
         let dockerfile = packageDirectory.appendingPathComponent("Dockerfile")
         guard services.fileManager.fileExists(atPath: dockerfile.path)
         else {
@@ -77,6 +91,16 @@ public struct BuildInDocker: Builder {
         )
         return output
     }
+    /// Executes a shell command for a specific product in it's source directory.
+    /// - Parameters:
+    /// - product: The product that you want to run the command for.
+    /// - packageDirectory: The Package's root directory.
+    public func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws {
+        guard command.count > 0
+        else { return }
+        let targetDirectory = packageDirectory.appendingPathComponent("Sources").appendingPathComponent(product)
+        let _: LogCollector.Logs = try services.shell.run(command, at: targetDirectory, logger: services.logger)
+    }
 
     /// Build a Swift product in Docker.
     /// - Parameters:
@@ -113,7 +137,7 @@ public struct BuildInDocker: Builder {
     ///   - product: The name of the product to build.
     /// - Returns: URL to the build product.
     /// - Throws: If the built product is not available.
-    func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
+    public func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
         let url = Self.URLForBuiltExecutable(at: packageDirectory,
                                              for: product,
                                              services: services)

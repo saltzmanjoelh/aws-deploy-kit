@@ -90,7 +90,7 @@ class AppDeployerTests: XCTestCase {
         instance.products = []
         instance.skipProducts = ""
         instance.publishBlueGreen = false
-        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             let packageManifest = "{\"products\" : []}"
             return .stubMessage(level: .trace, message: packageManifest)
         }
@@ -120,7 +120,7 @@ class AppDeployerTests: XCTestCase {
     }
     func testGetProductsThrowsWithInvalidShellOutput() throws {
         // Give a failed shell output
-        mockServices.mockShell.launchBash = { _ throws -> LogCollector.Logs in
+        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "")
         }
         let instance = AppDeployer()
@@ -159,13 +159,14 @@ class AppDeployerTests: XCTestCase {
     }
 
     func testFullRunThrough() throws {
-        guard !isGitHubAction() else { return }
+        // This is a live run. Only do it if we explicitly say we want to.
+        guard shouldDoFullRunThrough() else { return }
         // This is more of an integration test. We won't stub the services
         let packageDirectory = try createTempPackage()
         let collector = LogCollector()
         Services.shared.logger = CollectingLogger(label: #function, logCollector: collector)
         Services.shared.logger.logLevel = .trace
-        Services.shared.publisher = MockBlueGreenPublisher()
+        Services.shared.publisher = MockPublisher()
 
         // Given a valid configuation (not calling publish for the tests)
         var instance = try AppDeployer.parseAsRoot(["-d", packageDirectory.path, "-p", ExamplePackage.executableOne]) as! AppDeployer

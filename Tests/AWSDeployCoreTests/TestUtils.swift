@@ -144,8 +144,8 @@ public func XCTFail(_ error: Error, file: StaticString = #filePath, line: UInt =
 }
 
 extension XCTestCase {
-    func isGitHubAction() -> Bool {
-        ProcessInfo.processInfo.environment["GITHUB_ACTION"] != nil
+    func shouldDoFullRunThrough() -> Bool {
+        ProcessInfo.processInfo.environment["FULL-RUN-THROUGH"] != nil
     }
 }
 

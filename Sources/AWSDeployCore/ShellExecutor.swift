@@ -23,7 +23,7 @@ public protocol ShellExecutable {
         logger: Logger?
     ) throws -> String
     
-    func launchBash(command: String, at workingDirectory: URL?, logger: Logger?) throws -> LogCollector.Logs
+    func launchShell(command: String, at workingDirectory: URL?, logger: Logger?) throws -> LogCollector.Logs
 }
 
 extension ShellExecutable {
@@ -36,7 +36,7 @@ extension ShellExecutable {
         } else {
             logger?.trace("Running shell command: \(command)")
         }
-        return try launchBash(command: command, at: workingDirectory, logger: logger)
+        return try launchShell(command: command, at: workingDirectory, logger: logger)
     }
     
     /// Executes a shell script and returns both the stdout and stderr UTF8 Strings combined as a single String.
@@ -50,7 +50,7 @@ extension ShellExecutable {
 public struct Shell: ShellExecutable {
     public init() {}
     
-    public func launchBash(command: String, at workingDirectory: URL?, logger: Logger?) throws -> LogCollector.Logs {
+    public func launchShell(command: String, at workingDirectory: URL?, logger: Logger?) throws -> LogCollector.Logs {
         let process = Process.init()
         return try process.launchBash(command, at: workingDirectory, logger: logger)
     }

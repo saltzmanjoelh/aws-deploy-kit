@@ -17,7 +17,7 @@ import XCTest
 class BlueGreenPublisherTests: XCTestCase {
     
     var mockServices: MockServices!
-    var publisher: BlueGreenPublisher { MockBlueGreenPublisher.livePublisher }
+    var publisher: BlueGreenPublisher { MockPublisher.livePublisher }
     func eventLoop() -> EventLoop {
         return mockServices.lambda.eventLoopGroup.next()
     }
@@ -25,7 +25,7 @@ class BlueGreenPublisherTests: XCTestCase {
     override func setUp() {
         super.setUp()
         mockServices = MockServices()
-        MockBlueGreenPublisher.livePublisher = BlueGreenPublisher()
+        MockPublisher.livePublisher = BlueGreenPublisher()
     }
     
     override func tearDownWithError() throws {
@@ -153,7 +153,7 @@ class BlueGreenPublisherTests: XCTestCase {
         // Setup stubs
         let functionName = "my-function"
         let role = "role"
-        MockBlueGreenPublisher.livePublisher.functionRole = role
+        MockPublisher.livePublisher.functionRole = role
         mockServices.mockPublisher.parseFunctionName = { _ in self.eventLoop().makeSucceededFuture(functionName) }
         mockServices.mockPublisher.getFunctionConfiguration = { _ -> EventLoopFuture<Lambda.FunctionConfiguration> in
             // .init(string: "{\"Type\":\"User\",\"Message\":\"Function not found: arn:aws:lambda:us-west-1:1234567890:function:my-function\"}")
@@ -577,7 +577,7 @@ class BlueGreenPublisherTests: XCTestCase {
     func testGetRoleNameUsesExistingFunctionRole() throws {
         // Given a valid functionRole
         let role = "arn:aws:iam::123456789012:role/my-role"
-        MockBlueGreenPublisher.livePublisher.functionRole = role
+        MockPublisher.livePublisher.functionRole = role
         let archiveURL = mockServices.packager.archivePath(for: "functionName", in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         
         // When calling getRole
@@ -588,7 +588,7 @@ class BlueGreenPublisherTests: XCTestCase {
     }
     func testGetRoleNameGeneratesUniqueRoleName() throws {
         // Given an nil functionRole
-        MockBlueGreenPublisher.livePublisher.functionRole = nil
+        MockPublisher.livePublisher.functionRole = nil
         let archiveURL = mockServices.packager.archivePath(for: "function-name", in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         mockServices.mockPublisher.createRole = { (context: (roleName: String, services: Servicable)) -> EventLoopFuture<String> in
             return self.eventLoop().makeSucceededFuture(context.roleName)
