@@ -14,7 +14,7 @@ import SotoLambda
 @testable import SotoTestUtils
 import XCTest
 
-class AppDeployerTests: XCTestCase {
+class AWSDeployTests: XCTestCase {
     
     var mockServices: MockServices!
     
@@ -38,7 +38,7 @@ class AppDeployerTests: XCTestCase {
         }
         // Given a functionRole provided in cli
         let role = "example-role"
-        var instance = try AppDeployer.parseAsRoot(["my-function", "--function-role", role]) as! AppDeployer
+        var instance = try AWSDeploy.parseAsRoot(["my-function", "--function-role", role]) as! AWSDeploy
         
         // When running
         try instance.run()
@@ -49,7 +49,7 @@ class AppDeployerTests: XCTestCase {
     
     func testVerifyConfiguration_directoryPathUpdateWithDot() throws {
         // Given a "." path
-        var instance = try AppDeployer.parseAsRoot(["-d", ".", "my-function"]) as! AppDeployer
+        var instance = try AWSDeploy.parseAsRoot(["-d", ".", "my-function"]) as! AWSDeploy
 
         // When calling verifyConfiguration
         try instance.verifyConfiguration(services: mockServices)
@@ -61,7 +61,7 @@ class AppDeployerTests: XCTestCase {
 
     func testVerifyConfiguration_directoryPathUpdateWithDotSlash() throws {
         // Given a "." path
-        var instance = try AppDeployer.parseAsRoot(["-d", "./", "my-function"]) as! AppDeployer
+        var instance = try AWSDeploy.parseAsRoot(["-d", "./", "my-function"]) as! AWSDeploy
 
         // When calling verifyConfiguration
         try instance.verifyConfiguration(services: mockServices)
@@ -74,7 +74,7 @@ class AppDeployerTests: XCTestCase {
     func testVerifyConfiguration_logsWhenSkippingProducts() throws {
         // Given a product to skip
         let packageDirectory = try createTempPackage()
-        var instance = try AppDeployer.parseAsRoot(["-s", ExamplePackage.executableThree, "-d", packageDirectory.path]) as! AppDeployer
+        var instance = try AWSDeploy.parseAsRoot(["-s", ExamplePackage.executableThree, "-d", packageDirectory.path]) as! AWSDeploy
 
         // When calling verifyConfiguration
         try instance.verifyConfiguration(services: mockServices)
@@ -85,7 +85,7 @@ class AppDeployerTests: XCTestCase {
     }
     func testVerifyConfiguration_throwsWithMissingProducts() throws {
         // Given a package without any executables
-        var instance = AppDeployer()
+        var instance = AWSDeploy()
         instance.directoryPath = "./"
         instance.products = []
         instance.skipProducts = ""
@@ -110,7 +110,7 @@ class AppDeployerTests: XCTestCase {
     func testGetProducts() throws {
         // Given a package with a library and multiple executables
         let packageDirectory = try createTempPackage()
-        let instance = AppDeployer()
+        let instance = AWSDeploy()
 
         // When calling getProducts
         let result = try instance.getProducts(from: packageDirectory, services: mockServices)
@@ -123,7 +123,7 @@ class AppDeployerTests: XCTestCase {
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "")
         }
-        let instance = AppDeployer()
+        let instance = AWSDeploy()
 
         // When calling getProducts
         do {
@@ -139,7 +139,7 @@ class AppDeployerTests: XCTestCase {
     func testRunWithMocks() throws {
         // Given a valid configuration
         let packageDirectory = tempPackageDirectory()
-        var instance = try! AppDeployer.parseAsRoot(["-p", packageDirectory.path, ExamplePackage.executableOne]) as! AppDeployer
+        var instance = try! AWSDeploy.parseAsRoot(["-p", packageDirectory.path, ExamplePackage.executableOne]) as! AWSDeploy
         Services.shared = mockServices
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
             return [BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]
@@ -169,7 +169,7 @@ class AppDeployerTests: XCTestCase {
         Services.shared.publisher = MockPublisher()
 
         // Given a valid configuation (not calling publish for the tests)
-        var instance = try AppDeployer.parseAsRoot(["-d", packageDirectory.path, "-p", ExamplePackage.executableOne]) as! AppDeployer
+        var instance = try AWSDeploy.parseAsRoot(["-d", packageDirectory.path, "-p", ExamplePackage.executableOne]) as! AWSDeploy
 
         // When calling run
         // Then no errors should be thrown
@@ -182,7 +182,7 @@ class AppDeployerTests: XCTestCase {
         let processName = ExamplePackage.executableTwo // Simulating that executableTwo is the executable that does the deployment
         
         // When calling removeSkippedProducts
-        let result = AppDeployer.removeSkippedProducts(skipProducts,
+        let result = AWSDeploy.removeSkippedProducts(skipProducts,
                                                        from: ExamplePackage.executables,
                                                        logger: mockServices.logger,
                                                        processName: processName)

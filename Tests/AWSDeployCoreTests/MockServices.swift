@@ -254,6 +254,7 @@ class MockPublisher: Publisher {
     static var livePublisher = BlueGreenPublisher()
     
     public var functionRole: String? = nil
+    public var alias: String = BlueGreenPublisher.defaultAlias
     
     @ThrowingMock
     var publishArchives = { (archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> in
@@ -261,6 +262,14 @@ class MockPublisher: Publisher {
     }
     func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> {
         return try $publishArchives.getValue((archiveURLs, services))
+    }
+    
+    @Mock
+    var publishArchive = { (archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
+        return livePublisher.publishArchive(archiveURL, alias: alias, services: services)
+    }
+    func publishArchive(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+        return $publishArchive.getValue((archiveURL, alias, services))
     }
     
     @Mock

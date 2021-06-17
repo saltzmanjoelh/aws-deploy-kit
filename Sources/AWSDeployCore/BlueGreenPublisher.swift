@@ -17,7 +17,9 @@ import SotoIAM
 
 public protocol Publisher {
     var functionRole: String? { get set }
-    
+    var alias: String { get set }
+
+    func publishArchive(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func createRole(_ roleName: String, services: Servicable) -> EventLoopFuture<String>
     func createLambda(with archiveURL: URL, role: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func createFunctionCode(archiveURL: URL, role: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
@@ -40,13 +42,16 @@ public struct BlueGreenPublisher: Publisher {
     /// This is the role that we use in it's execution policy.
     public var functionRole: String? = nil
     
+    public static var defaultAlias = "development"
+    public var alias: String = Self.defaultAlias
+    
     public init() {}
 
     /// Creates a new Lambda function or updates an existing one.
     /// During which, it also invokes the function to make sure that it's not crashing.
     /// Finally, it points the API Gateway to the new Lambda function version.
     public func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> {
-        let futures = archiveURLs.map { self.publishArchive($0, services: services) }
+        let futures = archiveURLs.map { self.publishArchive($0, alias: services.publisher.alias, services: services) }
         return EventLoopFuture.reduce(
             into: [Lambda.AliasConfiguration](),
             futures,
@@ -62,7 +67,7 @@ public struct BlueGreenPublisher: Publisher {
     ///   - archiveURL: A URL to the archive which will be used as the function's new code.
     ///   - alias: The alias that will point to the updated code.
     /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
-    public func publishArchive(_ archiveURL: URL, alias: String = "production", services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+    public func publishArchive(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
         // because it gives us a way to use mocks. Maybe convert to static instead?
         services.logger.trace("--- Publishing: \(archiveURL.lastPathComponent) ---")
@@ -206,10 +211,10 @@ extension BlueGreenPublisher {
                     // the configuration possibly having a nil functionName. Unlikey in production
                     // but possible when testing and returning our own responses for the mock server.
                     .flatMap { (configuration: Lambda.FunctionConfiguration) in
-                        // Create the default "production" alias
+                        // Create the default "development" alias
                         services.lambda.createAlias(.init(functionName: functionName,
                                                           functionVersion: configuration.version ?? "1",
-                                                          name: "production"))
+                                                          name: Self.defaultAlias))
                             .map({ _ in configuration })
                     }
             })

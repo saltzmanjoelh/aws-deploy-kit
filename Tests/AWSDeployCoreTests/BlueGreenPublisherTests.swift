@@ -17,7 +17,6 @@ import XCTest
 class BlueGreenPublisherTests: XCTestCase {
     
     var mockServices: MockServices!
-    var publisher: BlueGreenPublisher { MockPublisher.livePublisher }
     func eventLoop() -> EventLoop {
         return mockServices.lambda.eventLoopGroup.next()
     }
@@ -59,7 +58,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        try publisher.publishArchives([archiveURL], services: mockServices)
+        try mockServices.publisher.publishArchives([archiveURL], services: mockServices)
             .whenComplete { (publishResult: Result<[Lambda.AliasConfiguration], Error>) in
                 // Then the updated version number should be included in the results
                 do {
@@ -90,7 +89,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/invalid.zip")
 
         // When calling publishArchive
-        publisher.publishArchive(archiveURL, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, alias: mockServices.publisher.alias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -127,7 +126,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing to an existing function
-        publisher.publishArchive(archiveURL, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, alias: mockServices.publisher.alias, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then a String that represents the revisionId should be returned
                 do {
@@ -167,7 +166,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
 
         // When publishing to a new function
-        _ = try publisher.publishArchive(archiveURL, services: mockServices).wait()
+        _ = try mockServices.publisher.publishArchive(archiveURL, alias: mockServices.publisher.alias, services: mockServices).wait()
         
         // Then createLambda should be called
         XCTAssertEqual(mockServices.mockPublisher.$createLambda.usage.history.count, 1, "createLambda should have been called.")
@@ -201,7 +200,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishArchive
-        publisher.getFunctionConfiguration(for: archiveURL, services: mockServices)
+        mockServices.publisher.getFunctionConfiguration(for: archiveURL, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -217,7 +216,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishLatest
-        publisher.publishLatest(configuration, services: mockServices)
+        mockServices.publisher.publishLatest(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "publishLatest").description)
@@ -233,7 +232,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishLatest
-        publisher.publishLatest(configuration, services: mockServices)
+        mockServices.publisher.publishLatest(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("codeSha256", "publishLatest").description)
@@ -249,7 +248,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When calling publishLatest
-        publisher.publishLatest(configuration, services: mockServices)
+        mockServices.publisher.publishLatest(configuration, services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 // Then a success result should be received
                 resultReceived.fulfill()
@@ -268,7 +267,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        publisher.verifyLambda(configuration, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda").description)
@@ -284,7 +283,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        publisher.verifyLambda(configuration, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "verifyLambda").description)
@@ -300,7 +299,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When calling verifyLambda
-        publisher.verifyLambda(configuration, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 resultReceived.fulfill()
             }
@@ -320,7 +319,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let payload = "{\"errorMessage\":\"RequestId: 590ec71e-14c1-4498-8edf-2bd808dc3c0e Error: Runtime exited without providing a reason\",\"errorType\":\"Runtime.ExitError\"}"
 
         // When calling verifyLambda
-        publisher.verifyLambda(configuration, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, services: mockServices)
             .whenFailure { (error: Error) in
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invokeLambdaFailed(functionName, payload).description)
                 errorReceived.fulfill()
@@ -337,7 +336,7 @@ class BlueGreenPublisherTests: XCTestCase {
         // This is a control function, this test is more for coverage
         // Given a valid configuration
         let functionName = "my-function"
-        let alias = "production"
+        let alias = BlueGreenPublisher.defaultAlias
         let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         // Setup some stubs
         mockServices.mockPublisher.updateFunctionCode = { _ in self.mockServices.stubFunctionConfiguration() }
@@ -346,7 +345,7 @@ class BlueGreenPublisherTests: XCTestCase {
         mockServices.mockPublisher.updateAliasVersion = { _ in self.mockServices.stubAliasConfiguration(alias: alias) }
         
         // When calling updateLambda
-        let result = try publisher.updateLambda(with: archiveURL,
+        let result = try mockServices.publisher.updateLambda(with: archiveURL,
                                                 configuration: .init(functionName: functionName),
                                                 alias: alias,
                                                 services: mockServices).wait()
@@ -370,7 +369,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let sha256 = UUID().uuidString
 
         // When calling updateFunctionCode
-        publisher.updateFunctionCode(
+        mockServices.publisher.updateFunctionCode(
             .init(functionName: functionName, revisionId: UUID().uuidString),
             archiveURL: archiveURL,
             services: mockServices
@@ -402,7 +401,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When calling updateCode
-        publisher.updateFunctionCode(
+        mockServices.publisher.updateFunctionCode(
             .init(functionName: functionName, revisionId: UUID().uuidString),
             archiveURL: archiveURL,
             services: mockServices
@@ -434,7 +433,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionCode
-        publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: mockServices)
+        mockServices.publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "updateFunctionCode").description)
@@ -457,7 +456,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionCode
-        publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: mockServices)
+        mockServices.publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("revisionId", "updateFunctionCode").description)
@@ -473,7 +472,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateAliasVersion
-        publisher.updateAliasVersion(configuration, alias: "production", services: mockServices)
+        mockServices.publisher.updateAliasVersion(configuration, alias: BlueGreenPublisher.defaultAlias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "updateFunctionVersion").description)
@@ -489,7 +488,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionVersion
-        publisher.updateAliasVersion(configuration, alias: "production", services: mockServices)
+        mockServices.publisher.updateAliasVersion(configuration, alias: BlueGreenPublisher.defaultAlias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "updateFunctionVersion").description)
@@ -504,7 +503,7 @@ class BlueGreenPublisherTests: XCTestCase {
         // Given a valid configuration
         let functionName = "my-function"
         let role = "my-function-role"
-        let alias = "production"
+        let alias = "development"
         let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         // Setup some stubs
         mockServices.mockPublisher.createFunctionCode = { _ in self.mockServices.stubFunctionConfiguration() }
@@ -513,7 +512,7 @@ class BlueGreenPublisherTests: XCTestCase {
         mockServices.mockPublisher.updateAliasVersion = { _ in self.mockServices.stubAliasConfiguration(alias: alias) }
         
         // When calling createLambda
-        let result = try publisher.createLambda(with: archiveURL,
+        let result = try mockServices.publisher.createLambda(with: archiveURL,
                                                 role: role,
                                                 alias: alias,
                                                 services: mockServices).wait()
@@ -532,7 +531,7 @@ class BlueGreenPublisherTests: XCTestCase {
         
         // When calling createFunctionCode
         do {
-            _ = try publisher.createFunctionCode(archiveURL: archiveURL,
+            _ = try mockServices.publisher.createFunctionCode(archiveURL: archiveURL,
                                                  role: "role",
                                                  services: mockServices).wait()
             
@@ -554,7 +553,7 @@ class BlueGreenPublisherTests: XCTestCase {
         FileManager.default.createFile(atPath: archiveURL.path, contents: "File".data(using: .utf8)!, attributes: nil)
         
         // When calling createFunctionCode
-        publisher.createFunctionCode(archiveURL: archiveURL,
+        mockServices.publisher.createFunctionCode(archiveURL: archiveURL,
                                      role: "arn:aws:iam::123456789012:role/\(ExamplePackage.executableOne)-Role",
                                      services: mockServices)
             .whenComplete({ (result: Result<Lambda.FunctionConfiguration, Error>) in
@@ -581,7 +580,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let archiveURL = mockServices.packager.archivePath(for: "functionName", in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         
         // When calling getRole
-        let result = try publisher.getRoleName(archiveURL: archiveURL, services: mockServices).wait()
+        let result = try mockServices.publisher.getRoleName(archiveURL: archiveURL, services: mockServices).wait()
         
         // Then the role should be returned
         XCTAssertEqual(role, result)
@@ -595,7 +594,7 @@ class BlueGreenPublisherTests: XCTestCase {
         }
         
         // When calling getRole
-        let result = try publisher.getRoleName(archiveURL: archiveURL, services: mockServices).wait()
+        let result = try mockServices.publisher.getRoleName(archiveURL: archiveURL, services: mockServices).wait()
             
         // Then a new role should be returned
         XCTAssertNotNil(result)
@@ -608,7 +607,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
         
         // When calling validateRole
-        publisher.validateRole(role, services: mockServices)
+        mockServices.publisher.validateRole(role, services: mockServices)
             .whenComplete { (result: Result<String, Error>) in
                 do {
                     let updatedRole = try result.get()
@@ -635,7 +634,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
         
         // When calling validateRole
-        publisher.validateRole(role, services: mockServices)
+        mockServices.publisher.validateRole(role, services: mockServices)
             .whenComplete { (result: Result<String, Error>) in
                 do {
                     _ = try result.get()
@@ -659,7 +658,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let role = "arn:aws:iam::123456789012:user/MY_USER/my-role"
         
         // When calling validateRole
-        let result = try publisher.validateRole(role, services: mockServices).wait()
+        let result = try mockServices.publisher.validateRole(role, services: mockServices).wait()
         
         // The the provided role is returned
         XCTAssertEqual(result, role)
@@ -670,7 +669,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
         
         // When calling createRole
-        publisher.createRole(roleName, services: mockServices)
+        mockServices.publisher.createRole(roleName, services: mockServices)
             .whenComplete { (result: Result<String, Error>) in
                 do {
                     let value = try result.get()
@@ -714,7 +713,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
         
         // When calling createRole
-        publisher.createRole(roleName, services: mockServices)
+        mockServices.publisher.createRole(roleName, services: mockServices)
             .whenComplete { (result: Result<String, Error>) in
                 do {
                     _ = try result.get()
