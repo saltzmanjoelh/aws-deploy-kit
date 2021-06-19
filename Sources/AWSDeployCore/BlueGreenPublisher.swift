@@ -360,7 +360,7 @@ extension BlueGreenPublisher {
         // TODO: Maybe we can pass in some expected input?
         // The payload doesn't matter, a different kind of error will be returned.
         let functionVersion = "\(functionName):\(version)"
-        let payload = APIGateway.V2.Request.wrapRawBody(url: URL(string: "https://verify.lambda")!, httpMethod: .POST, body: "")
+        let payload = Data()// APIGateway.V2.Request.wrapRawBody(url: URL(string: "https://verify.lambda")!, httpMethod: .POST, body: "")
         services.logger.trace("Verifying Lambda: \(functionVersion). Payload: \(String(data: payload, encoding: .utf8)!)")
         
         let action: () -> EventLoopFuture<Lambda.FunctionConfiguration> = {

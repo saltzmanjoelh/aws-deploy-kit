@@ -64,12 +64,17 @@ public struct BuildInDocker: Builder {
     /// If a dockerfile was not provided, we create a temporary one to create a Swift Docker image from.
     /// - Returns: Path to the temporary Dockerfile.
     func createTemporyDockerfile(services: Servicable) throws -> URL {
-        services.logger.trace("Creating temporary Dockerfile")
-        let dockerfile = URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile")
-        try? services.fileManager.removeItem(at: dockerfile)
+        let directoryURL = URL(fileURLWithPath: "/tmp/aws-deploy/")
+        let dockerfile = directoryURL.appendingPathComponent("Dockerfile")
+        services.logger.trace("Creating temporary Dockerfile in: \(directoryURL)")
+        try? services.fileManager.removeItem(at: directoryURL)
+        try services.fileManager.createDirectory(at: directoryURL,
+                                                 withIntermediateDirectories: false,
+                                                 attributes: nil)
         // Create the Dockerfile
+        FileManager.default.changeCurrentDirectoryPath(directoryURL.path)
         let contents = "FROM \(Docker.Config.imageName)\nRUN yum install -y zip"
-        try contents.write(to: dockerfile, atomically: true, encoding: .utf8)
+        try contents.write(toFile: dockerfile.lastPathComponent, atomically: true, encoding: .utf8)
         return dockerfile
     }
 

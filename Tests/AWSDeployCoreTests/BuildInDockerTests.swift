@@ -67,11 +67,24 @@ class BuildInDockerTests: XCTestCase {
         let result = try instance.getDockerfilePath(from: path, services: mockServices)
 
         // Then a default Dockerfile should be used
-        XCTAssertString(result.path, contains: "/tmp/")
+        XCTAssertString(result.path, contains: "/tmp/aws-deploy")
         XCTAssertString(result.path, contains: "Dockerfile")
         let message = mockServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "Creating temporary Dockerfile")
     }
+    func testCreateTemporyDockerfile() throws {
+        // Given a valid environment
+        mockServices.mockFileManager.createDirectory = { _ in }
+        
+        // When calling createTemporyDockerfile
+        let result = try instance.createTemporyDockerfile(services: mockServices)
+        
+        // Then a file URL is returned
+        XCTAssertTrue(result.isFileURL)
+        XCTAssertTrue(mockServices.mockFileManager.$removeItem.wasCalled)
+        XCTAssertTrue(mockServices.mockFileManager.$createDirectory.wasCalled)
+    }
+    
     func testGetProjectDockerfilePath() throws {
         // Given a package with a Dockerfile
         let packageDirectory = try createTempPackage(includeSource: true, includeDockerfile: true)

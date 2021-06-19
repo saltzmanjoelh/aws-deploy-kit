@@ -79,4 +79,12 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 
 
 ### TODO
-Check for a .invoke file to test the lambda with
+Always check for alias, not just on creation
+
+The input for the Lambdas can vary. Maybe it takes a string value or maybe it takes json string that decodes to a dictionary.
+Add a build sub command
+Add an invoke subcommand to help debug with.
+The default action is to build. We will need an option to specify the json payload. If it begins with "file://", read the file. This option should use the invoke subcommand
+It should work similar to building in that you can test all endpoints, skip some, or be specific
+Check for a .invoke file to test the lambda with?
+You can invoke a local or remote endpoint.
