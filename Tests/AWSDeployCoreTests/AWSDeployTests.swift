@@ -38,7 +38,7 @@ class AWSDeployTests: XCTestCase {
         }
         // Given a functionRole provided in cli
         let role = "example-role"
-        var instance = try AWSDeploy.parseAsRoot(["my-function", "--function-role", role]) as! AWSDeploy
+        var instance = try AWSDeploy.Build.parseAsRoot(["my-function", "--function-role", role]) as! AWSDeploy.Build
         
         // When running
         try instance.run()
@@ -49,32 +49,32 @@ class AWSDeployTests: XCTestCase {
     
     func testVerifyConfiguration_directoryPathUpdateWithDot() throws {
         // Given a "." path
-        var instance = try AWSDeploy.parseAsRoot(["-d", ".", "my-function"]) as! AWSDeploy
+        var instance = try AWSDeploy.Build.parseAsRoot(["-d", ".", "my-function"]) as! AWSDeploy.Build
 
         // When calling verifyConfiguration
         try instance.verifyConfiguration(services: mockServices)
 
         // Then the directoryPath should be updated
-        XCTAssertNotEqual(instance.directoryPath, "./")
-        XCTAssertNotEqual(instance.directoryPath, ".")
+        XCTAssertNotEqual(instance.directory.path, "./")
+        XCTAssertNotEqual(instance.directory.path, ".")
     }
 
     func testVerifyConfiguration_directoryPathUpdateWithDotSlash() throws {
         // Given a "." path
-        var instance = try AWSDeploy.parseAsRoot(["-d", "./", "my-function"]) as! AWSDeploy
+        var instance = try AWSDeploy.Build.parseAsRoot(["-d", "./", "my-function"]) as! AWSDeploy.Build
 
         // When calling verifyConfiguration
         try instance.verifyConfiguration(services: mockServices)
 
         // Then the directoryPath should be updated
-        XCTAssertNotEqual(instance.directoryPath, "./")
-        XCTAssertNotEqual(instance.directoryPath, ".")
+        XCTAssertNotEqual(instance.directory.path, "./")
+        XCTAssertNotEqual(instance.directory.path, ".")
     }
 
     func testVerifyConfiguration_logsWhenSkippingProducts() throws {
         // Given a product to skip
         let packageDirectory = try createTempPackage()
-        var instance = try AWSDeploy.parseAsRoot(["-s", ExamplePackage.executableThree, "-d", packageDirectory.path]) as! AWSDeploy
+        var instance = try AWSDeploy.Build.parseAsRoot(["-s", ExamplePackage.executableThree, "-d", packageDirectory.path]) as! AWSDeploy.Build
 
         // When calling verifyConfiguration
         try instance.verifyConfiguration(services: mockServices)
@@ -85,11 +85,10 @@ class AWSDeployTests: XCTestCase {
     }
     func testVerifyConfiguration_throwsWithMissingProducts() throws {
         // Given a package without any executables
-        var instance = AWSDeploy()
-        instance.directoryPath = "./"
+        var instance = try AWSDeploy.Build.parseAsRoot(["-d", "/invalid"]) as! AWSDeploy.Build
         instance.products = []
         instance.skipProducts = ""
-        instance.publishBlueGreen = false
+        instance.publish = false
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             let packageManifest = "{\"products\" : []}"
             return .stubMessage(level: .trace, message: packageManifest)
@@ -110,7 +109,7 @@ class AWSDeployTests: XCTestCase {
     func testGetProducts() throws {
         // Given a package with a library and multiple executables
         let packageDirectory = try createTempPackage()
-        let instance = AWSDeploy()
+        let instance = AWSDeploy.Build()
 
         // When calling getProducts
         let result = try instance.getProducts(from: packageDirectory, services: mockServices)
@@ -123,7 +122,7 @@ class AWSDeployTests: XCTestCase {
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "")
         }
-        let instance = AWSDeploy()
+        let instance = AWSDeploy.Build()
 
         // When calling getProducts
         do {
@@ -139,10 +138,10 @@ class AWSDeployTests: XCTestCase {
     func testRunWithMocks() throws {
         // Given a valid configuration
         let packageDirectory = tempPackageDirectory()
-        var instance = try! AWSDeploy.parseAsRoot(["-p", packageDirectory.path, ExamplePackage.executableOne]) as! AWSDeploy
+        var instance = try! AWSDeploy.Build.parseAsRoot(["-p", packageDirectory.path, ExamplePackage.executableOne]) as! AWSDeploy.Build
         Services.shared = mockServices
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return [BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]
+            return [DockerizedBuilder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]
         }
         mockServices.mockPackager.packageExecutable = { _ throws -> URL in
             return self.mockServices.packager.archivePath(for: ExamplePackage.executableOne, in: packageDirectory)
@@ -182,10 +181,10 @@ class AWSDeployTests: XCTestCase {
         let processName = ExamplePackage.executableTwo // Simulating that executableTwo is the executable that does the deployment
         
         // When calling removeSkippedProducts
-        let result = AWSDeploy.removeSkippedProducts(skipProducts,
-                                                       from: ExamplePackage.executables,
-                                                       logger: mockServices.logger,
-                                                       processName: processName)
+        let result = AWSDeploy.Build.removeSkippedProducts(skipProducts,
+                                                           from: ExamplePackage.executables,
+                                                           logger: mockServices.logger,
+                                                           processName: processName)
         
         // Then the remaining products should not contain the skipProducts
         XCTAssertFalse(result.contains(skipProducts), "The \"skipProducts\": \(skipProducts) should have been removed.")

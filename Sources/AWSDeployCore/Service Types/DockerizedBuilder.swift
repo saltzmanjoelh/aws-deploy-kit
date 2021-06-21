@@ -24,7 +24,7 @@ public protocol Builder {
     func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL
 }
 
-public struct BuildInDocker: Builder {
+public struct DockerizedBuilder: Builder {
     
     public var preBuildCommand: String = ""
     public var postBuildCommand: String = ""

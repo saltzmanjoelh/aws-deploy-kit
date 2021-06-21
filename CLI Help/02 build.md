@@ -1,25 +1,27 @@
 ```shell
-OVERVIEW: Helps with building Swift packages in Linux and deploying to Lambda.
-Currently, we only support building executable targets.
+OVERVIEW: Build one or more executables inside of a Docker container. It will
+read your Swift package and build the executables of your choosing. If you
+leave the defaults, it will build all of the executables in the package. You
+can optionally choose to skip targets, or you can tell it to build only
+specific targets.
 
-Docker is used for building and packaging. You can use a custom Dockerfile in
-the root of the Package directory to customize the build container that is
-used. Otherwise, swift:5.3-amazonlinux2 will be used by default.
+The Docker image `swift:5.3-amazonlinux2` will be used by default. You can
+override this by adding a Dockerfile to the root of the package's directory.
 
-Once built and packaged, you should find the binary and it's shared libraries
-in .build/.lambda/$executableName/. You will also find a zip with all those
-files in that directory as well. Please take a look at the README for more
-details.
+The built products will be available at `./build/lambda/$EXECUTABLE/`. You will
+also find a zip in there which contains everything needed to update AWS Lambda
+code. The archive will be in the format `$EXECUTABLE_NAME.zip`.
 
-USAGE: aws-deploy [--directory-path <directory-path>] [<products> ...] [--skip-products <skip-products>] [--publish] [--alias <alias>] [--function-role <function-role>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>]
+
+USAGE: aws-deploy build [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--publish] [--function-role <function-role>] [--alias <alias>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>]
 
 ARGUMENTS:
   <products>              You can either specify which products you want to
-                          include with this flag, or if you don't specify any
-                          products, all will be used.
+                          include, or if you don't specify any products, all
+                          will be used.
 
 OPTIONS:
-  -d, --directory-path <directory-path>
+  -d, --directory <directory>
                           Provide a custom path to the project directory
                           instead of using the current working directory.
                           (default: ./)
@@ -30,23 +32,21 @@ OPTIONS:
                           separted string. Example: -s SkipThis,SkipThat. If
                           you specified one or more targets, this option is not
                           applicable.
-  -p, --publish           Publish the updated Lambda function(s) with a blue
-                          green process. A new Lambda version will be created
-                          for an existing function that uses the same product
-                          name from the archive. Archives are created with the
+  -p, --publish           Publish to a Lambda function(s) with a blue green
+                          process. A new Lambda version will be created for an
+                          existing function that uses the same product name
+                          from the archive. Archives are created with the
                           format '$EXECUTABLE_NAME.zip'. Next, the Lamdba will
                           be invoked to make sure that it hasn't crashed on
-                          startup. Finally, the 'production' alias for the
-                          Lambda will be updated to point to the new revision.
-                          You can override the alias name with -a or --alias.
-                          Please see the help for reference.
-  -a, --alias <alias>     When publishing, this is the alias which will be
-                          updated to point to the new release. (default:
-                          development)
+                          startup. Finally, the specified alias for the Lambda
+                          (the default is 'development') will be updated to
+                          point to the new revision. You can override the alias
+                          name with -a or --alias. Please see the publish help
+                          for reference.
   -f, --function-role <function-role>
-                          If you need to create the function, this is the role
-                          being used to execute the function. If this is a new
-                          role, it will use the
+                          When publishing, if you need to create the function,
+                          this is the role being used to execute the function.
+                          If this is a new role, it will use the
                           arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
                           policy. This policy can execute the Lambda and upload
                           logs to Amazon CloudWatch Logs (logs::CreateLogGroup,
@@ -54,6 +54,9 @@ OPTIONS:
                           don't provide a value for this the default will be
                           used in the format $FUNCTION-role-$RANDOM. (default:
                           nil)
+  -a, --alias <alias>     When publishing, this is the alias which will be
+                          updated to point to the new release. (default:
+                          development)
   -q, --pre-build-command <pre-build-command>
                           Run a custom shell command before the build phase.
                           The command will be executed in the same source

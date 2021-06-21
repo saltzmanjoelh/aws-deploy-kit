@@ -15,11 +15,11 @@ import Mocking
 
 class BuildInDockerTests: XCTestCase {
     
-    var instance: BuildInDocker!
+    var instance: DockerizedBuilder!
     var mockServices: MockServices!
     
     override func setUp() {
-        instance = BuildInDocker()
+        instance = DockerizedBuilder()
         mockServices = MockServices()
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "/path/to/app.zip")
@@ -173,7 +173,7 @@ class BuildInDockerTests: XCTestCase {
         // Setup
         let packageDirectory = try createTempPackage()
         // Given a valid package
-        let instance = BuildInDocker()
+        let instance = DockerizedBuilder()
 
         // When calling buildProduct
         _ = try instance.buildProduct(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)

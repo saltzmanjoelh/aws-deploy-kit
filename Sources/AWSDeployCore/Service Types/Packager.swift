@@ -9,7 +9,7 @@ import Foundation
 import Logging
 import LogKit
 
-public protocol ExecutablePackable {
+public protocol ExecutablePackager {
     func packageExecutable(_ executable: String, at packageDirectory: URL, services: Servicable) throws -> URL
     func destinationURLForExecutable(_ executable: String, in packageDirectory: URL) -> URL
     func createDestinationDirectory(_ destinationDirectory: URL, services: Servicable) throws
@@ -23,7 +23,7 @@ public protocol ExecutablePackable {
     func archivePath(for executable: String, in destinationDirectory: URL) -> URL
 }
 
-public struct Packager: ExecutablePackable {
+public struct Packager: ExecutablePackager {
     
     let dateFormatter: ISO8601DateFormatter = {
         let result = ISO8601DateFormatter()
@@ -110,7 +110,7 @@ public struct Packager: ExecutablePackable {
     /// - Throws: If there was a problem copying the .env file to the destination.
     public func copyExecutable(executable: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
         services.logger.trace("Copy Executable: \(executable)")
-        let executableFile = BuildInDocker.URLForBuiltExecutable(at: packageDirectory, for: executable, services: services)
+        let executableFile = DockerizedBuilder.URLForBuiltExecutable(at: packageDirectory, for: executable, services: services)
         guard services.fileManager.fileExists(atPath: executableFile.path) else {
             throw PackagerError.executableNotFound(executableFile.path)
         }

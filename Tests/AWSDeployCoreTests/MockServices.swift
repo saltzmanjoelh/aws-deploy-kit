@@ -49,7 +49,7 @@ class MockServices: Servicable {
     var builder: Builder = MockBuilder()
     var mockBuilder: MockBuilder { return builder as! MockBuilder }
     
-    var packager: ExecutablePackable = MockPackager()
+    var packager: ExecutablePackager = MockPackager()
     var mockPackager: MockPackager { return packager as! MockPackager }
     
     var publisher: Publisher = MockPublisher()
@@ -103,7 +103,7 @@ class MockBuilder: Builder {
     var preBuildCommand: String = ""
     var postBuildCommand: String = ""
     
-    static var liveBuilder = BuildInDocker()
+    static var liveBuilder = DockerizedBuilder()
     
     func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL] {
         return try $buildProducts.getValue((products, packageDirectory, services))
@@ -155,7 +155,7 @@ class MockBuilder: Builder {
 }
 
 // MARK: - MockPackageInDocker
-class MockPackager: ExecutablePackable {
+class MockPackager: ExecutablePackager {
     
     static var livePackager = Packager()
     

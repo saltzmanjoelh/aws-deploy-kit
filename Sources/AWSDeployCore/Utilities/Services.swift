@@ -25,7 +25,7 @@ public protocol Servicable {
 
     var shell: ShellExecutable { get set }
     var builder: Builder { get set }
-    var packager: ExecutablePackable { get set }
+    var packager: ExecutablePackager { get set }
 //    var uploader: ArchiveUploader { get set }
     var publisher: Publisher { get set }
 }
@@ -62,8 +62,8 @@ public class Services: Servicable {
     public var awsLogger: Logger = AWSClient.loggingDisabled
 
     public var shell: ShellExecutable = Shell()
-    public var builder: Builder = BuildInDocker()
-    public var packager: ExecutablePackable = Packager()
+    public var builder: Builder = DockerizedBuilder()
+    public var packager: ExecutablePackager = Packager()
     public var publisher: Publisher = BlueGreenPublisher()
 
     public init(region: String = "us-west-1") {
