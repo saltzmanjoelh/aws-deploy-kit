@@ -9,7 +9,9 @@ import Foundation
 import XCTest
 import Logging
 import LogKit
+import NIO
 @testable import AWSDeployCore
+@testable import SotoTestUtils
 
 
 enum ExamplePackage {
@@ -144,10 +146,25 @@ public func XCTFail(_ error: Error, file: StaticString = #filePath, line: UInt =
 }
 
 extension XCTestCase {
-    func shouldDoFullRunThrough() -> Bool {
-        ProcessInfo.processInfo.environment["FULL-RUN-THROUGH"] != nil
+    func shouldTestWithLive() -> Bool {
+        ProcessInfo.processInfo.environment["TEST-WITH-LIVE"] != nil
+    }
+
+    func waitToProcess(_ fixtures: [ByteBuffer], mockServices: MockServices) throws {
+        var responses = fixtures
+        // This is a synchronous process. Execution stops here until all fixtures are processed or it times out.
+        try mockServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
+            guard let result = responses.popLast() else {
+                let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
+                return .error(error, continueProcessing: false)
+            }
+            return .result(.init(httpStatus: .ok, body: result), continueProcessing: responses.count > 0)
+        }
+        // Once all the fixtures have been processed, it will continue.
+        XCTAssertEqual(responses.count, 0, "There were fixtures left over. Not all calls were performed.")
     }
 }
+
 
 // MARK: - LogCollector
 extension LogCollector.Logs {
@@ -164,4 +181,3 @@ extension LogCollector.Logs {
         return logs
     }
 }
-

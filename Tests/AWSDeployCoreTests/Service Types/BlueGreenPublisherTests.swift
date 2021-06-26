@@ -48,9 +48,9 @@ class BlueGreenPublisherTests: XCTestCase {
             encoding: .utf8
         )!
         // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
-        var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
+        let fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         // Given an archive
-        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName)_ISO8601Date.zip")
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName).zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                 withIntermediateDirectories: false,
                                                 attributes: nil)
@@ -71,22 +71,15 @@ class BlueGreenPublisherTests: XCTestCase {
                 resultReceived.fulfill()
             }
 
-        try mockServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            guard let result = fixtureResults.popLast() else {
-                let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
-                return .error(error, continueProcessing: false)
-            }
-            return .result(.init(httpStatus: .ok, body: result), continueProcessing: fixtureResults.count > 0)
-        }
+        try waitToProcess(fixtureResults, mockServices: mockServices)
         wait(for: [resultReceived], timeout: 2.0)
-        XCTAssertEqual(fixtureResults.count, 0, "There were fixtureResults left over. Not all calls were performed.")
     }
     
     func testPublishArchiveErrorsAreLogged() throws {
         // Setup
         let errorReceived = expectation(description: "Error received")
         // Given an invalid zip path
-        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/invalid.zip")
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/.zip")
 
         // When calling publishArchive
         mockServices.publisher.publishArchive(archiveURL, alias: mockServices.publisher.alias, services: mockServices)
@@ -116,9 +109,9 @@ class BlueGreenPublisherTests: XCTestCase {
             encoding: .utf8
         )!
         // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
-        var fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
+        let fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         // Given an archive
-        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName)_ISO8601Date.zip")
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName).zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                 withIntermediateDirectories: false,
                                                 attributes: nil)
@@ -138,15 +131,8 @@ class BlueGreenPublisherTests: XCTestCase {
                 resultReceived.fulfill()
             }
 
-        try mockServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            guard let result = fixtureResults.popLast() else {
-                let error = AWSTestServer.ErrorType(status: 500, errorCode: "InternalFailure", message: "Unhandled request: \(request)")
-                return .error(error, continueProcessing: false)
-            }
-            return .result(.init(httpStatus: .ok, body: result), continueProcessing: fixtureResults.count > 0)
-        }
+        try waitToProcess(fixtureResults, mockServices: mockServices)
         wait(for: [resultReceived], timeout: 2.0)
-        XCTAssertEqual(fixtureResults.count, 0, "There were fixtureResults left over. Not all calls were performed.")
     }
     func testPublishArchiveHandlesCreation() throws {
         // Setup stubs
@@ -175,7 +161,7 @@ class BlueGreenPublisherTests: XCTestCase {
     func testParseFunctionName() throws {
         // Given a valid archive name
         let functionName = "my-function"
-        let archiveName = "\(functionName)_ISO8601Date.zip"
+        let archiveName = "\(functionName).zip"
 
         // When calling parseFunctionName
         let result = try BlueGreenPublisher.parseFunctionName(from: URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(archiveName)"))
@@ -186,17 +172,25 @@ class BlueGreenPublisherTests: XCTestCase {
 
     func testParseFunctionNameThrowsWithInvalidArchiveName() throws {
         // Given an invalid archive name
-        let functionName = "my-function"
-        let archiveName = "\(functionName).zip"
+        let archiveName = ".zip"
+        let invalidURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(archiveName)")
 
-        // When calling parseFunctionName
-        // Then an error should be thrown
-        XCTAssertThrowsError(try BlueGreenPublisher.parseFunctionName(from: URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(archiveName)")))
+        do {
+            // When calling parseFunctionName
+            _ = try BlueGreenPublisher.parseFunctionName(from: invalidURL)
+            
+            // Then an error should be thrown
+            XCTFail("An error should have been thrown.")
+        } catch BlueGreenPublisherError.invalidArchiveName(let archiveURL) {
+            XCTAssertEqual(archiveURL, invalidURL.path)
+        } catch {
+            XCTFail(error)
+        }
     }
     
     func testGetFunctionConfigurationThrowsWithMissingFunctionName() throws {
         // Given an invalid archive path
-        let archiveURL = URL(fileURLWithPath: "invalid.zip")
+        let archiveURL = URL(fileURLWithPath: ".zip")
         let errorReceived = expectation(description: "Error received")
 
         // When calling publishArchive
@@ -254,10 +248,7 @@ class BlueGreenPublisherTests: XCTestCase {
                 resultReceived.fulfill()
             }
 
-        try mockServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            let buffer = ByteBuffer(string: "{\"CodeSha256\": \"12345\"}")
-            return .result(.init(httpStatus: .ok, body: buffer))
-        }
+        try waitToProcess([ByteBuffer(string: "{\"CodeSha256\": \"12345\"}")], mockServices: mockServices)
         wait(for: [resultReceived], timeout: 2.0)
     }
 
@@ -304,10 +295,7 @@ class BlueGreenPublisherTests: XCTestCase {
                 resultReceived.fulfill()
             }
 
-        try mockServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            let buffer = ByteBuffer(string: "{\"CodeSha256\": \"12345\", \"Version\": \"1\"}")
-            return .result(.init(httpStatus: .ok, body: buffer))
-        }
+        try waitToProcess([ByteBuffer(string: "{\"CodeSha256\": \"12345\", \"Version\": \"1\"}")], mockServices: mockServices)
         wait(for: [resultReceived], timeout: 2.0)
     }
 
@@ -321,7 +309,7 @@ class BlueGreenPublisherTests: XCTestCase {
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration, services: mockServices)
             .whenFailure { (error: Error) in
-                XCTAssertEqual("\(error)", BlueGreenPublisherError.invokeLambdaFailed(functionName, payload).description)
+                XCTAssertEqual("\(error)", LambdaInvokerError.invokeLambdaFailed("\(functionName):2", payload).description)
                 errorReceived.fulfill()
             }
 
@@ -361,7 +349,7 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCode() throws {
         // Given an archive
         let functionName = UUID().uuidString
-        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName)_ISO8601Date.zip")
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName).zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                  withIntermediateDirectories: true,
                                                  attributes: nil)
@@ -393,7 +381,7 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCodeThrowsWithInvalidArchive() throws {
         // Given an archive
         let functionName = UUID().uuidString
-        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName)_ISO8601Date.zip")
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName).zip")
         try? FileManager.default.createDirectory(atPath: archiveURL.path,
                                                  withIntermediateDirectories: true,
                                                  attributes: nil)
@@ -423,7 +411,7 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCodeThrowsWithMissingFunctionName() {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init()
-        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/my-function_ISO8601Date.zip")
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/my-function.zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                  withIntermediateDirectories: false,
                                                  attributes: nil)
@@ -446,7 +434,7 @@ class BlueGreenPublisherTests: XCTestCase {
     func testUpdateFunctionCodeThrowsWithMissingRevisionId() {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function")
-        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/my-function_ISO8601Date.zip")
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/my-function.zip")
         try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
                                                  withIntermediateDirectories: true,
                                                  attributes: nil)
@@ -551,6 +539,9 @@ class BlueGreenPublisherTests: XCTestCase {
                                                  withIntermediateDirectories: true,
                                                  attributes: nil)
         FileManager.default.createFile(atPath: archiveURL.path, contents: "File".data(using: .utf8)!, attributes: nil)
+        // createFunction then createAlias and stop
+        let fixtureResults = [ByteBuffer(string: "{\"CodeSha256\": \"1234\"}"), ByteBuffer(string: "{\"CodeSha256\": \"1234\"}")]
+        let resultReceived = expectation(description: "Result Received")
         
         // When calling createFunctionCode
         mockServices.publisher.createFunctionCode(archiveURL: archiveURL,
@@ -560,18 +551,14 @@ class BlueGreenPublisherTests: XCTestCase {
                 do {
                     // Then createFunction should be called
                     _ = try result.get()
+                    resultReceived.fulfill()
                 } catch {
                     XCTFail(error)
                 }
             })
         
-        // Mock the AWS response for lambda.createFunction
-        try mockServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            // createFunction, then createAlias and stop
-            let buffer = ByteBuffer(string: "{\"CodeSha256\": \"1234\"}")
-            return .result(.init(httpStatus: .ok, body: buffer), continueProcessing: request.uri.contains("alias") == false)
-        }
-        
+        try waitToProcess(fixtureResults, mockServices: mockServices)
+        wait(for: [resultReceived], timeout: 2.0)
     }
     func testGetRoleNameUsesExistingFunctionRole() throws {
         // Given a valid functionRole
@@ -621,10 +608,7 @@ class BlueGreenPublisherTests: XCTestCase {
         
         
         // Mock the AWS response for lambda.createFunction
-        try mockServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            let buffer = ByteBuffer(string: "<GetCallerIdentityResponse xmlns=\"https://sts.amazonaws.com/doc/2011-06-15/\">\n  <GetCallerIdentityResult>\n    <Arn>arn:aws:iam::123456789012:user/MY_USER</Arn>\n    <UserId>123456789012345678901</UserId>\n    <Account>123456789012</Account>\n  </GetCallerIdentityResult>\n  <ResponseMetadata>\n    <RequestId>cf192f38-9e25-43fa-8d6c-1234567890</RequestId>\n  </ResponseMetadata>\n</GetCallerIdentityResponse>\n")
-            return .result(.init(httpStatus: .ok, body: buffer))
-        }
+        try waitToProcess([ByteBuffer(string: "<GetCallerIdentityResponse xmlns=\"https://sts.amazonaws.com/doc/2011-06-15/\">\n  <GetCallerIdentityResult>\n    <Arn>arn:aws:iam::123456789012:user/MY_USER</Arn>\n    <UserId>123456789012345678901</UserId>\n    <Account>123456789012</Account>\n  </GetCallerIdentityResult>\n  <ResponseMetadata>\n    <RequestId>cf192f38-9e25-43fa-8d6c-1234567890</RequestId>\n  </ResponseMetadata>\n</GetCallerIdentityResponse>\n")], mockServices: mockServices)
         wait(for: [resultReceived], timeout: 2.0)
     }
     func testValidateRoleThrowsWithMissingAccountId() throws {
@@ -648,9 +632,7 @@ class BlueGreenPublisherTests: XCTestCase {
         
         
         // Mock the AWS response for lambda.createFunction
-        try mockServices.awsServer.processRaw { (_: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            return .result(.init(httpStatus: .ok, body: buffer))
-        }
+        try waitToProcess([buffer], mockServices: mockServices)
         wait(for: [resultReceived], timeout: 2.0)
     }
     func testValidateReturnsWhenAlreadyValidRole() throws {
@@ -682,10 +664,7 @@ class BlueGreenPublisherTests: XCTestCase {
         
         // Then createRole and attachRolePolicy should be called
         // and the role should be returned
-        var callsRemaining = 2
-        try mockServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            //request.uri.contains("policy")
-            let createRoleResponse = """
+        let createRoleResponse = """
             <CreateRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\">
               <CreateRoleResult>
                 <Role>
@@ -702,9 +681,8 @@ class BlueGreenPublisherTests: XCTestCase {
               </ResponseMetadata>
             </CreateRoleResponse>
             """
-            callsRemaining -= 1
-            return .result(.init(httpStatus: .ok, body: ByteBuffer.init(string: createRoleResponse)), continueProcessing: callsRemaining > 0)
-        }
+        // createRole, attachRolePolicy
+        try waitToProcess([ByteBuffer(string: createRoleResponse), ByteBuffer(string: createRoleResponse)], mockServices: mockServices)
         wait(for: [resultReceived], timeout: 20.0)
     }
     func testCreateRoleThrowsWithInvalidResponse() throws {
@@ -727,27 +705,24 @@ class BlueGreenPublisherTests: XCTestCase {
             }
         
         // Stub the response
-        try mockServices.awsServer.processRaw { (request: AWSTestServer.Request) -> AWSTestServer.Result<AWSTestServer.Response> in
-            //request.uri.contains("policy")
-            let createRoleResponse = """
-            <CreateRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\">
-              <CreateRoleResult>
-                <Role>
-                  <Path>/</Path>
-                  <AssumeRolePolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%22Statement%22%3A%20%5B%7B%20%22Effect%22%3A%20%22Allow%22%2C%20%22Principal%22%3A%20%7B%22Service%22%3A%20%22lambda.amazonaws.com%22%7D%2C%20%22Action%22%3A%20%22sts%3AAssumeRole%22%7D%5D%7D</AssumeRolePolicyDocument>
-                  <RoleId>123456789012345678901</RoleId>
-                  <RoleName>invalid-role-name</RoleName>
-                  <Arn>arn:aws:iam::123456789012:role/invalid-role-name</Arn>
-                  <CreateDate>2021-06-14T15:15:43Z</CreateDate>
-                </Role>
-              </CreateRoleResult>
-              <ResponseMetadata>
-                <RequestId>1234567-7833-4471-a4f1-12345678912</RequestId>
-              </ResponseMetadata>
-            </CreateRoleResponse>
-            """
-            return .result(.init(httpStatus: .ok, body: ByteBuffer.init(string: createRoleResponse)), continueProcessing: false)
-        }
+        let createRoleResponse = """
+        <CreateRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\">
+          <CreateRoleResult>
+            <Role>
+              <Path>/</Path>
+              <AssumeRolePolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%22Statement%22%3A%20%5B%7B%20%22Effect%22%3A%20%22Allow%22%2C%20%22Principal%22%3A%20%7B%22Service%22%3A%20%22lambda.amazonaws.com%22%7D%2C%20%22Action%22%3A%20%22sts%3AAssumeRole%22%7D%5D%7D</AssumeRolePolicyDocument>
+              <RoleId>123456789012345678901</RoleId>
+              <RoleName>invalid-role-name</RoleName>
+              <Arn>arn:aws:iam::123456789012:role/invalid-role-name</Arn>
+              <CreateDate>2021-06-14T15:15:43Z</CreateDate>
+            </Role>
+          </CreateRoleResult>
+          <ResponseMetadata>
+            <RequestId>1234567-7833-4471-a4f1-12345678912</RequestId>
+          </ResponseMetadata>
+        </CreateRoleResponse>
+        """
+        try waitToProcess([ByteBuffer(string: createRoleResponse)], mockServices: mockServices)
         wait(for: [resultReceived], timeout: 20.0)
     }
 

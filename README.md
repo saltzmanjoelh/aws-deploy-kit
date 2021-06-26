@@ -87,7 +87,6 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 
 
 ### TODO
-Remove timestamp suffix
 Always check for alias, not just on creation
 
 The input for the Lambdas can vary. Maybe it takes a string value or maybe it takes json string that decodes to a dictionary.

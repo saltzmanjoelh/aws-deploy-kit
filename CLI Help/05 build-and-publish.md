@@ -1,19 +1,9 @@
 ```shell
-OVERVIEW: Build one or more executables inside of a Docker container. It will
-read your Swift package and build the executables of your choosing. If you
-leave the defaults, it will build all of the executables in the package. You
-can optionally choose to skip targets, or you can tell it to build only
-specific targets.
+OVERVIEW: Run both build and publish commands in one shot. `aws-deploy
+build-publish` supports all options from both commands. Please see the
+`aws-deploy build --help` and `aws-deploy publish --help` for a full reference.
 
-The Docker image `swift:5.3-amazonlinux2` will be used by default. You can
-override this by adding a Dockerfile to the root of the package's directory.
-
-The built products will be available at `./build/lambda/$EXECUTABLE/`. You will
-also find a zip in there which contains everything needed to update AWS Lambda
-code. The archive will be in the format `$EXECUTABLE_NAME.zip`.
-
-
-USAGE: aws-deploy build [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>]
+USAGE: aws-deploy build-and-publish [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>] [--function-role <function-role>] [--alias <alias>]
 
 ARGUMENTS:
   <products>              You can either specify which products you want to
@@ -47,5 +37,20 @@ OPTIONS:
                           all products are built, then this command will be ran
                           after each product is built, in their source
                           directory.
+  -f, --function-role <function-role>
+                          When publishing, if you need to create the function,
+                          this is the role being used to execute the function.
+                          If this is a new role, it will use the
+                          arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+                          policy. This policy can execute the Lambda and upload
+                          logs to Amazon CloudWatch Logs (logs::CreateLogGroup,
+                          logs::CreateLogStream and logs::PutLogEvents). If you
+                          don't provide a value for this the default will be
+                          used in the format $FUNCTION-role-$RANDOM. (default:
+                          nil)
+  -a, --alias <alias>     When publishing, this is the alias which will be
+                          updated to point to the new release. (default:
+                          development)
   -h, --help              Show help information.
+
 ```

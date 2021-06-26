@@ -7,7 +7,9 @@
 
 import Foundation
 import XCTest
-import AWSDeployCore
+import Logging
+import LogKit
+@testable import AWSDeployCore
 
 class ShellExecutorTests: XCTestCase {
     
@@ -19,6 +21,29 @@ class ShellExecutorTests: XCTestCase {
         try cleanupTestPackage()
     }
     
+    func testAppendLogHandlesEmptyMessage() {
+        let logs = LogCollector.Logs()
+        let message = Process.appendLog("", level: .error, logs: logs)
+        XCTAssertNil(message)
+        XCTAssertEqual(logs.allEntries.count, 0)
+    }
+    
+    func testStdOut() throws {
+        let testServices = MockServices()
+        let cmd = "echo \"stdout\""
+        let output: String = try Shell().run(cmd, logger: testServices.logger)
+        XCTAssertString(output, contains: "stdout")
+        let messages = testServices.logCollector.logs.allMessages()
+        XCTAssertString(messages, contains: "stdout\n")
+    }
+    func testStdErr() throws {
+        let testServices = MockServices()
+        let cmd = "echo \"stderr\" >> /dev/stderr"
+        let output: String = try Shell().run(cmd, logger: testServices.logger)
+        XCTAssertString(output, contains: "stderr")
+        let messages = testServices.logCollector.logs.allMessages()
+        XCTAssertString(messages, contains: "stderr\n")
+    }
     func testStdOutAndStdErrCombinedOutput() throws {
         // Messages printed to stderr should be included in the output
         let testServices = MockServices()
@@ -63,4 +88,5 @@ class ShellExecutorTests: XCTestCase {
             XCTFail(error)
         }
     }
+    
 }

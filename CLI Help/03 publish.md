@@ -1,4 +1,6 @@
 ```shell
+OVERVIEW: Publish the changes to a Lambda function using a blue green process.
+
 If there is no existing Lambda with a matching function name, this will create
 it for you. A role will also be created with AWSLambdaBasicExecutionRole access
 and assigned to the new Lambda.
@@ -11,12 +13,25 @@ function does not abort abnormally, the supplied alias (the default is
 `development`) will be updated to point to the new version of the Lambda.
 
 
-USAGE: aws-deploy publish [--directory <directory>]
+USAGE: aws-deploy publish [<archive-ur-ls> ...] [--function-role <function-role>] [--alias <alias>]
+
+ARGUMENTS:
+  <archive-ur-ls>         The URLs to the archives that you want to publish.
 
 OPTIONS:
-  -d, --directory <directory>
-                          Provide a custom path to the project directory
-                          instead of using the current working directory.
-                          (default: ./)
+  -f, --function-role <function-role>
+                          When publishing, if you need to create the function,
+                          this is the role being used to execute the function.
+                          If this is a new role, it will use the
+                          arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+                          policy. This policy can execute the Lambda and upload
+                          logs to Amazon CloudWatch Logs (logs::CreateLogGroup,
+                          logs::CreateLogStream and logs::PutLogEvents). If you
+                          don't provide a value for this the default will be
+                          used in the format $FUNCTION-role-$RANDOM. (default:
+                          nil)
+  -a, --alias <alias>     When publishing, this is the alias which will be
+                          updated to point to the new release. (default:
+                          development)
   -h, --help              Show help information.
 ```

@@ -25,15 +25,11 @@ public protocol ExecutablePackager {
 
 public struct Packager: ExecutablePackager {
     
-    let dateFormatter: ISO8601DateFormatter = {
-        let result = ISO8601DateFormatter()
-        return result
-    }()
     public init() {}
     
     /// After you have built an executable in Docker, this will package it and it's library dependencies into a zip archive
     /// and store it in the `destinationDirectory`. The default for this directory is a custom `lambda` sub-directory
-    /// of the Swift package's `.build` sub-directory. ie: `MyPackage/.build/lambda/executable_datetimestamp_.zip`.
+    /// of the Swift package's `.build` sub-directory. ie: `MyPackage/.build/lambda/executable.zip`.
     /// - Parameters:
     ///   - executable: The name of the executable that you want to package into a zip archive.
     ///   - packagePath: A path to the Swift Package that contains the built executable you are trying to package.
@@ -178,15 +174,22 @@ public struct Packager: ExecutablePackager {
                 output.components(separatedBy: "\n")
             })
             .flatMap({ $0 })
-        return lines.compactMap { (line: String) -> String? in
-            // Get the third column for each line
-            // [0] == "libswiftCore.so", [1] == "=>", [2] == "/usr/lib/swift/linux/libswiftCore.so", [3] == "(0x00007fb41d09c000)"
-            let components = line.components(separatedBy: " ")
-            guard components.count == 4 else { return nil }
-            return components[2]
-        }
+        return lines.compactMap { Self.parseLddLine($0)}
         // Prefix the packageDirectory and ".build/release/" to the names to get the full path
         .map({ URL(fileURLWithPath: $0) })
+    }
+    
+    /// Parse the output of the ldd output.
+    /// A line of output will look like this: `libswiftCore.so => /usr/lib/swift/linux/libswiftCore.so (0x00007fb41d09c000)`
+    /// - Parameters:
+    /// - line: A single line of ldd output in the form: `libswiftCore.so => /usr/lib/swift/linux/libswiftCore.so (0x00007fb41d09c000)`
+    /// - Returns: The path to the dependency: `/usr/lib/swift/linux/libswiftCore.so`
+    static func parseLddLine(_ line: String) -> String? {
+        // Get the third column for each line
+        // [0] == "libswiftCore.so", [1] == "=>", [2] == "/usr/lib/swift/linux/libswiftCore.so", [3] == "(0x00007fb41d09c000)"
+        let components = line.components(separatedBy: " ")
+        guard components.count == 4 else { return nil }
+        return components[2]
     }
     
     /// Uses Docker to copy a dependency to the destination directory.
@@ -244,6 +247,7 @@ public struct Packager: ExecutablePackager {
         guard services.fileManager.fileExists(atPath: archive.path) else {
             throw PackagerError.archiveNotFound(archive.path)
         }
+        services.logger.trace("Archived \(executable): \(archive)")
         return archive
     }
 }
@@ -275,8 +279,7 @@ extension Packager {
     ///   - destinationDirectory: The directory that we are copying files to before zipping it up
     /// - Returns: URL destination for packaging everything before we zip it up
     public func archivePath(for executable: String, in destinationDirectory: URL) -> URL {
-        let timestamp = dateFormatter.string(from: Date())
         return destinationDirectory
-            .appendingPathComponent("\(executable)_\(timestamp).zip")
+            .appendingPathComponent("\(executable).zip")
     }
 }

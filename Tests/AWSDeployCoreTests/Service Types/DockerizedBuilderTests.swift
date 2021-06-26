@@ -1,5 +1,5 @@
 //
-//  BuildInDockerTests.swift
+//  DockerizedBuilderTests.swift
 //
 //
 //  Created by Joel Saltzman on 3/25/21.
@@ -13,7 +13,7 @@ import SotoCore
 import XCTest
 import Mocking
 
-class BuildInDockerTests: XCTestCase {
+class DockerizedBuilderTests: XCTestCase {
     
     var instance: DockerizedBuilder!
     var mockServices: MockServices!
@@ -130,16 +130,18 @@ class BuildInDockerTests: XCTestCase {
         // This is a control function that simply calls other functions.
         // We test those functions separately. This is more for the code coverage.
         // Given a successful build
-        let archiveURL = URL(fileURLWithPath: "archive.zip")
+        let packageDirectory = tempPackageDirectory()
+        let buildDir = DockerizedBuilder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices)
         mockServices.mockBuilder.preBuildCommand = "ls -al"
         mockServices.mockBuilder.postBuildCommand = "ls -al"
         mockServices.mockBuilder.getDockerfilePath = { _ in return URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile") }
         mockServices.mockBuilder.prepareDockerImage = { _ in return .init() }
         mockServices.mockBuilder.executeShellCommand = { _ in }
         mockServices.mockBuilder.buildProduct = { _ in return .init() }
-        mockServices.mockBuilder.getBuiltProductPath = { _ in return archiveURL }
+        mockServices.mockBuilder.getBuiltProductPath = { _ in return buildDir }
+        mockServices.mockPackager.packageExecutable = { _ in return buildDir.appendingPathComponent("archive.zip") }
         
-        XCTAssertNoThrow(try instance.buildProducts([ExamplePackage.executableOne], at: tempPackageDirectory(), services: mockServices))
+        XCTAssertNoThrow(try instance.buildProducts([ExamplePackage.executableOne], at: packageDirectory, services: mockServices))
         XCTAssertTrue(mockServices.mockBuilder.$getDockerfilePath.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$prepareDockerImage.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$executeShellCommand.wasCalled)

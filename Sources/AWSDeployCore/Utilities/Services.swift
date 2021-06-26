@@ -28,6 +28,7 @@ public protocol Servicable {
     var packager: ExecutablePackager { get set }
 //    var uploader: ArchiveUploader { get set }
     var publisher: Publisher { get set }
+    var invoker: Invoker { get set }
 }
 
 public class Services: Servicable {
@@ -65,6 +66,7 @@ public class Services: Servicable {
     public var builder: Builder = DockerizedBuilder()
     public var packager: ExecutablePackager = Packager()
     public var publisher: Publisher = BlueGreenPublisher()
+    public var invoker: Invoker = LambdaInvoker()
 
     public init(region: String = "us-west-1") {
         let client = AWSClient(credentialProvider: .default, httpClientProvider: .createNew)

@@ -8,4 +8,4 @@
 import AWSDeployCore
 import Foundation
 
-AWSDeploy.main()
+AWSDeployCommand.main()

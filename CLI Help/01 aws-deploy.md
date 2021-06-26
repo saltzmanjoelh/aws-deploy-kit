@@ -17,7 +17,7 @@ OPTIONS:
   -h, --help              Show help information.
 
 SUBCOMMANDS:
-  build (default)         Build one or more executables inside of a Docker
+  build                   Build one or more executables inside of a Docker
                           container. It will read your Swift package and build
                           the executables of your choosing. If you leave the
                           defaults, it will build all of the executables in the
@@ -56,6 +56,13 @@ SUBCOMMANDS:
                           process to verify that the Lambda is still running
                           properly before the alias is updated.
                           You could also use this when debugging
+  build-and-publish (default)
+                          Run both build and publish commands in one shot.
+                          `aws-deploy build-publish` supports all options from
+                          both commands. Please see the `aws-deploy build
+                          --help` and `aws-deploy publish --help` for a full
+                          reference.
 
   See 'aws-deploy help <subcommand>' for detailed help.
+
 ```

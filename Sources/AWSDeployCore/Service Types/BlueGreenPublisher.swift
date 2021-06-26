@@ -38,6 +38,9 @@ public protocol Publisher {
 
 // MARK: - BlueGreenPublisher
 public struct BlueGreenPublisher: Publisher {
+    
+    static var basicExecutionRole = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+    
     /// If the Lambda that we are trying to create does not exist already, we create it.
     /// This is the role that we use in it's execution policy.
     public var functionRole: String? = nil
@@ -70,7 +73,7 @@ public struct BlueGreenPublisher: Publisher {
     public func publishArchive(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
         // because it gives us a way to use mocks. Maybe convert to static instead?
-        services.logger.trace("--- Publishing: \(archiveURL.lastPathComponent) ---")
+        services.logger.trace("--- Publishing: \(archiveURL) ---")
         // Get the name of the function
         return parseFunctionName(from: archiveURL, services: services)
             // Get it's current configuration
@@ -126,7 +129,7 @@ extension BlueGreenPublisher {
         .flatMap { services.publisher.updateAliasVersion($0, alias: alias, services: services) }
 
         .map {
-            services.logger.trace("Done updating: \(archiveURL.lastPathComponent)")
+            services.logger.trace("Done updating Lambda: \(archiveURL.lastPathComponent)")
             return $0
         }
     }
@@ -171,7 +174,6 @@ extension BlueGreenPublisher {
     ///    - alias: The alias that will reference this version of the new function.
     /// - Returns: FunctionConfiguration of the updated Lambda function.
     public func createLambda(with archiveURL: URL, role: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        services.logger.trace("Create function code")
         return services.publisher.createFunctionCode(archiveURL: archiveURL, role: role, services: services)
             // Lock the code by publishing a new version.
             .flatMap { services.publisher.publishLatest($0, services: services) }
@@ -194,6 +196,7 @@ extension BlueGreenPublisher {
     ///    - role: The name of the service role used for executing the Lambda
     /// - Returns: FunctionConfiguration of the updated Lambda function.
     public func createFunctionCode(archiveURL: URL, role: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        services.logger.trace("Create function code from: \(archiveURL)")
         guard let data = services.fileManager.contents(atPath: archiveURL.path),
               data.count > 0
         else {
@@ -221,7 +224,7 @@ extension BlueGreenPublisher {
     }
     
     /// Uses the supplied functionRole if it's available. Otherwise it creates a unique one.
-    /// - Parameter archiveURL: Path to the archive to parse the filename of if the functionRole is nil. The filename must be in the format function_ISO8601Date.
+    /// - Parameter archiveURL: Path to the archive to parse the filename of if the functionRole is nil. The filename must be in the format `function-name.zip`.
     /// - Returns String that represents the name of the role.
     public func getRoleName(archiveURL: URL, services: Servicable) -> EventLoopFuture<String> {
         guard let role = functionRole else {
@@ -272,7 +275,7 @@ extension BlueGreenPublisher {
             })
             .flatMap { (roleName: String) -> EventLoopFuture<Void> in
                 // Attaches the AWSLambdaBasicExecutionRole
-                services.iam.attachRolePolicy(.init(policyArn: "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                services.iam.attachRolePolicy(.init(policyArn: BlueGreenPublisher.basicExecutionRole,
                                                     roleName: roleName))
             }
             .map({ roleName })
@@ -285,19 +288,17 @@ extension BlueGreenPublisher {
 extension BlueGreenPublisher {
     
     /// Parses the Lambda function name out of the archive name.
-    /// - Parameter archiveURL: Path to the archive to parse the filename of. The filename must be in the format function_ISO8601Date
+    /// - Parameter archiveURL: Path to the archive to parse the filename of. The filename must be in the format `function-name.zip`
     /// - Returns: Function name prefix of an archive.
     public static func parseFunctionName(from archiveURL: URL) throws -> String {
-        // Given a name like my-function_ISO8601Date.zip
-        var components = archiveURL.lastPathComponent.components(separatedBy: "_")
+        // Given a name like my-function.zip
+        let functionName = archiveURL.lastPathComponent.replacingOccurrences(of: ".zip", with: "")
 
-        guard components.count >= 2 else {
-            // At very least there should be the function_ISO8601Date.zip
+        guard functionName.count > 0 else {
+            // At very least there should be the function_name.zip
             throw BlueGreenPublisherError.invalidArchiveName(archiveURL.path)
         }
-        // In the case of one or more underscores in the function name, we should return all but the last 1 component since it's the date and time.
-        components.removeLast()
-        return components.joined(separator: "_") // components were joined by dashes we are just dropping the last two.
+        return functionName
     }
 
     /// Uses `Lambda.getFunctionConfiguration` to get the functions current configuration.
@@ -357,28 +358,12 @@ extension BlueGreenPublisher {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("version", "verifyLambda"))
         }
 
-        // TODO: Maybe we can pass in some expected input?
-        // The payload doesn't matter, a different kind of error will be returned.
         let functionVersion = "\(functionName):\(version)"
-        let payload = Data()// APIGateway.V2.Request.wrapRawBody(url: URL(string: "https://verify.lambda")!, httpMethod: .POST, body: "")
-        services.logger.trace("Verifying Lambda: \(functionVersion). Payload: \(String(data: payload, encoding: .utf8)!)")
-        
-        let action: () -> EventLoopFuture<Lambda.FunctionConfiguration> = {
-            services.lambda.invoke(.init(functionName: functionVersion, payload: .data(payload)), logger: services.awsLogger)
-                .flatMapThrowing { (response: Lambda.InvocationResponse) -> Lambda.FunctionConfiguration in
-                    // Throw if there was an error executing the funcion
-                    if let _ = response.functionError,
-                       let message = response.payload?.asString()
-                    {
-                        throw BlueGreenPublisherError.invokeLambdaFailed(functionName, message)
-                    }
-                    return configuration
-                }
-        }
         
         // Delay the execution for a second while AWS wraps up.
         return services.lambda.eventLoopGroup.next().flatScheduleTask(in: TimeAmount.milliseconds(250)) { () -> EventLoopFuture<Lambda.FunctionConfiguration> in
-            action()
+            services.invoker.invoke(function: functionVersion, with: "", services: services)
+                .map({ _ in configuration })
         }.futureResult
         // TODO: Maybe retry after delay again?
 //        .flatMapError({ _ in

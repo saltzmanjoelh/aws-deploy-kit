@@ -126,6 +126,16 @@ class PackagerTests: XCTestCase {
         XCTAssertTrue(result.description.contains("/usr/lib/swift/linux/libswiftCore.so"), "\(result.description) should contain: libswiftCore.so")
         XCTAssertTrue(result.description.contains("/usr/lib/swift/linux/libicudataswift.so.65"), "\(result.description) should contain: libicudataswift.so.65")
     }
+    func testParseLddLineHandlesInvalidInput() {
+        // Given a invalid input
+        let line = "nothing"
+        
+        // When calling parseLddLine
+        let result = Packager.parseLddLine(line)
+        
+        // Then nil should be returned
+        XCTAssertNil(result)
+    }
     func testCopyDependency() throws {
         // Given a valid URL to a dependency
         let dependency = URL(fileURLWithPath: "/usr/lib/swift/linux/libswiftCore.so")
@@ -229,9 +239,6 @@ class PackagerTests: XCTestCase {
         let archivePath = instance.archivePath(for: ExamplePackage.executableOne,
                                                in: instance.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory))
         XCTAssertTrue(archivePath.description.contains(ExamplePackage.executableOne), "The archive path should contain the executable name")
-        XCTAssertTrue(archivePath.description.contains("_"), "The archive path should contain an underscore to separate the executable name and timestamp.")
-        XCTAssertTrue(archivePath.description.contains(":"), "The archive path should contain a colon in the timestamp.")
-        XCTAssertTrue(archivePath.description.contains("Z"), "The timestamp portion of the archive path  should contain Z")
     }
     func testArchiveContents() throws {
         // Given a succesful zip

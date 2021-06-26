@@ -32,7 +32,7 @@ public struct DockerizedBuilder: Builder {
     public init() {}
 
     /// Build the products in Docker.
-    /// - Returns: Array of URLs to the built executables.
+    /// - Returns: Array of URLs to the archive that contains built executables and their dependencies.
     public func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL] {
         let dockerfilePath = try services.builder.getDockerfilePath(from: packageDirectory, services: services)
         _ = try services.builder.prepareDockerImage(at: dockerfilePath, services: services)
@@ -41,9 +41,13 @@ public struct DockerizedBuilder: Builder {
             _ = try services.builder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: nil)
             let url = try services.builder.getBuiltProductPath(at: packageDirectory, for: product, services: services)
             try services.builder.executeShellCommand(postBuildCommand, for: product, at: packageDirectory, services: services)
+            services.logger.trace("-- Built \(product) at: \(url) ---")
             return url
         }
-        return executableURLs
+        return try executableURLs
+            .map({ executableURL in
+                try services.packager.packageExecutable(executableURL.lastPathComponent, at: packageDirectory, services: services)
+            })
     }
 
     
@@ -140,7 +144,7 @@ public struct DockerizedBuilder: Builder {
     /// - Parameters:
     ///   - packageDirectory: The directory to find the package in.
     ///   - product: The name of the product to build.
-    /// - Returns: URL to the build product.
+    /// - Returns: URL of the built product.
     /// - Throws: If the built product is not available.
     public func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
         let url = Self.URLForBuiltExecutable(at: packageDirectory,
