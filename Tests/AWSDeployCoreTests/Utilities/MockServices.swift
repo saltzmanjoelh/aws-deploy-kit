@@ -20,7 +20,7 @@ import Mocking
 class MockServices: Servicable {
     
     private var didStart = false
-    let logCollector = LogCollector()
+    var logCollector = LogCollector()
     lazy var logger: Logger = {
         var result = CollectingLogger(label: "Testing Logger", logCollector: logCollector)
         result.logLevel = .trace

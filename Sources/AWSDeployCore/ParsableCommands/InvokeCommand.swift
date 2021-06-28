@@ -18,14 +18,14 @@ struct InvokeCommand: ParsableCommand {
 
 struct InvokeOptions: ParsableArguments {
     
-    @Argument(help: "The name of the Lambda function, version, or alias.  Name formats     Function name - my-function (name-only), my-function:v1 (with alias).\nFunction ARN - arn:aws:lambda:us-west-2:123456789012:function:my-function.\nPartial ARN - 123456789012:function:my-function.\nYou can append a version number or alias to any of the formats. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.")
+    @Argument(help: "The name of the Lambda function, version, or alias.  Name formats: Function name, my-function (name-only), my-function:v1 (with alias).\nFunction ARN - arn:aws:lambda:us-west-2:123456789012:function:my-function.\nPartial ARN - 123456789012:function:my-function.\nYou can append a version number or alias to any of the formats. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.")
     var function: String
     
-    @Option(name: [.customShort("l"), .long], help: "If you don't provide a payload, an empty string will be sent. Sending an empty string simply checks if the function has any startup errors. It would be more useful if you customize this option with a JSON string that your function can parse and run with. You can provide the JSON string directly. Or if you prefix the string with \"file://\" followed by a path to a file that contains JSON, it will parse the file and use it's contents.")
+    @Argument(help: "If you don't provide a payload, an empty string will be sent. Sending an empty string simply checks if the function has any startup errors. It would be more useful if you customize this option with a JSON string that your function can parse and run with. You can provide the JSON string directly. Or if you prefix the string with \"file://\" followed by a path to a file that contains JSON, it will parse the file and use it's contents.")
     var payload: String = ""
     
-    @Option(name: [.short, .long], help: "If you leave this empty, it will use the default AWS URL. You can override this with a local URL for debugging.")
-    var endpointURL: String = ""
+//    @Option(name: [.short, .long], help: "If you leave this empty, it will use the default AWS URL. You can override this with a local URL for debugging.")
+//    var endpointURL: String = ""
 }
 
 

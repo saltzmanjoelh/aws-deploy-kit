@@ -185,7 +185,7 @@ extension BlueGreenPublisher {
             .flatMap { services.publisher.updateAliasVersion($0, alias: alias, services: services) }
             
             .map {
-                services.logger.trace("Done updating: \(archiveURL.lastPathComponent)")
+                services.logger.trace("Done creating Lambda: \(archiveURL.lastPathComponent)")
                 return $0
             }
     }
@@ -388,7 +388,10 @@ extension BlueGreenPublisher {
         return services.lambda.publishVersion(
             .init(codeSha256: codeSha256, functionName: functionName),
             logger: services.awsLogger
-        )
+        ).map({ config in
+            services.logger.trace("New version: \(config.version ?? "No Version Specified")")
+            return config
+        })
     }
     
     /// Updates the supplied alias to point to a different version number.

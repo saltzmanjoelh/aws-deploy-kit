@@ -7,6 +7,7 @@
 
 import Foundation
 import Logging
+import LogKit
 import SotoLambda
 import SotoS3
 import SotoSTS
@@ -14,6 +15,7 @@ import SotoIAM
 import Mocking
 
 public protocol Servicable {
+    var logCollector: LogCollector { get set }
     var logger: Logger { get set }
     var fileManager: FileManageable { get set }
     var sts: STS  { get set }
@@ -53,6 +55,7 @@ public class Services: Servicable {
         return Lambda(client: client, region: .init(rawValue: region), timeout: TimeAmount.minutes(4))
     }
 
+    public var logCollector: LogCollector
     public var logger: Logger
     public var fileManager: FileManageable
     public var client: AWSClient
@@ -76,7 +79,8 @@ public class Services: Servicable {
         self.iam = Self.createIAMService(region: region, client: client)
         self.lambda = Self.createLambdaService(region: region, client: client)
         self.fileManager = FileManager.default
-        self.logger = Logger(label: "AWSDeployKit")
+        self.logCollector = LogCollector()
+        self.logger = CollectingLogger(label: "AWSDeployKit", logCollector: logCollector)
         self.logger.logLevel = .trace
     }
 

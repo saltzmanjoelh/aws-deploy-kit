@@ -27,6 +27,8 @@ enum ExamplePackage {
     static var executableTwo = "executableTwo"
     static var executableThree = "executableThree"
     static var executables = [ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
+    
+    static var invokeJSON = "{\"name\": \"World!\"}"
 }
 
 func tempPackageDirectory() -> URL {

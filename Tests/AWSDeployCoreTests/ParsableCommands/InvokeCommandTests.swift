@@ -29,7 +29,7 @@ class InvokeCommandTests: XCTestCase {
         // Setup
         let payload = "{\"key\":\"value\"}"
         let expectedResponse = "success"
-        var instance = try InvokeCommand.parseAsRoot(["my-function", "-l", payload])
+        var instance = try InvokeCommand.parseAsRoot(["my-function", payload])
         Services.shared = mockServices
         defer { Services.shared = Services() }
         // Given a successful invocation
@@ -48,7 +48,7 @@ class InvokeCommandTests: XCTestCase {
     func testRunHandlesEmptyResponse() throws {
         // Setup
         let payload = "{\"key\":\"value\"}"
-        var instance = try InvokeCommand.parseAsRoot(["my-function", "-l", payload])
+        var instance = try InvokeCommand.parseAsRoot(["my-function", payload])
         Services.shared = mockServices
         defer { Services.shared = Services() }
         // Given a successful invocation
