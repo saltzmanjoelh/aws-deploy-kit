@@ -87,7 +87,8 @@ You only need 2 lines in the `main.swift` file:
 * Press `cmd` + `shift` + `<` to edit the scheme.
 * Add the `build-and-publish` command in the "Arguments Passed On Launch" section
 * Add the path to your project in the "Arguments Passed On Launch" section `-d /path/to/project/`.
-* This is enough to build in Docker and publish to an AWS Lambda
+* Make sure that Docker is running
+* Run the `Deploy` target. It will build and publish to AWS Lambda
 ![Example Setup](ExampleSetup.png)
 
 Now when you want to deploy, simply pick your new target and run. Logs should appear in the Xcode console. 
