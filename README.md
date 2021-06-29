@@ -69,6 +69,14 @@ Create a new target. Let's call this new target `Deploy` for the example.
     ]),
 ```
 
+`aws-deploy-kit` requires at least macOS 10.12. Make sure to add this to the package manifest
+
+```swift
+platforms: [
+    .macOS(.v10_12)
+],
+```
+
 You only need 2 lines in the `main.swift` file:
   ```swift
   import AWSDeployCore
