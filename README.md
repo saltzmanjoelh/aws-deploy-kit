@@ -80,7 +80,7 @@ platforms: [
 You only need 2 lines in the `main.swift` file:
   ```swift
   import AWSDeployCore
-  AWSDeploy.main()
+  AWSDeployCommand.main() // This will parse your "Arguments Passed On Launch" in the Edit Scheme window 
   ```
   
 * Switch your selected target in Xcode to your new target `Deploy`.
