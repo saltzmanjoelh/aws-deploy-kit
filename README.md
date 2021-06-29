@@ -99,4 +99,4 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 
 * Build the `aws-deploy` target.
 * Copy to `/usr/local/bin` or similar.
-* Run it with the path to your project directory. `aws-deploy -d /path/to/project executable-name -p`.
+* Run it with the path to your project directory. `aws-deploy build-and-publish -d /path/to/project executable-name -p`.
