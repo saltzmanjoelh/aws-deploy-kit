@@ -47,8 +47,7 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"),
                 .product(name: "AWSLambdaEvents", package: "swift-aws-lambda-runtime"),
-            ],
-            resources: [.process("scripts")]
+            ]
         ),
         .testTarget(
             name: "AWSDeployCoreTests",

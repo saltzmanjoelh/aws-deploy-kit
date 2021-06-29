@@ -11,7 +11,7 @@ ARGUMENTS:
                           my-function:v1 (with alias).
                           Function ARN -
                           arn:aws:lambda:us-west-2:123456789012:function:my-function.
-Partial
+                          Partial
                           ARN - 123456789012:function:my-function.
                           You can append a version number or alias to any of
                           the formats. The length constraint applies only to

@@ -1,8 +1,8 @@
 ```shell
-OVERVIEW: Build one or more executables inside of a Docker container. It will
-read your Swift package and build the executables of your choosing. If you
-leave the defaults, it will build all of the executables in the package. You
-can optionally choose to skip targets, or you can tell it to build only
+OVERVIEW: Build one or more executables inside of a Docker container. 
+It will read your Swift package and build the executables of your choosing. 
+If youleave the defaults, it will build all of the executables in the package. 
+You can optionally choose to skip targets, or you can tell it to build only
 specific targets.
 
 The Docker image `swift:5.3-amazonlinux2` will be used by default. You can
