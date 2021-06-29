@@ -18,12 +18,12 @@ class MockBuilder: Builder {
     
     static var liveBuilder = DockerizedBuilder()
     
-    func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL] {
-        return try $buildProducts.getValue((products, packageDirectory, services))
+    func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", services: Servicable) throws -> [URL] {
+        return try $buildProducts.getValue((products, packageDirectory, skipProducts, services))
     }
     @ThrowingMock
-    var buildProducts = { (products: [String], packageDirectory: URL, services: Servicable) throws -> [URL] in
-        return try liveBuilder.buildProducts(products, at: packageDirectory, services: services)
+    var buildProducts = { (products: [String], packageDirectory: URL, skipProducts: String, services: Servicable) throws -> [URL] in
+        return try liveBuilder.buildProducts(products, at: packageDirectory, skipProducts: skipProducts, services: services)
     }
     
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL {

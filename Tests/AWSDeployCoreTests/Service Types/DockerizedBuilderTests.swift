@@ -21,9 +21,6 @@ class DockerizedBuilderTests: XCTestCase {
     override func setUp() {
         instance = DockerizedBuilder()
         mockServices = MockServices()
-        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
-            return .stubMessage(level: .trace, message: "/path/to/app.zip")
-        }
     }
     override func tearDownWithError() throws {
         try super.tearDownWithError()
@@ -56,7 +53,7 @@ class DockerizedBuilderTests: XCTestCase {
             XCTFail("An error should have been thrown")
         } catch {
             // Then BuildInDockerError.invalidDockerfilePath should be thrown
-            XCTAssertEqual("\(error)", BuildInDockerError.invalidDockerfilePath(URL(fileURLWithPath: packageDirectory).path).description)
+            XCTAssertEqual("\(error)", DockerizedBuilderError.invalidDockerfilePath(URL(fileURLWithPath: packageDirectory).path).description)
         }
     }
     func testGetDefaultDockerfilePath() throws {
@@ -119,7 +116,7 @@ class DockerizedBuilderTests: XCTestCase {
             _ = try instance.getBuiltProductPath(at: URL(fileURLWithPath: "/tmp"), for: "executable", services: mockServices)
             
             XCTFail("An error should have been thrown")
-        } catch BuildInDockerError.builtProductNotFound(_) {
+        } catch DockerizedBuilderError.builtProductNotFound(_) {
             // Then BuildInDockerError.builtProductNotFound should be thrown
         } catch {
             XCTFail(error)
@@ -164,7 +161,7 @@ class DockerizedBuilderTests: XCTestCase {
             _ = try instance.buildProducts([ExamplePackage.executableOne], at: packageDirectory, services: mockServices)
 
             XCTFail("An error should have been thrown.")
-        } catch BuildInDockerError.builtProductNotFound(_) {
+        } catch DockerizedBuilderError.builtProductNotFound(_) {
             // Then an error should be throw
         } catch {
             XCTFail(error)
@@ -258,5 +255,81 @@ class DockerizedBuilderTests: XCTestCase {
         
         // Then the shell should NOT be called
         XCTAssertFalse(mockServices.mockShell.$launchShell.wasCalled)
+    }
+    
+    func testValidateProducts_logsWhenSkippingProducts() throws {
+        // Given a product to skip
+        let skipProducts = ExamplePackage.executableThree
+        let packageDirectory = try createTempPackage()
+
+        // When calling verifyConfiguration
+        _ = try instance.validateProducts([], skipProducts: skipProducts, at: packageDirectory, services: mockServices)
+
+        // Then a "Skipping $PRODUCT" log should be received
+        let messages = mockServices.logCollector.logs.allMessages()
+        XCTAssertString(messages, contains: "Skipping: \(ExamplePackage.executableThree)")
+    }
+    func testVerifyConfiguration_throwsWithMissingProducts() throws {
+        // Given a package without any executables
+        let packageDirectory = URL(fileURLWithPath: "/invalid")
+        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
+            let packageManifest = "{\"products\" : []}" // Result of an empty package
+            return .stubMessage(level: .trace, message: packageManifest)
+        }
+
+        do {
+            // When calling validateProducts
+            _ = try instance.validateProducts([], skipProducts: "", at: packageDirectory, services: mockServices)
+
+            XCTFail("An error should have been thrown.")
+        } catch DockerizedBuilderError.missingProducts {
+            // Then the DockerizedBuilderError.missingProducts error should be thrown
+        } catch {
+            XCTFail(String(describing: error))
+        }
+    }
+
+    func testGetProducts() throws {
+        // Given a package with a library and multiple executables
+        let packageDirectory = try createTempPackage()
+
+        // When calling getProducts
+        let result = try instance.getProducts(at: packageDirectory, services: mockServices)
+
+        // Then all executables should be returned
+        XCTAssertEqual(result.count, ExamplePackage.executables.count)
+    }
+    func testGetProductsThrowsWithInvalidShellOutput() throws {
+        // Give a failed shell output
+        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
+            return .stubMessage(level: .trace, message: "")
+        }
+
+        // When calling getProducts
+        do {
+            _ = try instance.getProducts(at: URL(fileURLWithPath: ""), services: mockServices)
+
+            XCTFail("An error should have been thrown.")
+        } catch {
+            // Then DockerizedBuilderError.packageDumpFailure is thrown
+            XCTAssertEqual("\(error)", DockerizedBuilderError.packageDumpFailure.description)
+        }
+    }
+
+    func testRemoveSkippedProducts() {
+        // Given a list of skipProducts for a process
+        let skipProducts = ExamplePackage.executableThree
+        let processName = ExamplePackage.executableTwo // Simulating that executableTwo is the executable that does the deployment
+
+        // When calling removeSkippedProducts
+        let result = DockerizedBuilder.removeSkippedProducts(skipProducts,
+                                                             from: ExamplePackage.executables,
+                                                             logger: mockServices.logger,
+                                                             processName: processName)
+
+        // Then the remaining products should not contain the skipProducts
+        XCTAssertFalse(result.contains(skipProducts), "The \"skipProducts\": \(skipProducts) should have been removed.")
+        // or a product with a matching processName
+        XCTAssertFalse(result.contains(processName), "The \"processName\": \(processName) should have been removed.")
     }
 }

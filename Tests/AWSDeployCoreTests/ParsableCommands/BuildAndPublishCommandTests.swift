@@ -29,7 +29,7 @@ class BuildAndPublishCommandTests: XCTestCase {
     func testRunWithMocks() throws {
         // Given a valid configuration
         let packageDirectory = tempPackageDirectory()
-        var instance = try! AWSDeployCommand.parseAsRoot(["build-and-publish", "-d", packageDirectory.path, ExamplePackage.executableOne]) as! BuildAndPublishCommand
+        var instance = try! AWSDeployCommand.parseAsRoot(["build-and-publish", ExamplePackage.executableOne, "-d", packageDirectory.path]) as! BuildAndPublishCommand
         Services.shared = mockServices
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
             return [DockerizedBuilder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]

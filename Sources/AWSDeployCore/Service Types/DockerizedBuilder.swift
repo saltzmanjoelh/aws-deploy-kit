@@ -16,7 +16,7 @@ public protocol Builder {
     var preBuildCommand: String { get set }
     var postBuildCommand: String { get set }
     
-    func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL]
+    func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String, services: Servicable) throws -> [URL]
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL
     func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String
     func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws
@@ -33,10 +33,12 @@ public struct DockerizedBuilder: Builder {
 
     /// Build the products in Docker.
     /// - Returns: Array of URLs to the archive that contains built executables and their dependencies.
-    public func buildProducts(_ products: [String], at packageDirectory: URL, services: Servicable) throws -> [URL] {
+    public func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", services: Servicable) throws -> [URL] {
+        services.logger.trace("Build products at: \(packageDirectory.path)")
+        let parseProducts = try validateProducts(products, skipProducts: skipProducts, at: packageDirectory, services: services)
         let dockerfilePath = try services.builder.getDockerfilePath(from: packageDirectory, services: services)
         _ = try services.builder.prepareDockerImage(at: dockerfilePath, services: services)
-        let executableURLs = try products.map { (product: String) -> URL in
+        let executableURLs = try parseProducts.map { (product: String) -> URL in
             try services.builder.executeShellCommand(preBuildCommand, for: product, at: packageDirectory, services: services)
             _ = try services.builder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: nil)
             let url = try services.builder.getBuiltProductPath(at: packageDirectory, for: product, services: services)
@@ -89,7 +91,7 @@ public struct DockerizedBuilder: Builder {
     public func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String {
         services.logger.trace("Preparing Docker image.")
         guard services.fileManager.fileExists(atPath: dockerfilePath.path) else {
-            throw BuildInDockerError.invalidDockerfilePath(dockerfilePath.path)
+            throw DockerizedBuilderError.invalidDockerfilePath(dockerfilePath.path)
         }
         let directory = dockerfilePath.deletingLastPathComponent()
         let command = "/usr/local/bin/docker build --file \(dockerfilePath.path) . -t \(Docker.Config.containerName)  --no-cache"
@@ -151,8 +153,84 @@ public struct DockerizedBuilder: Builder {
                                              for: product,
                                              services: services)
         guard services.fileManager.fileExists(atPath: url.path) else {
-            throw BuildInDockerError.builtProductNotFound(url.path)
+            throw DockerizedBuilderError.builtProductNotFound(url.path)
         }
         return url
+    }
+}
+
+extension DockerizedBuilder {
+    /// If no products were supplied, reads the package for a list of products. If any skip products were supplied, removes those.
+    public func validateProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String] {
+        var result = products
+        if products.count == 0 {
+            result = try self.getProducts(at: packageDirectory, of: .executable, services: services)
+        }
+        result = Self.removeSkippedProducts(skipProducts, from: result, logger: services.logger)
+        if result.count == 0 {
+            throw DockerizedBuilderError.missingProducts
+        }
+        return result
+    }
+    
+    /// Get an array of products of a specific type in a Swift package.
+    /// - Parameters:
+    ///   - packageDirectory: String path to the directory that contains the package.
+    ///   - type: The ProductTypes you want to get.
+    /// - Returns: Array of product names in the package.
+    public func getProducts(at packageDirectory: URL, of type: ProductType = .executable, services: Servicable) throws -> [String] {
+        let command = "swift package dump-package"
+        let logs: LogCollector.Logs = try services.shell.run(
+            command,
+            at: packageDirectory,
+            logger: services.logger
+        )
+        
+        // For some unknown reason, we get this error in stderr.
+        // Failed to open macho file at /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift for reading: Too many levels of symbolic links.
+        // Filter the logs so that we only read trace level messages and ignore that error that came from stderr.
+        guard let output = logs.filter(level: .trace).last?.message, // Get the last line of output, it should be json.
+              let data = output.data(using: .utf8),
+              data.count > 0
+        else {
+            throw DockerizedBuilderError.packageDumpFailure
+        }
+        let package = try JSONDecoder().decode(SwiftPackage.self, from: data)
+        
+        // Remove empty values
+        let allProducts: [String] = package.products.filter { (product: SwiftPackage.Product) in
+            product.isExecutable == (type == .executable)
+        }.map({ $0.name })
+        return allProducts
+    }
+    
+    /// Filters the `skipProducts` from the list of `products`.
+    /// If the running process named `processName` is in the list of products,
+    /// it will be skipped as well. We do this for when we want to include a deployment target in a project.
+    /// The deployment target deploys the executables in the package. However, the deployment target is
+    /// an executable itself. We don't want to have to specify that it should skip itself. We know that it should
+    /// be skipped.
+    /// - Returns: An array of product names with the `skipProducts` and `processName` filtered out.
+    static func removeSkippedProducts(_ skipProducts: String,
+                                      from products: [String],
+                                      logger: Logger,
+                                      processName: String = ProcessInfo.processInfo.processName) -> [String] {
+        var skips = skipProducts
+            .components(separatedBy: ",")
+            .filter({ $0.trimmingCharacters(in: .whitespacesAndNewlines).count > 0 })
+        var remainingProducts = products
+        if remainingProducts.contains(processName) {
+            skips.append(processName)
+        }
+        guard skips.count > 0 else { return remainingProducts }
+        
+        // Remove the products that were requested to be skipped
+        logger.trace("Skipping: \(skips.joined(separator: ", "))")
+        if skips.count > 0 {
+            remainingProducts.removeAll { (product: String) -> Bool in
+                skips.contains(product)
+            }
+        }
+        return remainingProducts
     }
 }

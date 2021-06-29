@@ -52,5 +52,4 @@ OPTIONS:
                           updated to point to the new release. (default:
                           development)
   -h, --help              Show help information.
-
-```
+  ```
