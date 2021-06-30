@@ -32,6 +32,9 @@ class DockerizedBuilderTests: XCTestCase {
         // Given an a valid package with a Dockerfile
         let packageDirectory = tempPackageDirectory()
         let dockerFile = packageDirectory.appendingPathComponent("Dockerfile")
+        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
+            return .stubMessage(level: .trace, message: "")
+        }
 
         // When calling prepareDockerImage
         _ = try instance.prepareDockerImage(at: dockerFile, services: mockServices)
@@ -171,6 +174,9 @@ class DockerizedBuilderTests: XCTestCase {
     func testBuildProduct() throws {
         // Setup
         let packageDirectory = try createTempPackage()
+        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
+            return .stubMessage(level: .trace, message: "/path/to/app.zip")
+        }
         // Given a valid package
         let instance = DockerizedBuilder()
 
