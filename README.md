@@ -17,7 +17,8 @@ swift run aws-deploy build-and-publish -d /path/to/project aws-lambda-function-n
 ```
 
 ## [Commands](cli-help/)
-### [Build](cli-help/02-build.md)
+
+### [build](cli-help/02-build.md)
 Build one or more executables inside of a Docker container. 
 
 It will read your Swift package and build the executables of your choosing. If you leave the defaults, it will build all of the executables in the package. You can optionally choose to skip targets, or you can tell it to build only specific targets.
@@ -30,7 +31,7 @@ The built products will be available at `./build/lambda/$EXECUTABLE_NAME/`. You 
 
 Please see the [aws-deploy build --help](cli-help/02-build.md) for a complete reference on this command.
 
-### [Publish](cli-help/03-publish.md)
+### [publish](cli-help/03-publish.md)
 Publish the changes to a Lambda function using a blue green process.
 
 If there is no existing Lambda with a matching function name, this will create it for you. A role will also be created with AWSLambdaBasicExecutionRole access and assigned to the new Lambda.
@@ -45,9 +46,23 @@ The blue/green deployment steps are as follows:
 * Verify that the function does not have startup errors. [Invoke](https://docs.aws.amazon.com/lambda/latest/dg/API_Invoke.html)
 * Point the Lambda's alias (default is `development`)  to the new version. [UpdateAlias](https://docs.aws.amazon.com/lambda/latest/dg/API_UpdateAlias.html)
 
-### Invoke
+Please see the [aws-deploy publish --help](cli-help/03-publish.md) for a complete reference on this command.
 
-Invoke your Lambda. This is used in the publishing process to verify that the Lambda is still running properly before the alias is updated. You could also use this when debugging. Please read the `aws-deploy invoke help` for more details.
+### [invoke](cli-help/04-invoke.md)
+
+Invoke your Lambda. This is used in the publishing process to verify that the Lambda is still running properly before the alias is updated. You could also use this when debugging. 
+
+You can provide the JSON string directly. Or, if you prefix the string with \"file://\" followed by a path to a file that contains JSON, it will parse the file and use it's contents.
+
+Please read the `aws-deploy invoke help` for more details.
+
+Please see the [aws-deploy invoke --help](cli-help/04-invoke.md) for a complete reference on this command.
+
+### [build-and-publish](cli-help/05-build-and-publish.md)
+
+Run both build and publish commands in one shot. `aws-deploy build-and-publish` supports all options from both commands. 
+
+Please see the [aws-deploy build-and-publish --help](cli-help/05-build-and-publish.md) for a complete reference on this command.
 
 ## Using in Xcode
 The goal here is to be able to deploy your Lambda functions from within the project that you are working with. You will simply switch your run target to the deployment target and publish a new version of your Lambda. The steps will basically be duplicating the `aws-deploy` target from `aws-deploy-kit`.
@@ -100,4 +115,4 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 
 * Build the `aws-deploy` target.
 * Copy to `/usr/local/bin` or similar.
-* Run it with the path to your project directory. `aws-deploy build-and-publish -d /path/to/project executable-name -p`.
+* Run it with the path to your project directory. `aws-deploy build-and-publish -d /path/to/project executable-name`.

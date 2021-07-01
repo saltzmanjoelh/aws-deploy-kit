@@ -10,7 +10,7 @@ import ArgumentParser
 
 struct BuildAndPublishCommand: ParsableCommand {
     public static let configuration = CommandConfiguration(commandName: "build-and-publish",
-                                                           abstract: "Run both build and publish commands in one shot. `aws-deploy build-publish` supports all options from both commands. Please see the `aws-deploy build --help` and `aws-deploy publish --help` for a full reference.")
+                                                           abstract: "Run both build and publish commands in one shot. `aws-deploy build-and-publish` supports all options from both commands. Please see the `aws-deploy build --help` and `aws-deploy publish --help` for a full reference.")
     
     @OptionGroup
     var buildOptions: BuildOptions

@@ -1,6 +1,6 @@
 ```shell
 OVERVIEW: Run both build and publish commands in one shot. `aws-deploy
-build-publish` supports all options from both commands. Please see the
+build-and-publish` supports all options from both commands. Please see the
 `aws-deploy build --help` and `aws-deploy publish --help` for a full reference.
 
 USAGE: aws-deploy build-and-publish [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>] [--function-role <function-role>] [--alias <alias>]
