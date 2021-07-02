@@ -58,11 +58,10 @@ SUBCOMMANDS:
                           You could also use this when debugging
   build-and-publish (default)
                           Run both build and publish commands in one shot.
-                          `aws-deploy build-publish` supports all options from
-                          both commands. Please see the `aws-deploy build
+                          `aws-deploy build-and-publish` supports all options
+                          from both commands. Please see the `aws-deploy build
                           --help` and `aws-deploy publish --help` for a full
                           reference.
 
   See 'aws-deploy help <subcommand>' for detailed help.
-
-```
+  ```

@@ -3,7 +3,7 @@ OVERVIEW: Run both build and publish commands in one shot. `aws-deploy
 build-and-publish` supports all options from both commands. Please see the
 `aws-deploy build --help` and `aws-deploy publish --help` for a full reference.
 
-USAGE: aws-deploy build-and-publish [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>] [--function-role <function-role>] [--alias <alias>]
+USAGE: aws-deploy build-and-publish [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>] [--function-role <function-role>] [--alias <alias>] [--payload <payload>]
 
 ARGUMENTS:
   <products>              You can either specify which products you want to
@@ -51,5 +51,14 @@ OPTIONS:
   -a, --alias <alias>     When publishing, this is the alias which will be
                           updated to point to the new release. (default:
                           development)
+  -p, --payload <payload> If you don't provide a payload, an empty string will
+                          be sent. Sending an empty string simply checks if the
+                          function has any startup errors. It would be more
+                          useful if you customize this option with a JSON
+                          string that your function can parse and run with. You
+                          can provide the JSON string directly. Or if you
+                          prefix the string with "file://" followed by a path
+                          to a file that contains JSON, it will parse the file
+                          and use it's contents.
   -h, --help              Show help information.
   ```

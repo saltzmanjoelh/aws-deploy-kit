@@ -17,6 +17,7 @@ struct BuildAndPublishCommand: ParsableCommand {
 
     @OptionGroup
     var publishOptions: PublishOptions
+
     
     public mutating func run() throws {
         Services.shared.builder.preBuildCommand = buildOptions.preBuildCommand

@@ -3,7 +3,7 @@ OVERVIEW: Invoke your Lambda. This is used in the publishing process to verify
 that the Lambda is still running properly before the alias is updated.
 You could also use this when debugging
 
-USAGE: aws-deploy invoke <function> [<payload>]
+USAGE: aws-deploy invoke <function> [<payload>] [--endpoint-url <endpoint-url>]
 
 ARGUMENTS:
   <function>              The name of the Lambda function, version, or alias. 
@@ -11,7 +11,7 @@ ARGUMENTS:
                           my-function:v1 (with alias).
                           Function ARN -
                           arn:aws:lambda:us-west-2:123456789012:function:my-function.
-                          Partial
+Partial
                           ARN - 123456789012:function:my-function.
                           You can append a version number or alias to any of
                           the formats. The length constraint applies only to
@@ -28,5 +28,9 @@ ARGUMENTS:
                           and use it's contents.
 
 OPTIONS:
+  -e, --endpoint-url <endpoint-url>
+                          If you leave this empty, it will use the default AWS
+                          URL. You can override this with a local URL for
+                          debugging.
   -h, --help              Show help information.
 ```

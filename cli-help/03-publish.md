@@ -13,7 +13,7 @@ function does not abort abnormally, the supplied alias (the default is
 `development`) will be updated to point to the new version of the Lambda.
 
 
-USAGE: aws-deploy publish [<archive-ur-ls> ...] [--function-role <function-role>] [--alias <alias>]
+USAGE: aws-deploy publish [<archive-ur-ls> ...] [--function-role <function-role>] [--alias <alias>] [--payload <payload>]
 
 ARGUMENTS:
   <archive-ur-ls>         The URLs to the archives that you want to publish.
@@ -33,5 +33,14 @@ OPTIONS:
   -a, --alias <alias>     When publishing, this is the alias which will be
                           updated to point to the new release. (default:
                           development)
+  -p, --payload <payload> If you don't provide a payload, an empty string will
+                          be sent. Sending an empty string simply checks if the
+                          function has any startup errors. It would be more
+                          useful if you customize this option with a JSON
+                          string that your function can parse and run with. You
+                          can provide the JSON string directly. Or if you
+                          prefix the string with "file://" followed by a path
+                          to a file that contains JSON, it will parse the file
+                          and use it's contents.
   -h, --help              Show help information.
 ```

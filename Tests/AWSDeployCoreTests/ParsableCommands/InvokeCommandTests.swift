@@ -64,4 +64,46 @@ class InvokeCommandTests: XCTestCase {
         // Then the response should be logged
         XCTAssertTrue(mockServices.logCollector.logs.debugDescription.contains("Invoke completed"))
     }
+    
+    func testJSONFileIsHandled() throws {
+        // Given a path to a json file
+        let payload = "{\"key\":\"value\"}"
+        mockServices.mockFileManager.contentsAtPath = { _ in return payload.data(using: .utf8)! }
+        var instance = try InvokeCommand.parseAsRoot(["my-function", "file://payload.json"]) as! InvokeCommand
+        let resultProcessed = expectation(description: "Result processed")
+        _ = mockServices.awsServer // start the server
+        DispatchQueue.global().async {
+            do {
+                try self.waitToProcess([.init(data: "Hello".data(using: .utf8)!)], mockServices: self.mockServices)
+            } catch {
+                XCTFail(error)
+            }
+            resultProcessed.fulfill()
+        }
+
+        // When calling run
+        try instance.run(services: mockServices)
+        
+        
+        // Then the file should be loaded
+        wait(for: [resultProcessed], timeout: 2.0)
+        XCTAssertTrue(mockServices.mockFileManager.$contentsAtPath.wasCalled)
+    }
+    
+    func testEndpointOption() throws {
+        Services.shared = mockServices
+        defer { Services.shared = Services() }
+        mockServices.mockInvoker.invoke = { _ -> EventLoopFuture<Data?> in
+            return self.mockServices.lambda.eventLoopGroup.next().makeSucceededFuture(Data())
+        }
+        // Given a custom endpoint provided as an option
+        let endpoint = "localhost:5000"
+        var instance = try InvokeCommand.parseAsRoot(["my-function", "-e", endpoint]) as! InvokeCommand
+        
+        // When calling run
+        try instance.run()
+        
+        // Then the lambda's endpoint should be updated
+        XCTAssertEqual(Services.shared.lambda.endpoint, endpoint)
+    }
 }

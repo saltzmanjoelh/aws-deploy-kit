@@ -28,6 +28,9 @@ struct PublishOptions: ParsableArguments {
     
     @Option(name: [.short, .long], help: "When publishing, this is the alias which will be updated to point to the new release.")
     var alias: String = BlueGreenPublisher.defaultAlias
+    
+    @Option(name: [.short, .long], help: "\(InvokeCommand.payloadHelp)")
+    var payload: String = ""
 }
 
 
