@@ -13,12 +13,12 @@ import NIO
 import SotoLambda
 @testable import AWSDeployCore
 
-class MockPublisher: Publisher {
+class MockPublisher: BlueGreenPublisher {
     
-    static var livePublisher = BlueGreenPublisher()
+    static var livePublisher = Publisher()
     
     public var functionRole: String? = nil
-    public var alias: String = BlueGreenPublisher.defaultAlias
+    public var alias: String = Publisher.defaultAlias
     
     @ThrowingMock
     var publishArchives = { (archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> in

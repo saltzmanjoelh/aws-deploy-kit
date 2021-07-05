@@ -9,13 +9,15 @@ import Foundation
 import NIO
 import SotoLambda
 
-public protocol Invoker {
+public protocol LambdaInvoker {
     func parsePayload(_ payload: String, services: Servicable) -> EventLoopFuture<ByteBuffer>
     func loadPayloadFile(at file: String, services: Servicable) -> EventLoopFuture<ByteBuffer>
     func invoke(function: String, with payload: String, services: Servicable) -> EventLoopFuture<Data?>
 }
 
-public struct LambdaInvoker: Invoker {
+
+// MARK: - Invoker
+public struct Invoker: LambdaInvoker {
     
     public init() { }
     

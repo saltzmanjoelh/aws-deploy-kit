@@ -61,7 +61,7 @@ class LiveTests: XCTestCase {
         // The Lambda should now exist
         let newConfig = try Services.shared.lambda.getFunctionConfiguration(.init(functionName: ExamplePackage.executableOne)).wait()
         // The alias should be created, we check it's version later
-        let newAlias = try Services.shared.lambda.getAlias(.init(functionName: ExamplePackage.executableOne, name: BlueGreenPublisher.defaultAlias)).wait()
+        let newAlias = try Services.shared.lambda.getAlias(.init(functionName: ExamplePackage.executableOne, name: Publisher.defaultAlias)).wait()
 
         // -- Build And Publish Command --
         // Update and existing
@@ -70,7 +70,7 @@ class LiveTests: XCTestCase {
         // The Lambda should be updated now
         let updatedConfig = try Services.shared.lambda.getFunctionConfiguration(.init(functionName: ExamplePackage.executableOne)).wait()
         // The alias should be created and pointed to the first version
-        let updatedAlias = try Services.shared.lambda.getAlias(.init(functionName: ExamplePackage.executableOne, name: BlueGreenPublisher.defaultAlias)).wait()
+        let updatedAlias = try Services.shared.lambda.getAlias(.init(functionName: ExamplePackage.executableOne, name: Publisher.defaultAlias)).wait()
 
         // Check that the new and updated versions are different
         XCTAssertNotEqual(newConfig.revisionId, updatedConfig.revisionId)

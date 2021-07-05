@@ -15,7 +15,7 @@ import SotoS3
 import SotoSTS
 import SotoIAM
 
-public protocol Publisher {
+public protocol BlueGreenPublisher {
     var functionRole: String? { get set }
     var alias: String { get set }
 
@@ -36,8 +36,8 @@ public protocol Publisher {
     func verifyLambda(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
 }
 
-// MARK: - BlueGreenPublisher
-public struct BlueGreenPublisher: Publisher {
+// MARK: - Publisher
+public struct Publisher: BlueGreenPublisher {
     
     static var basicExecutionRole = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
     
@@ -98,7 +98,7 @@ public struct BlueGreenPublisher: Publisher {
 }
 
 // MARK: - Update
-extension BlueGreenPublisher {
+extension Publisher {
     /// Publishes a new version of an existig Lambda function by doing the following:
     /// * Update the function's code.
     /// * Lock the new code and give it a new version number.
@@ -165,7 +165,7 @@ extension BlueGreenPublisher {
 }
 
 // MARK: - Create
-extension BlueGreenPublisher {
+extension Publisher {
     
     /// Creates a new Lambda version with the provided archive.
     /// - Parameters:
@@ -275,7 +275,7 @@ extension BlueGreenPublisher {
             })
             .flatMap { (roleName: String) -> EventLoopFuture<Void> in
                 // Attaches the AWSLambdaBasicExecutionRole
-                services.iam.attachRolePolicy(.init(policyArn: BlueGreenPublisher.basicExecutionRole,
+                services.iam.attachRolePolicy(.init(policyArn: Publisher.basicExecutionRole,
                                                     roleName: roleName))
             }
             .map({ roleName })
@@ -285,7 +285,7 @@ extension BlueGreenPublisher {
 }
 
 // MARK: - Steps
-extension BlueGreenPublisher {
+extension Publisher {
     
     /// Parses the Lambda function name out of the archive name.
     /// - Parameter archiveURL: Path to the archive to parse the filename of. The filename must be in the format `function-name.zip`

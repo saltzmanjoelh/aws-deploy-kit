@@ -26,11 +26,11 @@ public protocol Servicable {
     var awsLogger: Logger { get set }
 
     var shell: ShellExecutable { get set }
-    var builder: Builder { get set }
+    var builder: DockerizedBuilder { get set }
     var packager: ExecutablePackager { get set }
 //    var uploader: ArchiveUploader { get set }
-    var publisher: Publisher { get set }
-    var invoker: Invoker { get set }
+    var publisher: BlueGreenPublisher { get set }
+    var invoker: LambdaInvoker { get set }
 }
 
 public class Services: Servicable {
@@ -66,10 +66,10 @@ public class Services: Servicable {
     public var awsLogger: Logger = AWSClient.loggingDisabled
 
     public var shell: ShellExecutable = Shell()
-    public var builder: Builder = DockerizedBuilder()
+    public var builder: DockerizedBuilder = Builder()
     public var packager: ExecutablePackager = Packager()
-    public var publisher: Publisher = BlueGreenPublisher()
-    public var invoker: Invoker = LambdaInvoker()
+    public var publisher: BlueGreenPublisher = Publisher()
+    public var invoker: LambdaInvoker = Invoker()
 
     public init(region: String = "us-west-1") {
         let client = AWSClient(credentialProvider: .default, httpClientProvider: .createNew)

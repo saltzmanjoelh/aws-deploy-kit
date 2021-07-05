@@ -12,6 +12,7 @@ import SotoLambda
 @testable import AWSDeployCore
 
 class LambdaInvokerTests: XCTestCase {
+    
     var mockServices: MockServices!
     
     override func setUp() {
@@ -53,6 +54,18 @@ class LambdaInvokerTests: XCTestCase {
     func testLoadPayloadFromFile() throws {
         // Given a JSON file
         let file = "file:///tmp/payload.json"
+        let contents = UUID().uuidString
+        mockServices.mockFileManager.contentsAtPath = { _ in return contents.data(using: .utf8)! }
+        
+        // When calling loadPayloadFromFile
+        let result = try mockServices.invoker.loadPayloadFile(at: file, services: mockServices).wait()
+        
+        // Then the contents should be returned
+        XCTAssertEqual(result.getString(at: 0, length: result.readableBytes), contents)
+    }
+    func testLoadPayloadFromFileWithRelativePath() throws {
+        // Given a JSON file
+        let file = "file://payload.json"
         let contents = UUID().uuidString
         mockServices.mockFileManager.contentsAtPath = { _ in return contents.data(using: .utf8)! }
         

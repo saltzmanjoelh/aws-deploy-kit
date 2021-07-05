@@ -34,7 +34,7 @@ class BuildCommandTests: XCTestCase {
         var instance = try! BuildCommand.parseAsRoot([packageDirectory.path, ExamplePackage.executableOne]) as! BuildCommand
         Services.shared = mockServices
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return [DockerizedBuilder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]
+            return [Builder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]
         }
         
         // When calling run()

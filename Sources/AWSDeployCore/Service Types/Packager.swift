@@ -17,12 +17,17 @@ public protocol ExecutablePackager {
     func copyExecutable(executable: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws
     func copyEnvFile(at packageDirectory: URL, executable: String, destinationDirectory: URL, services: Servicable) throws
     func copySwiftDependencies(for executable: String, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws
+    func getLddDependencies(for executable: String, at packageDirectory: URL, services: Servicable) throws -> [URL]
+    func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws
     @discardableResult
     func addBootstrap(for executable: String, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs
     func archiveContents(for executable: String, in destinationDirectory: URL, services: Servicable) throws -> URL
     func archivePath(for executable: String, in destinationDirectory: URL) -> URL
+    func URLForEnvFile(packageDirectory: URL, executable: String) -> URL
 }
 
+
+// MARK: - Packager
 public struct Packager: ExecutablePackager {
     
     public init() {}
@@ -106,7 +111,7 @@ public struct Packager: ExecutablePackager {
     /// - Throws: If there was a problem copying the .env file to the destination.
     public func copyExecutable(executable: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
         services.logger.trace("Copy Executable: \(executable)")
-        let executableFile = DockerizedBuilder.URLForBuiltExecutable(at: packageDirectory, for: executable, services: services)
+        let executableFile = Builder.URLForBuiltExecutable(at: packageDirectory, for: executable, services: services)
         guard services.fileManager.fileExists(atPath: executableFile.path) else {
             throw PackagerError.executableNotFound(executableFile.path)
         }
@@ -162,7 +167,7 @@ public struct Packager: ExecutablePackager {
     ///    linux-vdso.so.1 (0x00007fff84ba2000)
     ///    libswiftCore.so => /usr/lib/swift/linux/libswiftCore.so (0x00007fb41d09c000)
     /// ```
-    func getLddDependencies(for executable: String, at packageDirectory: URL, services: Servicable) throws -> [URL] {
+    public func getLddDependencies(for executable: String, at packageDirectory: URL, services: Servicable) throws -> [URL] {
         let lddCommand = "ldd .build/release/\(executable)"
         let lines = try Docker.runShellCommand(lddCommand, at: packageDirectory, services: services)
             .allEntries
@@ -193,7 +198,7 @@ public struct Packager: ExecutablePackager {
     }
     
     /// Uses Docker to copy a dependency to the destination directory.
-    func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
+    public func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
         let logs = try Docker.runShellCommand("cp \(dependency.path) \(destinationDirectory.path)",
                                               at: packageDirectory,
                                               services: services)
@@ -268,7 +273,7 @@ extension Packager {
     ///   - packageDirectory:  The original directory of the package we are targeting
     ///   - executable: The executable target that we are packaging
     /// - Returns: URL destination for packaging everything before we zip it up
-    func URLForEnvFile(packageDirectory: URL, executable: String) -> URL {
+    public func URLForEnvFile(packageDirectory: URL, executable: String) -> URL {
         return URL(fileURLWithPath: packageDirectory
                     .appendingPathComponent("Sources")
                     .appendingPathComponent(executable)

@@ -46,16 +46,16 @@ class MockServices: Servicable {
     var shell: ShellExecutable = MockShell()
     var mockShell: MockShell { shell as! MockShell }
     
-    var builder: Builder = MockBuilder()
+    var builder: DockerizedBuilder = MockBuilder()
     var mockBuilder: MockBuilder { return builder as! MockBuilder }
     
     var packager: ExecutablePackager = MockPackager()
     var mockPackager: MockPackager { return packager as! MockPackager }
     
-    var publisher: Publisher = MockPublisher()
+    var publisher: BlueGreenPublisher = MockPublisher()
     var mockPublisher: MockPublisher { return publisher as! MockPublisher }
     
-    var invoker: Invoker = MockInvoker()
+    var invoker: LambdaInvoker = MockInvoker()
     var mockInvoker: MockInvoker { return invoker as! MockInvoker }
 
     deinit {

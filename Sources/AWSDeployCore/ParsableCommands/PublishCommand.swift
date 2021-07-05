@@ -22,12 +22,12 @@ struct PublishCommand: ParsableCommand {
 struct PublishOptions: ParsableArguments {
     
     @Option(name: [.short, .long],
-            help: "When publishing, if you need to create the function, this is the role being used to execute the function. If this is a new role, it will use the \(BlueGreenPublisher.basicExecutionRole) policy. This policy can execute the Lambda and upload logs to Amazon CloudWatch Logs (logs::CreateLogGroup, logs::CreateLogStream and logs::PutLogEvents). If you don't provide a value for this the default will be used in the format $FUNCTION-role-$RANDOM.",
+            help: "When publishing, if you need to create the function, this is the role being used to execute the function. If this is a new role, it will use the \(Publisher.basicExecutionRole) policy. This policy can execute the Lambda and upload logs to Amazon CloudWatch Logs (logs::CreateLogGroup, logs::CreateLogStream and logs::PutLogEvents). If you don't provide a value for this the default will be used in the format $FUNCTION-role-$RANDOM.",
             transform: { return $0 })
     var functionRole: String? = nil
     
     @Option(name: [.short, .long], help: "When publishing, this is the alias which will be updated to point to the new release.")
-    var alias: String = BlueGreenPublisher.defaultAlias
+    var alias: String = Publisher.defaultAlias
     
     @Option(name: [.short, .long], help: "\(InvokeCommand.payloadHelp)")
     var payload: String = ""

@@ -1,5 +1,5 @@
 //
-//  BuildInDocker.swift
+//  Builder.swift
 //
 //
 //  Created by Joel Saltzman on 3/25/21.
@@ -11,20 +11,27 @@ import LogKit
 import NIO
 import SotoS3
 
-public protocol Builder {
+public protocol DockerizedBuilder {
     
     var preBuildCommand: String { get set }
     var postBuildCommand: String { get set }
     
+    func validateProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String]
+    func getProducts(at packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String]
+    
     func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String, services: Servicable) throws -> [URL]
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL
+    func createTemporaryDockerfile(services: Servicable) throws -> URL
+    func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL
     func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String
     func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws
-    func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs
+    func buildProductInDocker(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs
     func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL
 }
 
-public struct DockerizedBuilder: Builder {
+
+// MARK: - Builder
+public struct Builder: DockerizedBuilder {
     
     public var preBuildCommand: String = ""
     public var postBuildCommand: String = ""
@@ -39,12 +46,7 @@ public struct DockerizedBuilder: Builder {
         let dockerfilePath = try services.builder.getDockerfilePath(from: packageDirectory, services: services)
         _ = try services.builder.prepareDockerImage(at: dockerfilePath, services: services)
         let executableURLs = try parseProducts.map { (product: String) -> URL in
-            try services.builder.executeShellCommand(preBuildCommand, for: product, at: packageDirectory, services: services)
-            _ = try services.builder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: nil)
-            let url = try services.builder.getBuiltProductPath(at: packageDirectory, for: product, services: services)
-            try services.builder.executeShellCommand(postBuildCommand, for: product, at: packageDirectory, services: services)
-            services.logger.trace("-- Built \(product) at: \(url) ---")
-            return url
+            try services.builder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: nil)
         }
         return try executableURLs
             .map({ executableURL in
@@ -62,14 +64,14 @@ public struct DockerizedBuilder: Builder {
         guard services.fileManager.fileExists(atPath: dockerfile.path)
         else {
             // Dockerfile was not available. Create a default Swift image to use for building with.
-            return try createTemporyDockerfile(services: services)
+            return try createTemporaryDockerfile(services: services)
         }
         return dockerfile
     }
     
     /// If a dockerfile was not provided, we create a temporary one to create a Swift Docker image from.
     /// - Returns: Path to the temporary Dockerfile.
-    func createTemporyDockerfile(services: Servicable) throws -> URL {
+    public func createTemporaryDockerfile(services: Servicable) throws -> URL {
         let directoryURL = URL(fileURLWithPath: "/tmp/aws-deploy/")
         let dockerfile = directoryURL.appendingPathComponent("Dockerfile")
         services.logger.trace("Creating temporary Dockerfile in: \(directoryURL)")
@@ -113,12 +115,26 @@ public struct DockerizedBuilder: Builder {
         let _: LogCollector.Logs = try services.shell.run(command, at: targetDirectory, logger: services.logger)
     }
 
+    public func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL {
+        // We change the path here so that when we process the pre and post commands, we can use a relative paths
+        // to files that might be in their directories
+        let sourceDirectory = packageDirectory.appendingPathComponent("Sources").appendingPathComponent(product)
+        FileManager.default.changeCurrentDirectoryPath(sourceDirectory.path)
+        services.logger.trace("Build \(product) at: \(sourceDirectory.path)")
+        try services.builder.executeShellCommand(preBuildCommand, for: product, at: sourceDirectory, services: services)
+        _ = try services.builder.buildProductInDocker(product, at: packageDirectory, services: services, sshPrivateKeyPath: nil)
+        let url = try services.builder.getBuiltProductPath(at: packageDirectory, for: product, services: services)
+        try services.builder.executeShellCommand(postBuildCommand, for: product, at: sourceDirectory, services: services)
+        services.logger.trace("-- Built \(product) at: \(url) ---")
+        return url
+    }
+    
     /// Build a Swift product in Docker.
     /// - Parameters:
     ///   - product: The name of the product to build.
     ///   - packageDirectory: The directory to find the package in.
     /// - Returns: The output from building in Docker.
-    public func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> LogCollector.Logs {
+    public func buildProductInDocker(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> LogCollector.Logs {
         services.logger.trace("-- Building \(product) ---")
         let swiftBuildCommand = "swift build -c release --product \(product)"
         let logs: LogCollector.Logs
@@ -159,12 +175,19 @@ public struct DockerizedBuilder: Builder {
     }
 }
 
-extension DockerizedBuilder {
+extension Builder {
     /// If no products were supplied, reads the package for a list of products. If any skip products were supplied, removes those.
+    /// - Parameters:
+    ///   - products: The products to validate. If you don't provide any, the `packageDirectory` will be parsed to get a list of executable products.
+    ///   - skipProducts: The products that should be skipped
+    ///   - packageDirectory: The Swift Package directory to check if no products are supplied.
+    ///   - services: The set of services which will be used to execute your request with.
+    /// - Throws: Throws if it as problems getting the list of products from the package
+    /// - Returns: The supplied products from either the input `products` or the `packageDirectory` minus the `skipProducs`.
     public func validateProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String] {
         var result = products
         if products.count == 0 {
-            result = try self.getProducts(at: packageDirectory, of: .executable, services: services)
+            result = try self.getProducts(at: packageDirectory, type: .executable, services: services)
         }
         result = Self.removeSkippedProducts(skipProducts, from: result, logger: services.logger)
         if result.count == 0 {
@@ -177,8 +200,10 @@ extension DockerizedBuilder {
     /// - Parameters:
     ///   - packageDirectory: String path to the directory that contains the package.
     ///   - type: The ProductTypes you want to get.
+    ///   - services: The set of services which will be used to execute your request with.
+    /// - Throws: Throws if it as problems getting the list of products from the package
     /// - Returns: Array of product names in the package.
-    public func getProducts(at packageDirectory: URL, of type: ProductType = .executable, services: Servicable) throws -> [String] {
+    public func getProducts(at packageDirectory: URL, type: ProductType = .executable, services: Servicable) throws -> [String] {
         let command = "swift package dump-package"
         let logs: LogCollector.Logs = try services.shell.run(
             command,

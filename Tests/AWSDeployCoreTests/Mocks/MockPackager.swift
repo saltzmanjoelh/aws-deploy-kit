@@ -103,4 +103,29 @@ class MockPackager: ExecutablePackager {
     func archivePath(for executable: String, in destinationDirectory: URL) -> URL {
         return $archivePath.getValue((executable, destinationDirectory))
     }
+    
+    
+    @ThrowingMock
+    var getLddDependencies = { (executable: String, packageDirectory: URL, services: Servicable) throws -> [URL] in
+        return try livePackager.getLddDependencies(for: executable, at: packageDirectory, services: services)
+    }
+    func getLddDependencies(for executable: String, at packageDirectory: URL, services: Servicable) throws -> [URL] {
+        return try $getLddDependencies.getValue((executable, packageDirectory, services))
+    }
+    
+    @ThrowingMock
+    var copyDependency = { (dependency: URL, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
+        return try livePackager.copyDependency(dependency, in: packageDirectory, to: destinationDirectory, services: services)
+    }
+    func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
+        return try $copyDependency.getValue((dependency, packageDirectory, destinationDirectory, services))
+    }
+    
+    @Mock
+    var URLForEnvFile = { (packageDirectory: URL, executable: String) -> URL in
+        return livePackager.URLForEnvFile(packageDirectory: packageDirectory, executable: executable)
+    }
+    func URLForEnvFile(packageDirectory: URL, executable: String) -> URL {
+        return $URLForEnvFile.getValue((packageDirectory, executable))
+    }
 }

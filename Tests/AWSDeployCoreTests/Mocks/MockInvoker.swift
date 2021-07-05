@@ -10,9 +10,9 @@ import AWSDeployCore
 import NIO
 import Mocking
 
-struct MockInvoker: Invoker {
+struct MockInvoker: LambdaInvoker {
     
-    static var liveInvoker = LambdaInvoker()
+    static var liveInvoker = Invoker()
     
     @Mock
     var parsePayload = { (payload: String, services: Servicable) -> EventLoopFuture<ByteBuffer> in

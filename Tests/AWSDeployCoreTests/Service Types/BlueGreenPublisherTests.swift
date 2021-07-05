@@ -24,7 +24,7 @@ class BlueGreenPublisherTests: XCTestCase {
     override func setUp() {
         super.setUp()
         mockServices = MockServices()
-        MockPublisher.livePublisher = BlueGreenPublisher()
+        MockPublisher.livePublisher = Publisher()
     }
     
     override func tearDownWithError() throws {
@@ -164,7 +164,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let archiveName = "\(functionName).zip"
 
         // When calling parseFunctionName
-        let result = try BlueGreenPublisher.parseFunctionName(from: URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(archiveName)"))
+        let result = try Publisher.parseFunctionName(from: URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(archiveName)"))
 
         // Then we should receive the function prefix
         XCTAssertEqual(result, functionName)
@@ -177,7 +177,7 @@ class BlueGreenPublisherTests: XCTestCase {
 
         do {
             // When calling parseFunctionName
-            _ = try BlueGreenPublisher.parseFunctionName(from: invalidURL)
+            _ = try Publisher.parseFunctionName(from: invalidURL)
             
             // Then an error should be thrown
             XCTFail("An error should have been thrown.")
@@ -324,7 +324,7 @@ class BlueGreenPublisherTests: XCTestCase {
         // This is a control function, this test is more for coverage
         // Given a valid configuration
         let functionName = "my-function"
-        let alias = BlueGreenPublisher.defaultAlias
+        let alias = Publisher.defaultAlias
         let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         // Setup some stubs
         mockServices.mockPublisher.updateFunctionCode = { _ in self.mockServices.stubFunctionConfiguration() }
@@ -460,7 +460,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateAliasVersion
-        mockServices.publisher.updateAliasVersion(configuration, alias: BlueGreenPublisher.defaultAlias, services: mockServices)
+        mockServices.publisher.updateAliasVersion(configuration, alias: Publisher.defaultAlias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "updateFunctionVersion").description)
@@ -476,7 +476,7 @@ class BlueGreenPublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling updateFunctionVersion
-        mockServices.publisher.updateAliasVersion(configuration, alias: BlueGreenPublisher.defaultAlias, services: mockServices)
+        mockServices.publisher.updateAliasVersion(configuration, alias: Publisher.defaultAlias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "updateFunctionVersion").description)

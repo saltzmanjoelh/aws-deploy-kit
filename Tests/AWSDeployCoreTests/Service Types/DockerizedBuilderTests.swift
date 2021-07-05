@@ -15,11 +15,9 @@ import Mocking
 
 class DockerizedBuilderTests: XCTestCase {
     
-    var instance: DockerizedBuilder!
     var mockServices: MockServices!
     
     override func setUp() {
-        instance = DockerizedBuilder()
         mockServices = MockServices()
     }
     override func tearDownWithError() throws {
@@ -37,7 +35,7 @@ class DockerizedBuilderTests: XCTestCase {
         }
 
         // When calling prepareDockerImage
-        _ = try instance.prepareDockerImage(at: dockerFile, services: mockServices)
+        _ = try mockServices.builder.prepareDockerImage(at: dockerFile, services: mockServices)
 
         // Then the correct command should be issued
         XCTAssertTrue(mockServices.mockShell.$launchShell.wasCalled)
@@ -51,7 +49,7 @@ class DockerizedBuilderTests: XCTestCase {
 
         do {
             // When calling prepareDockerImage
-            _ = try instance.prepareDockerImage(at: URL(fileURLWithPath: packageDirectory), services: mockServices)
+            _ = try mockServices.builder.prepareDockerImage(at: URL(fileURLWithPath: packageDirectory), services: mockServices)
         
             XCTFail("An error should have been thrown")
         } catch {
@@ -64,7 +62,7 @@ class DockerizedBuilderTests: XCTestCase {
         let path = try createTempPackage(includeSource: true, includeDockerfile: false)
 
         // When calling prepareDockerImage
-        let result = try instance.getDockerfilePath(from: path, services: mockServices)
+        let result = try mockServices.builder.getDockerfilePath(from: path, services: mockServices)
 
         // Then a default Dockerfile should be used
         XCTAssertString(result.path, contains: "/tmp/aws-deploy")
@@ -72,12 +70,12 @@ class DockerizedBuilderTests: XCTestCase {
         let message = mockServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "Creating temporary Dockerfile")
     }
-    func testCreateTemporyDockerfile() throws {
+    func testCreateTemporaryDockerfile() throws {
         // Given a valid environment
         mockServices.mockFileManager.createDirectory = { _ in }
         
-        // When calling createTemporyDockerfile
-        let result = try instance.createTemporyDockerfile(services: mockServices)
+        // When calling createTemporaryDockerfile
+        let result = try mockServices.builder.createTemporaryDockerfile(services: mockServices)
         
         // Then a file URL is returned
         XCTAssertTrue(result.isFileURL)
@@ -90,7 +88,7 @@ class DockerizedBuilderTests: XCTestCase {
         let packageDirectory = try createTempPackage(includeSource: true, includeDockerfile: true)
 
         // When calling prepareDockerImage
-        let result = try instance.getDockerfilePath(from: packageDirectory, services: mockServices)
+        let result = try mockServices.builder.getDockerfilePath(from: packageDirectory, services: mockServices)
 
         // Then the Dockerfile from the project should be used
         XCTAssertEqual(result, packageDirectory.appendingPathComponent("Dockerfile"))
@@ -102,7 +100,7 @@ class DockerizedBuilderTests: XCTestCase {
         mockServices.mockFileManager.fileExists = { _ in return true }
         
         // When calling getBuiltProduct
-        let result = try instance.getBuiltProductPath(at: packageDirectory, for: "executable", services: mockServices)
+        let result = try mockServices.builder.getBuiltProductPath(at: packageDirectory, for: "executable", services: mockServices)
         
         // Then the archive path is returned
         XCTAssertEqual(result, packageDirectory
@@ -116,7 +114,7 @@ class DockerizedBuilderTests: XCTestCase {
         
         // When calling getBuiltProduct
         do {
-            _ = try instance.getBuiltProductPath(at: URL(fileURLWithPath: "/tmp"), for: "executable", services: mockServices)
+            _ = try mockServices.builder.getBuiltProductPath(at: URL(fileURLWithPath: "/tmp"), for: "executable", services: mockServices)
             
             XCTFail("An error should have been thrown")
         } catch DockerizedBuilderError.builtProductNotFound(_) {
@@ -125,31 +123,26 @@ class DockerizedBuilderTests: XCTestCase {
             XCTFail(error)
         }
     }
-
+    
     func testBuildProducts() throws {
-        // This is a control function that simply calls other functions.
-        // We test those functions separately. This is more for the code coverage.
-        // Given a successful build
         let packageDirectory = tempPackageDirectory()
-        let buildDir = DockerizedBuilder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices)
-        mockServices.mockBuilder.preBuildCommand = "ls -al"
-        mockServices.mockBuilder.postBuildCommand = "ls -al"
+        let executable = Builder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)
+        let archive = mockServices.packager.archivePath(for: executable.lastPathComponent, in: packageDirectory)
         mockServices.mockBuilder.getDockerfilePath = { _ in return URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile") }
         mockServices.mockBuilder.prepareDockerImage = { _ in return .init() }
-        mockServices.mockBuilder.executeShellCommand = { _ in }
-        mockServices.mockBuilder.buildProduct = { _ in return .init() }
-        mockServices.mockBuilder.getBuiltProductPath = { _ in return buildDir }
-        mockServices.mockPackager.packageExecutable = { _ in return buildDir.appendingPathComponent("archive.zip") }
+        mockServices.mockBuilder.buildProduct = { _ in
+            return executable
+        }
+        mockServices.mockPackager.packageExecutable = { _ in archive }
         
-        XCTAssertNoThrow(try instance.buildProducts([ExamplePackage.executableOne], at: packageDirectory, services: mockServices))
+        let result = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, skipProducts: "", services: mockServices)
+        
+        XCTAssertEqual([archive], result)
         XCTAssertTrue(mockServices.mockBuilder.$getDockerfilePath.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$prepareDockerImage.wasCalled)
-        XCTAssertTrue(mockServices.mockBuilder.$executeShellCommand.wasCalled)
-        XCTAssertEqual(mockServices.mockBuilder.$executeShellCommand.usage.history.count, 2, "executeShellCommand should have been called twice. Once for the pre-build command and once for the post-build command.")
         XCTAssertTrue(mockServices.mockBuilder.$buildProduct.wasCalled)
-        XCTAssertTrue(mockServices.mockBuilder.$getBuiltProductPath.wasCalled)
+        XCTAssertTrue(mockServices.mockPackager.$packageExecutable.wasCalled)
     }
-    
     func testBuildProductsThrowsWithMissingProduct() throws {
         // Setup
         let packageDirectory = try createTempPackage()
@@ -161,7 +154,7 @@ class DockerizedBuilderTests: XCTestCase {
 
         // When calling buildProduct
         do {
-            _ = try instance.buildProducts([ExamplePackage.executableOne], at: packageDirectory, services: mockServices)
+            _ = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, skipProducts: "", services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch DockerizedBuilderError.builtProductNotFound(_) {
@@ -170,18 +163,33 @@ class DockerizedBuilderTests: XCTestCase {
             XCTFail(error)
         }
     }
-
+    
     func testBuildProduct() throws {
-        // Setup
+        let packageDirectory = tempPackageDirectory()
+        let buildDir = Builder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices)
+        mockServices.mockBuilder.preBuildCommand = "ls -al"
+        mockServices.mockBuilder.postBuildCommand = "ls -al"
+        mockServices.mockBuilder.executeShellCommand = { _ in }
+        mockServices.mockBuilder.buildProductInDocker = { _ in return .init() }
+        mockServices.mockBuilder.getBuiltProductPath = { _ in return buildDir }
+        
+        XCTAssertNoThrow(try mockServices.builder.buildProduct(ExamplePackage.executableOne, at: packageDirectory, services: mockServices, sshPrivateKeyPath: nil))
+        
+        XCTAssertTrue(mockServices.mockBuilder.$executeShellCommand.wasCalled)
+        XCTAssertEqual(mockServices.mockBuilder.$executeShellCommand.usage.history.count, 2, "executeShellCommand should have been called twice. Once for the pre-build command and once for the post-build command.")
+        XCTAssertTrue(mockServices.mockBuilder.$buildProductInDocker.wasCalled)
+        XCTAssertTrue(mockServices.mockBuilder.$getBuiltProductPath.wasCalled)
+    }
+
+    func testBuildProductInDocker() throws {
+        // Given a valid package
         let packageDirectory = try createTempPackage()
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "/path/to/app.zip")
         }
-        // Given a valid package
-        let instance = DockerizedBuilder()
 
         // When calling buildProduct
-        _ = try instance.buildProduct(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
+        _ = try mockServices.builder.buildProductInDocker(ExamplePackage.executableOne, at: packageDirectory, services: mockServices, sshPrivateKeyPath: nil)
 
         // Then the correct command should be issued
         let message = mockServices.logCollector.logs.allMessages()
@@ -194,14 +202,17 @@ class DockerizedBuilderTests: XCTestCase {
         XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --product \(ExamplePackage.executableOne)\"")
     }
 
-    func testBuildProductWithPrivateKey() throws {
+    func testBuildProductInDockerWithPrivateKey() throws {
         // Setup
         let packageDirectory = try createTempPackage()
         // Given an ssh key path
         let keyPath = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/ssh/key")
+        mockServices.mockShell.launchShell = { _ -> LogCollector.Logs in
+            return .init()
+        }
 
         // When calling buildProduct with valid input and a private key
-        _ = try instance.buildProduct(ExamplePackage.executableOne,
+        _ = try mockServices.builder.buildProductInDocker(ExamplePackage.executableOne,
                                       at: packageDirectory,
                                       services: mockServices,
                                       sshPrivateKeyPath: keyPath)
@@ -229,7 +240,7 @@ class DockerizedBuilderTests: XCTestCase {
 
         do {
             // When calling buildProductInDocker
-            _ = try instance.buildProduct(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
+            _ = try mockServices.builder.buildProductInDocker(ExamplePackage.executableOne, at: packageDirectory, services: mockServices, sshPrivateKeyPath: nil)
 
             XCTFail("An error should have been thrown.")
         } catch _ {
@@ -245,7 +256,7 @@ class DockerizedBuilderTests: XCTestCase {
         let path =  tempPackageDirectory()
         
         // When calling executeShellCommand
-        try instance.executeShellCommand(command, for: ExamplePackage.executableOne, at: path, services: mockServices)
+        try mockServices.builder.executeShellCommand(command, for: ExamplePackage.executableOne, at: path, services: mockServices)
         
         // Then the shell should be called with the command
         XCTAssertTrue(mockServices.mockShell.$launchShell.wasCalled)
@@ -257,7 +268,7 @@ class DockerizedBuilderTests: XCTestCase {
         let path =  tempPackageDirectory()
         
         // When calling executeShellCommand
-        try instance.executeShellCommand(command, for: ExamplePackage.executableOne, at: path, services: mockServices)
+        try mockServices.builder.executeShellCommand(command, for: ExamplePackage.executableOne, at: path, services: mockServices)
         
         // Then the shell should NOT be called
         XCTAssertFalse(mockServices.mockShell.$launchShell.wasCalled)
@@ -269,7 +280,7 @@ class DockerizedBuilderTests: XCTestCase {
         let packageDirectory = try createTempPackage()
 
         // When calling verifyConfiguration
-        _ = try instance.validateProducts([], skipProducts: skipProducts, at: packageDirectory, services: mockServices)
+        _ = try mockServices.builder.validateProducts([], skipProducts: skipProducts, at: packageDirectory, services: mockServices)
 
         // Then a "Skipping $PRODUCT" log should be received
         let messages = mockServices.logCollector.logs.allMessages()
@@ -285,7 +296,7 @@ class DockerizedBuilderTests: XCTestCase {
 
         do {
             // When calling validateProducts
-            _ = try instance.validateProducts([], skipProducts: "", at: packageDirectory, services: mockServices)
+            _ = try mockServices.builder.validateProducts([], skipProducts: "", at: packageDirectory, services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch DockerizedBuilderError.missingProducts {
@@ -300,7 +311,7 @@ class DockerizedBuilderTests: XCTestCase {
         let packageDirectory = try createTempPackage()
 
         // When calling getProducts
-        let result = try instance.getProducts(at: packageDirectory, services: mockServices)
+        let result = try mockServices.builder.getProducts(at: packageDirectory, type: .executable, services: mockServices)
 
         // Then all executables should be returned
         XCTAssertEqual(result.count, ExamplePackage.executables.count)
@@ -313,7 +324,7 @@ class DockerizedBuilderTests: XCTestCase {
 
         // When calling getProducts
         do {
-            _ = try instance.getProducts(at: URL(fileURLWithPath: ""), services: mockServices)
+            _ = try mockServices.builder.getProducts(at: URL(fileURLWithPath: ""), type: .executable, services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch {
@@ -328,7 +339,7 @@ class DockerizedBuilderTests: XCTestCase {
         let processName = ExamplePackage.executableTwo // Simulating that executableTwo is the executable that does the deployment
 
         // When calling removeSkippedProducts
-        let result = DockerizedBuilder.removeSkippedProducts(skipProducts,
+        let result = Builder.removeSkippedProducts(skipProducts,
                                                              from: ExamplePackage.executables,
                                                              logger: mockServices.logger,
                                                              processName: processName)

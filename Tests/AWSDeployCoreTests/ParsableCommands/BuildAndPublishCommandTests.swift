@@ -32,7 +32,7 @@ class BuildAndPublishCommandTests: XCTestCase {
         var instance = try! AWSDeployCommand.parseAsRoot(["build-and-publish", ExamplePackage.executableOne, "-d", packageDirectory.path]) as! BuildAndPublishCommand
         Services.shared = mockServices
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return [DockerizedBuilder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]
+            return [Builder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)]
         }
         mockServices.mockPublisher.publishArchives = { _ throws -> EventLoopFuture<[Lambda.AliasConfiguration]> in
             return self.mockServices.stubAliasConfiguration()
