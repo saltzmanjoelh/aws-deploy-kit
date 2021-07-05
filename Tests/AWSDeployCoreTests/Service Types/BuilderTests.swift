@@ -1,5 +1,5 @@
 //
-//  DockerizedBuilderTests.swift
+//  BuilderTests.swift
 //
 //
 //  Created by Joel Saltzman on 3/25/21.
@@ -13,7 +13,7 @@ import SotoCore
 import XCTest
 import Mocking
 
-class DockerizedBuilderTests: XCTestCase {
+class BuilderTests: XCTestCase {
     
     var mockServices: MockServices!
     

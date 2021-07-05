@@ -11,7 +11,7 @@ import NIO
 import SotoLambda
 @testable import AWSDeployCore
 
-class LambdaInvokerTests: XCTestCase {
+class InvokerTests: XCTestCase {
     
     var mockServices: MockServices!
     

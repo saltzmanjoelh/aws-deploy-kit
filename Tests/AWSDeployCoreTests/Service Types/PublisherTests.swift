@@ -1,5 +1,5 @@
 //
-//  BlueGreenPublisherTests.swift
+//  PublisherTests.swift
 //
 //
 //  Created by Joel Saltzman on 3/26/21.
@@ -14,7 +14,7 @@ import SotoS3
 @testable import SotoTestUtils
 import XCTest
 
-class BlueGreenPublisherTests: XCTestCase {
+class PublisherTests: XCTestCase {
     
     var mockServices: MockServices!
     func eventLoop() -> EventLoop {
