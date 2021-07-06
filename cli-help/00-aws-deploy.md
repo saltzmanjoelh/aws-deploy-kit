@@ -1,78 +1,67 @@
 ```swift
-OVERVIEW: Build and run an executable product
+OVERVIEW: Helps with building Swift packages in Linux and deploying to Lambda.
+Currently, we only support building executable targets.
 
-SEE ALSO: swift build, swift package, swift test
+Docker is used for building and packaging. You can use a custom Dockerfile in
+the root of the Package directory to customize the build container that is
+used. Otherwise, swift:5.3-amazonlinux2 will be used by default.
 
-USAGE: swift run <options>
+Once built and packaged, you should find the binary and it's shared libraries
+in .build/.lambda/$executableName/. You will also find a zip with all those
+files in that directory as well. Please take a look at the README for more
+details.
 
-ARGUMENTS:
-  <executable>            The executable to run 
-  <arguments>             The arguments to pass to the executable 
+USAGE: aws-deploy <subcommand>
 
 OPTIONS:
-  -Xcc <Xcc>              Pass flag through to all C compiler invocations 
-  -Xswiftc <Xswiftc>      Pass flag through to all Swift compiler invocations 
-  -Xlinker <Xlinker>      Pass flag through to all linker invocations 
-  -Xcxx <Xcxx>            Pass flag through to all C++ compiler invocations 
-  -c, --configuration <configuration>
-                          Build with configuration (default: debug)
-  --build-path <build-path>
-                          Specify build/cache directory 
-  --cache-path <cache-path>
-                          Specify the shared cache directory 
-  --enable-repository-cache/--disable-repository-cache
-                          Use a shared cache when fetching repositories
-                          (default: true)
-  -C, --chdir <chdir>
-  --package-path <package-path>
-                          Change working directory before any other operation 
-  --multiroot-data-file <multiroot-data-file>
-  --enable-prefetching/--disable-prefetching
-                          (default: true)
-  -v, --verbose           Increase verbosity of informational output 
-  --disable-sandbox       Disable using the sandbox when executing subprocesses 
-  --manifest-cache <manifest-cache>
-                          Caching mode of Package.swift manifests (shared:
-                          shared cache, local: package's build directory, none:
-                          disabled (default: shared)
-  --destination <destination>
-  --triple <triple>
-  --sdk <sdk>
-  --toolchain <toolchain>
-  --static-swift-stdlib/--no-static-swift-stdlib
-                          Link Swift stdlib statically (default: false)
-  --skip-update           Skip updating dependencies from their remote during a
-                          resolution 
-  --sanitize <sanitize>   Turn on runtime checks for erroneous behavior,
-                          possible values: address, thread, undefined, scudo 
-  --enable-code-coverage/--disable-code-coverage
-                          Enable code coverage (default: false)
-  --force-resolved-versions, --disable-automatic-resolution
-                          Disable automatic resolution if Package.resolved file
-                          is out-of-date 
-  --enable-index-store/--disable-index-store
-                          Enable or disable  indexing-while-building feature 
-  --enable-parseable-module-interfaces
-  --trace-resolver
-  -j, --jobs <jobs>       The number of jobs to spawn in parallel during the
-                          build process 
-  --enable-build-manifest-caching/--disable-build-manifest-caching
-                          (default: true)
-  --emit-swift-module-separately
-  --use-integrated-swift-driver
-  --experimental-explicit-module-build
-  --print-manifest-job-graph
-                          Write the command graph for the build manifest as a
-                          graphviz file 
-  --build-system <build-system>
-                          (default: native)
-  --netrc
-  --netrc-optional
-  --netrc-file <netrc-file>
-  --skip-build            Skip building the executable product 
-  --build-tests           Build both source and test targets 
-  --repl                  Launch Swift REPL for the package 
-  --version               Show the version.
-  -help, -h, --help       Show help information.
+  -h, --help              Show help information.
 
+SUBCOMMANDS:
+  build                   Build one or more executables inside of a Docker
+                          container. It will read your Swift package and build
+                          the executables of your choosing. If you leave the
+                          defaults, it will build all of the executables in the
+                          package. You can optionally choose to skip targets,
+                          or you can tell it to build only specific targets.
+
+                          The Docker image `swift:5.3-amazonlinux2` will be
+                          used by default. You can override this by adding a
+                          Dockerfile to the root of the package's directory.
+
+                          The built products will be available at
+                          `./build/lambda/$EXECUTABLE/`. You will also find a
+                          zip in there which contains everything needed to
+                          update AWS Lambda code. The archive will be in the
+                          format `$EXECUTABLE_NAME.zip`.
+
+  publish                 Publish the changes to a Lambda function using a blue
+                          green process.
+
+                          If there is no existing Lambda with a matching
+                          function name, this will create it for you. A role
+                          will also be created with AWSLambdaBasicExecutionRole
+                          access and assigned to the new Lambda.
+
+                          If the Lambda already exists, it's code will simply
+                          be updated.
+
+                          We test that the Lambda doesn't have any startup
+                          errors by using the Invoke API, please check the
+                          `aws-deploy invoke --help` for reference. If invoking
+                          the function does not abort abnormally, the supplied
+                          alias (the default is `development`) will be updated
+                          to point to the new version of the Lambda.
+
+  invoke                  Invoke your Lambda. This is used in the publishing
+                          process to verify that the Lambda is still running
+                          properly before the alias is updated.
+                          You could also use this when debugging
+  build-and-publish (default)
+                          Run both build and publish commands in one shot.
+                          `aws-deploy build-and-publish` supports all options
+                          from both commands. Please see the `aws-deploy build
+                          --help` and `aws-deploy publish --help` for a full
+                          reference.
+
+  See 'aws-deploy help <subcommand>' for detailed help.
 ```

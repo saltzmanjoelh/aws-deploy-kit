@@ -9,6 +9,7 @@ do
    item="${array[$i]}"
    file="$destination/0$i-$item.md"
    echo '```swift' > $file
-   swift run --package-path "$packageDir" $command --help >> $file
+   echo "$(swift run --package-path "$packageDir" aws-deploy $item --help)" >> $file
    echo '```' >> $file
+#   exit
 done
