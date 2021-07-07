@@ -34,6 +34,7 @@ public protocol Servicable {
 }
 
 public class Services: Servicable {
+    
     public static var shared: Servicable = Services()
 
     public static func createSTSService(region: String = "us-west-1", client: AWSClient) -> STS {

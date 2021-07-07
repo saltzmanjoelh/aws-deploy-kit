@@ -19,6 +19,7 @@ public struct AWSDeployCommand: ParsableCommand {
 }
 
 struct DirectoryOption: ParsableArguments {
+    
     @Option(name: [.customShort("d"), .customLong("directory")], help: "Provide a custom path to the project directory instead of using the current working directory.")
     var path: String = "./"
 }

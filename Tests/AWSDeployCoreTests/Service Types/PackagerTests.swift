@@ -43,7 +43,7 @@ class PackagerTests: XCTestCase {
         
         // Then no errors should be thrown
         // and copyItem should have been called with the destination
-        let expectedSource = Builder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices)
+        let expectedSource = Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
         let expectedDestination = destinationDirectory.appendingPathComponent(ExamplePackage.executableOne, isDirectory: false)
         let result = mockServices.mockFileManager.$copyItem.wasCalled(with: .init([expectedSource, expectedDestination]))
         XCTAssertTrue(result, "Source and/or destination were not used")
@@ -65,7 +65,7 @@ class PackagerTests: XCTestCase {
             XCTFail("An error should have been thrown")
         } catch PackagerError.executableNotFound(let path){
             // Then PackageInDockerError.executableNotFound should be thrown
-            XCTAssertEqual(path, Builder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices).path)
+            XCTAssertEqual(path, Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: mockServices).path)
         } catch {
             XCTFail(error)
         }

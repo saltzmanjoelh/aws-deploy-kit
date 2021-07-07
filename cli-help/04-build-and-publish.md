@@ -51,27 +51,13 @@ OPTIONS:
   -a, --alias <alias>     When publishing, this is the alias which will be
                           updated to point to the new release. (default:
                           development)
-  -p, --payload <payload> If you don't provide a payload, an empty string will
+  -p, --payload <payload> The payload can either be a JSON string or a file
+                          path to a JSON file with the "file://" prefix
+                          (file://payload.json).
+                          If you don't provide a payload, an empty string will
                           be sent. Sending an empty string simply checks if the
                           function has any startup errors. It would be more
                           useful if you customize this option with a JSON
-                          string that your function can parse and run with. You
-                          can provide the JSON string directly. Or, if you
-                          prefix the string with "file://" followed by a path
-                          to a file that contains JSON, it will parse the file
-                          and use it's contents.
-                          When invoking multiple functions, you can provide a
-                          single payload or file path to a payload and it will
-                          be parsed for each function. Or, you can provide
-                          multiple comma separated values. The values can be
-                          eith payloads or file paths like:
-                          `file:///path/to/payload1.json,file:///path/to/payload2.json`.
-                          If you provide the directory option (`-d` or
-                          `--directory`), you can use paths that are relative
-                          to each function's source directory. For example, if
-                          you include a file with the same name in each
-                          directory for invoking with. For example `invoke
-                          my-func,my-other-func file://payload.json -d
-                          /path/to/project`
+                          string that your function can parse and run with.
   -h, --help              Show help information.
 ```

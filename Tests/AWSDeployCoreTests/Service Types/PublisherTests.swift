@@ -33,9 +33,10 @@ class PublisherTests: XCTestCase {
         try cleanupTestPackage()
     }
     
-    func testPublishMultipleArchives() throws {
+    func testPublishArchive() throws {
         // Setup
         let functionName = "my-function"
+        let alias = "my-alias"
         let version = Int.random(in: 1..<10)
         let aliasConfig: Lambda.AliasConfiguration = .init(functionVersion: "\(version)", revisionId: "\(version)")
         let functionConfiguration = String(
@@ -58,12 +59,12 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        try mockServices.publisher.publishArchives([archiveURL], services: mockServices)
-            .whenComplete { (publishResult: Result<[Lambda.AliasConfiguration], Error>) in
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: alias, services: mockServices)
+            .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then the updated version number should be included in the results
                 do {
                     let result = try publishResult.get()
-                    XCTAssertEqual(result[0].revisionId, aliasConfig.revisionId)
+                    XCTAssertEqual(result.revisionId, aliasConfig.revisionId)
                     //XCTAssertEqual(result[0].functionVersion, aliasConfig.functionVersion)
                 } catch {
                     XCTFail(String(describing: error))
@@ -73,6 +74,10 @@ class PublisherTests: XCTestCase {
 
         try waitToProcess(fixtureResults, mockServices: mockServices)
         wait(for: [resultReceived], timeout: 2.0)
+        
+        XCTAssertEqual(mockServices.mockPublisher.$publishLatest.usage.history.count, 1, "publishLatest should have been called.")
+        XCTAssertEqual(mockServices.mockPublisher.$verifyLambda.usage.history.count, 1, "verifyLambda should have been called.")
+        XCTAssertEqual(mockServices.mockPublisher.$updateAliasVersion.usage.history.count, 1, "updateAliasVersion should have been called.")
     }
     
     func testPublishArchiveErrorsAreLogged() throws {
@@ -82,7 +87,7 @@ class PublisherTests: XCTestCase {
         let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/.zip")
 
         // When calling publishArchive
-        mockServices.publisher.publishArchive(archiveURL, alias: mockServices.publisher.alias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: Publisher.defaultAlias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -119,7 +124,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing to an existing function
-        mockServices.publisher.publishArchive(archiveURL, alias: mockServices.publisher.alias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: Publisher.defaultAlias, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then a String that represents the revisionId should be returned
                 do {
@@ -134,28 +139,43 @@ class PublisherTests: XCTestCase {
         try waitToProcess(fixtureResults, mockServices: mockServices)
         wait(for: [resultReceived], timeout: 2.0)
     }
-    func testPublishArchiveHandlesCreation() throws {
+    func testPublishFunctionCodeHandlesCreation() throws {
         // Setup stubs
+        // Parse the function name
         let functionName = "my-function"
-        let role = "role"
-        MockPublisher.livePublisher.functionRole = role
         mockServices.mockPublisher.parseFunctionName = { _ in self.eventLoop().makeSucceededFuture(functionName) }
+        // Return an error because it doesn't exist
         mockServices.mockPublisher.getFunctionConfiguration = { _ -> EventLoopFuture<Lambda.FunctionConfiguration> in
             // .init(string: "{\"Type\":\"User\",\"Message\":\"Function not found: arn:aws:lambda:us-west-1:1234567890:function:my-function\"}")
             // Any error will do
             let error = NSError.init(domain: "Function not found: arn:aws:lambda:us-west-1:1234567890:function:my-function", code: 1, userInfo: nil)
             return self.eventLoop().makeFailedFuture(error)
         }
-        mockServices.mockPublisher.validateRole = { _ in self.eventLoop().makeSucceededFuture(role) }
-        mockServices.mockPublisher.createLambda = { _ in self.mockServices.stubAliasConfiguration() }
+        // handlePublishingError should choose to create
+        mockServices.mockPublisher.createLambda = { _ -> EventLoopFuture<Lambda.FunctionConfiguration> in
+            return self.mockServices.stubFunctionConfiguration()
+        }
+        let resultReceived = expectation(description: "Result received.")
+        
+        
         // Given an archive
         let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
 
         // When publishing to a new function
-        _ = try mockServices.publisher.publishArchive(archiveURL, alias: mockServices.publisher.alias, services: mockServices).wait()
+        mockServices.publisher.publishFunctionCode(archiveURL, alias: Publisher.defaultAlias, services: mockServices)
+            .whenComplete { (result: Result<Lambda.FunctionConfiguration, Error>) in
+                do {
+                    _ = try result.get()
+                } catch {
+                    XCTFail(error)
+                }
+                resultReceived.fulfill()
+            }
         
         // Then createLambda should be called
+        wait(for: [resultReceived], timeout: 2.0)
         XCTAssertEqual(mockServices.mockPublisher.$createLambda.usage.history.count, 1, "createLambda should have been called.")
+        XCTAssertEqual(mockServices.mockPublisher.$updateFunctionCode.usage.history.count, 0, "$updateFunctionCode should not have been called.")
     }
     
     func testParseFunctionName() throws {
@@ -258,7 +278,7 @@ class PublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda").description)
@@ -274,7 +294,7 @@ class PublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "verifyLambda").description)
@@ -290,7 +310,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 resultReceived.fulfill()
             }
@@ -307,7 +327,7 @@ class PublisherTests: XCTestCase {
         let payload = "{\"errorMessage\":\"RequestId: 590ec71e-14c1-4498-8edf-2bd808dc3c0e Error: Runtime exited without providing a reason\",\"errorType\":\"Runtime.ExitError\"}"
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", services: mockServices)
             .whenFailure { (error: Error) in
                 XCTAssertEqual("\(error)", LambdaInvokerError.invokeLambdaFailed("\(functionName):2", payload).description)
                 errorReceived.fulfill()
@@ -318,32 +338,6 @@ class PublisherTests: XCTestCase {
             return .result(.init(httpStatus: .ok, headers: ["X-Amz-Function-Error": "Unhandled"], body: buffer))
         }
         wait(for: [errorReceived], timeout: 3.0)
-    }
-    
-    func testUpdateLambda() throws {
-        // This is a control function, this test is more for coverage
-        // Given a valid configuration
-        let functionName = "my-function"
-        let alias = Publisher.defaultAlias
-        let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
-        // Setup some stubs
-        mockServices.mockPublisher.updateFunctionCode = { _ in self.mockServices.stubFunctionConfiguration() }
-        mockServices.mockPublisher.publishLatest = { _ in self.mockServices.stubFunctionConfiguration() }
-        mockServices.mockPublisher.verifyLambda = { _ in self.mockServices.stubFunctionConfiguration() }
-        mockServices.mockPublisher.updateAliasVersion = { _ in self.mockServices.stubAliasConfiguration(alias: alias) }
-        
-        // When calling updateLambda
-        let result = try mockServices.publisher.updateLambda(with: archiveURL,
-                                                configuration: .init(functionName: functionName),
-                                                alias: alias,
-                                                services: mockServices).wait()
-        
-        // Then the AliasConfiguration should be returned
-        XCTAssertEqual(result.name, alias)
-        XCTAssertEqual(mockServices.mockPublisher.$updateFunctionCode.usage.history.count, 1, "updateFunctionCode should have been called.")
-        XCTAssertEqual(mockServices.mockPublisher.$publishLatest.usage.history.count, 1, "publishLatest should have been called.")
-        XCTAssertEqual(mockServices.mockPublisher.$verifyLambda.usage.history.count, 1, "verifyLambda should have been called.")
-        XCTAssertEqual(mockServices.mockPublisher.$updateAliasVersion.usage.history.count, 1, "updateAliasVersion should have been called.")
     }
 
     func testUpdateFunctionCode() throws {
@@ -490,27 +484,26 @@ class PublisherTests: XCTestCase {
         // This is a control function, this test is more for coverage
         // Given a valid configuration
         let functionName = "my-function"
-        let role = "my-function-role"
+        let role = "arn:aws:iam::12345678912:role/role"
         let alias = "development"
         let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         // Setup some stubs
-        mockServices.mockPublisher.createFunctionCode = { _ in self.mockServices.stubFunctionConfiguration() }
-        mockServices.mockPublisher.publishLatest = { _ in self.mockServices.stubFunctionConfiguration() }
-        mockServices.mockPublisher.verifyLambda = { _ in self.mockServices.stubFunctionConfiguration() }
-        mockServices.mockPublisher.updateAliasVersion = { _ in self.mockServices.stubAliasConfiguration(alias: alias) }
+        MockPublisher.livePublisher.functionRole = role
+        mockServices.mockPublisher.generateRoleName = { _ -> EventLoopFuture<String> in
+            return self.eventLoop().makeSucceededFuture(role)
+        }
+        mockServices.mockPublisher.validateRole = { _ in self.eventLoop().makeSucceededFuture(role) }
+
+        mockServices.mockPublisher.createFunctionCode = { _ in self.mockServices.stubFunctionConfiguration(functionName: functionName) }
         
         // When calling createLambda
         let result = try mockServices.publisher.createLambda(with: archiveURL,
-                                                role: role,
                                                 alias: alias,
                                                 services: mockServices).wait()
         
-        // Then the AliasConfiguration should be returned
-        XCTAssertEqual(result.name, alias)
+        // Then the FunctionConfiguration should be returned
+        XCTAssertEqual(result.functionName, functionName)
         XCTAssertEqual(mockServices.mockPublisher.$createFunctionCode.usage.history.count, 1, "createFunctionCode should have been called.")
-        XCTAssertEqual(mockServices.mockPublisher.$publishLatest.usage.history.count, 1, "publishLatest should have been called.")
-        XCTAssertEqual(mockServices.mockPublisher.$verifyLambda.usage.history.count, 1, "verifyLambda should have been called.")
-        XCTAssertEqual(mockServices.mockPublisher.$updateAliasVersion.usage.history.count, 1, "updateAliasVersion should have been called.")
     }
     
     func testCreateFunctionCodeHandlesMissingArchive() throws {
@@ -566,7 +559,7 @@ class PublisherTests: XCTestCase {
         MockPublisher.livePublisher.functionRole = role
         let archiveURL = mockServices.packager.archivePath(for: "functionName", in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         
-        // When calling getRole
+        // When calling getRoleName
         let result = try mockServices.publisher.getRoleName(archiveURL: archiveURL, services: mockServices).wait()
         
         // Then the role should be returned
@@ -580,7 +573,7 @@ class PublisherTests: XCTestCase {
             return self.eventLoop().makeSucceededFuture(context.roleName)
         }
         
-        // When calling getRole
+        // When calling getRoleName
         let result = try mockServices.publisher.getRoleName(archiveURL: archiveURL, services: mockServices).wait()
             
         // Then a new role should be returned

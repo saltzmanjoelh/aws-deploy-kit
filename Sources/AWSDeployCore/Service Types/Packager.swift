@@ -111,7 +111,7 @@ public struct Packager: ExecutablePackager {
     /// - Throws: If there was a problem copying the .env file to the destination.
     public func copyExecutable(executable: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
         services.logger.trace("Copy Executable: \(executable)")
-        let executableFile = Builder.URLForBuiltExecutable(at: packageDirectory, for: executable, services: services)
+        let executableFile = Builder.URLForBuiltExecutable(executable, at: packageDirectory, services: services)
         guard services.fileManager.fileExists(atPath: executableFile.path) else {
             throw PackagerError.executableNotFound(executableFile.path)
         }

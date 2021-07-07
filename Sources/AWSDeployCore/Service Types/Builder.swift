@@ -39,6 +39,10 @@ public struct Builder: DockerizedBuilder {
     public init() {}
 
     /// Build the products in Docker.
+    /// - Parameters:
+    /// - products: Array of products in a package that you want to build.
+    /// - packageDirectory: The URL to the package that you want to build.
+    /// - services: The set of services which will be used to execute your request with.
     /// - Returns: Array of URLs to the archive that contains built executables and their dependencies.
     public func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", services: Servicable) throws -> [URL] {
         services.logger.trace("Build products at: \(packageDirectory.path)")
@@ -57,7 +61,8 @@ public struct Builder: DockerizedBuilder {
     
     /// Get the path of the Dockerfile in the target projects directory. If one isn't available a temporary one is provided.
     /// - Parameters:
-    ///    - packagePath: A path to the Package's directory.
+    ///   - packagePath: A path to the Package's directory.
+    ///   - services: The set of services which will be used to execute your request with.
     /// - Returns:Path to the projects Dockerfile if it exists. Otherwise, the path to a temporary Dockerfile.
     public func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL {
         let dockerfile = packageDirectory.appendingPathComponent("Dockerfile")
@@ -70,6 +75,8 @@ public struct Builder: DockerizedBuilder {
     }
     
     /// If a dockerfile was not provided, we create a temporary one to create a Swift Docker image from.
+    /// - Parameter services: The set of services which will be used to execute your request with.
+    /// - Throws: If there was a problem creating the directory.
     /// - Returns: Path to the temporary Dockerfile.
     public func createTemporaryDockerfile(services: Servicable) throws -> URL {
         let directoryURL = URL(fileURLWithPath: "/tmp/aws-deploy/")
@@ -88,7 +95,8 @@ public struct Builder: DockerizedBuilder {
 
     /// Builds a new Docker image to build the products with.
     /// - Parameters:
-    ///    - dockerfilePath: The directory where the Dockerfile is.
+    ///   - dockerfilePath: The directory where the Dockerfile is.
+    ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: The output from building the new image.
     public func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String {
         services.logger.trace("Preparing Docker image.")
@@ -106,8 +114,10 @@ public struct Builder: DockerizedBuilder {
     }
     /// Executes a shell command for a specific product in it's source directory.
     /// - Parameters:
-    /// - product: The product that you want to run the command for.
-    /// - packageDirectory: The Package's root directory.
+    ///   - command: The shell command to execute.
+    ///   - product: The product that you want to run the command for.
+    ///   - packageDirectory: The Package's root directory.
+    ///   - services: The set of services which will be used to execute your request with.
     public func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws {
         guard command.count > 0
         else { return }
@@ -133,6 +143,8 @@ public struct Builder: DockerizedBuilder {
     /// - Parameters:
     ///   - product: The name of the product to build.
     ///   - packageDirectory: The directory to find the package in.
+    ///   - services: The set of services which will be used to execute your request with.
+    ///   - sshPrivateKeyPath: A path to a private key if the dependencies are in a private repo
     /// - Returns: The output from building in Docker.
     public func buildProductInDocker(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> LogCollector.Logs {
         services.logger.trace("-- Building \(product) ---")
@@ -151,22 +163,25 @@ public struct Builder: DockerizedBuilder {
     
     /// - Parameters
     ///   - executable: The built executable target that should be in the release directory.
+    ///   - product: The name of the
+    ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: URL destination for packaging everything before we zip it up.
-    static func URLForBuiltExecutable(at packageDirectory: URL, for product: String, services: Servicable) -> URL {
+    static func URLForBuiltExecutable(_ executable: String, at packageDirectory: URL, services: Servicable) -> URL {
         return packageDirectory
             .appendingPathComponent(".build")
             .appendingPathComponent("release")
-            .appendingPathComponent(product)
+            .appendingPathComponent(executable)
     }
     /// Get's the URL for the built product.
     /// - Parameters:
     ///   - packageDirectory: The directory to find the package in.
     ///   - product: The name of the product to build.
+    ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: URL of the built product.
     /// - Throws: If the built product is not available.
     public func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
-        let url = Self.URLForBuiltExecutable(at: packageDirectory,
-                                             for: product,
+        let url = Self.URLForBuiltExecutable(product,
+                                             at: packageDirectory,
                                              services: services)
         guard services.fileManager.fileExists(atPath: url.path) else {
             throw DockerizedBuilderError.builtProductNotFound(url.path)
@@ -235,6 +250,11 @@ extension Builder {
     /// The deployment target deploys the executables in the package. However, the deployment target is
     /// an executable itself. We don't want to have to specify that it should skip itself. We know that it should
     /// be skipped.
+    /// - Parameters:
+    ///   - skipProducts: The products to be removed from the supplied `products`
+    ///   - products: The source products in the package.
+    ///   - logger: The logger to log the result with.
+    ///   - processName: The current running process. The default is provided. This is mostly here for testing.
     /// - Returns: An array of product names with the `skipProducts` and `processName` filtered out.
     static func removeSkippedProducts(_ skipProducts: String,
                                       from products: [String],

@@ -31,12 +31,12 @@ class PublishCommandTests: XCTestCase {
         Services.shared = mockServices
         defer { Services.shared = Services() }
         mockServices.mockBuilder.buildProducts = { _ in return [] }
-        mockServices.mockPublisher.publishArchives = { _ in
-            return self.mockServices.awsServer.eventLoopGroup.next().makeSucceededFuture([.init(name: "my-function")])
+        mockServices.mockPublisher.publishArchive = { _ in
+            return self.mockServices.awsServer.eventLoopGroup.next().makeSucceededFuture(.init(name: "my-function"))
         }
         // Given a functionRole provided in cli
         let role = "example-role"
-        var instance = try PublishCommand.parseAsRoot(["my-function", "--function-role", role]) as! PublishCommand
+        var instance = try PublishCommand.parseAsRoot(["my-function.zip", "--function-role", role]) as! PublishCommand
         
         // When running
         try instance.run()
@@ -50,15 +50,14 @@ class PublishCommandTests: XCTestCase {
         let archiveURL = tempPackageDirectory().appendingPathComponent("\(ExamplePackage.executableOne).zip")
         var instance = try! PublishCommand.parseAsRoot([archiveURL.path]) as! PublishCommand
         Services.shared = mockServices
-        mockServices.mockPublisher.publishArchives = { (input: (archiveURLs: [URL], services: Servicable)) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> in
+        mockServices.mockPublisher.publishArchive = { _ -> EventLoopFuture<Lambda.AliasConfiguration> in
             return self.mockServices.stubAliasConfiguration()
-                .map({ [$0] })
         }
         
         // When calling run()
         // Then no errors are thrown
         XCTAssertNoThrow(try instance.run())
         // And the product get's published
-        XCTAssertTrue(mockServices.mockPublisher.$publishArchives.wasCalled)
+        XCTAssertTrue(mockServices.mockPublisher.$publishArchive.wasCalled)
     }
 }

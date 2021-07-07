@@ -55,7 +55,7 @@ SUBCOMMANDS:
   invoke                  Invoke your Lambda. This is used in the publishing
                           process to verify that the Lambda is still running
                           properly before the alias is updated.
-                          You could also use this when debugging
+                          You could also use this when debugging.
   build-and-publish (default)
                           Run both build and publish commands in one shot.
                           `aws-deploy build-and-publish` supports all options

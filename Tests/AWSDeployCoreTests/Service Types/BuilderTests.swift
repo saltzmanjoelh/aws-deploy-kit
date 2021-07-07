@@ -126,7 +126,7 @@ class BuilderTests: XCTestCase {
     
     func testBuildProducts() throws {
         let packageDirectory = tempPackageDirectory()
-        let executable = Builder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: self.mockServices)
+        let executable = Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
         let archive = mockServices.packager.archivePath(for: executable.lastPathComponent, in: packageDirectory)
         mockServices.mockBuilder.getDockerfilePath = { _ in return URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile") }
         mockServices.mockBuilder.prepareDockerImage = { _ in return .init() }
@@ -166,7 +166,7 @@ class BuilderTests: XCTestCase {
     
     func testBuildProduct() throws {
         let packageDirectory = tempPackageDirectory()
-        let buildDir = Builder.URLForBuiltExecutable(at: packageDirectory, for: ExamplePackage.executableOne, services: mockServices)
+        let buildDir = Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
         mockServices.mockBuilder.preBuildCommand = "ls -al"
         mockServices.mockBuilder.postBuildCommand = "ls -al"
         mockServices.mockBuilder.executeShellCommand = { _ in }

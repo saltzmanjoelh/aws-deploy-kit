@@ -23,7 +23,6 @@ struct BuildAndPublishCommand: ParsableCommand {
         Services.shared.builder.preBuildCommand = buildOptions.preBuildCommand
         Services.shared.builder.postBuildCommand = buildOptions.postBuildCommand
         Services.shared.publisher.functionRole = publishOptions.functionRole
-        Services.shared.publisher.alias = publishOptions.alias
         try self.run(services: Services.shared)
     }
 
@@ -32,7 +31,13 @@ struct BuildAndPublishCommand: ParsableCommand {
                                                              at: URL(fileURLWithPath: buildOptions.directory.path),
                                                              skipProducts: buildOptions.skipProducts,
                                                              services: services)
-        _ = try services.publisher.publishArchives(archiveURLs, services: services).wait()
+        _ = try archiveURLs.map({ archiveURL in
+            try services.publisher.publishArchive(archiveURL,
+                                                  invokePayload: publishOptions.payloadOption.payload,
+                                                  alias: publishOptions.alias,
+                                                  services: services).wait()
+        })
+        
     }
 
 }

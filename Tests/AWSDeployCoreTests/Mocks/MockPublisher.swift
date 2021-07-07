@@ -20,20 +20,12 @@ class MockPublisher: BlueGreenPublisher {
     public var functionRole: String? = nil
     public var alias: String = Publisher.defaultAlias
     
-    @ThrowingMock
-    var publishArchives = { (archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> in
-        try MockPublisher.livePublisher.publishArchives(archiveURLs, services: services)
-    }
-    func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> {
-        return try $publishArchives.getValue((archiveURLs, services))
-    }
-    
     @Mock
-    var publishArchive = { (archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
-        return livePublisher.publishArchive(archiveURL, alias: alias, services: services)
+    var publishArchive = { (archiveURL: URL, invokePayload: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
+        return livePublisher.publishArchive(archiveURL, invokePayload: invokePayload, alias: alias, services: services)
     }
-    func publishArchive(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        return $publishArchive.getValue((archiveURL, alias, services))
+    func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+        return $publishArchive.getValue((archiveURL, invokePayload, alias, services))
     }
     
     @Mock
@@ -53,11 +45,19 @@ class MockPublisher: BlueGreenPublisher {
     }
     
     @Mock
-    var verifyLambda = { (configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
-        return livePublisher.verifyLambda(configuration, services: services)
+    var verifyLambda = { (configuration: Lambda.FunctionConfiguration, invokePayload: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+        return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, services: services)
     }
-    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
-        return $verifyLambda.getValue((configuration, services))
+    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        return $verifyLambda.getValue((configuration, invokePayload, services))
+    }
+    
+    @Mock
+    var publishFunctionCode = { (archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+        return livePublisher.publishFunctionCode(archiveURL, alias: alias, services: services)
+    }
+    func publishFunctionCode(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        return $publishFunctionCode.getValue((archiveURL, alias, services))
     }
     
     @Mock
@@ -69,11 +69,11 @@ class MockPublisher: BlueGreenPublisher {
     }
     
     @Mock
-    var createLambda = { (archiveURL: URL, role: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
-        return livePublisher.createLambda(with: archiveURL, role: role, alias: alias, services: services)
+    var createLambda = { (archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+        return livePublisher.createLambda(with: archiveURL, alias: alias, services: services)
     }
-    func createLambda(with archiveURL: URL, role: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        return $createLambda.getValue((archiveURL, role, alias, services))
+    func createLambda(with archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        return $createLambda.getValue((archiveURL, alias, services))
     }
     
     @Mock
@@ -91,15 +91,7 @@ class MockPublisher: BlueGreenPublisher {
     func getFunctionConfiguration(for archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         return $getFunctionConfiguration.getValue((archiveURL, services))
     }
-    
-    @Mock
-    var updateLambda = { (archiveURL: URL, configuration: Lambda.FunctionConfiguration, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
-        return livePublisher.updateLambda(with: archiveURL, configuration: configuration, alias: alias, services: services)
-    }
-    func updateLambda(with archiveURL: URL, configuration: Lambda.FunctionConfiguration, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        return $updateLambda.getValue((archiveURL, configuration, alias, services))
-    }
-    
+
     @Mock
     var createFunctionCode = { (archiveURL: URL, role: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
         return livePublisher.createFunctionCode(archiveURL: archiveURL, role: role, services: services)
@@ -124,10 +116,27 @@ class MockPublisher: BlueGreenPublisher {
         return $createRole.getValue((roleName, services))
     }
     
-    func handlePublishingError(_ error: Error, for archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        return Self.livePublisher.handlePublishingError(error, for: archiveURL, alias: alias, services: services)
+    @Mock
+    var handlePublishingError = { (error: Error, archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+        livePublisher.handlePublishingError(error, for: archiveURL, alias: alias, services: services)
+    }
+    func handlePublishingError(_ error: Error, for archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        return $handlePublishingError.getValue((error, archiveURL, alias, services))
+    }
+    
+    @Mock
+    var getRoleName = { (archiveURL: URL, services: Servicable) -> EventLoopFuture<String> in
+        return livePublisher.getRoleName(archiveURL: archiveURL, services: services)
     }
     func getRoleName(archiveURL: URL, services: Servicable) -> EventLoopFuture<String> {
-        return Self.livePublisher.getRoleName(archiveURL: archiveURL, services: services)
+        return $getRoleName.getValue((archiveURL, services))
+    }
+    
+    @Mock
+    var generateRoleName = { (archiveURL: URL, services: Servicable) -> EventLoopFuture<String> in
+        return livePublisher.generateRoleName(archiveURL: archiveURL, services: services)
+    }
+    func generateRoleName(archiveURL: URL, services: Servicable) -> EventLoopFuture<String> {
+        return $generateRoleName.getValue((archiveURL, services))
     }
 }

@@ -17,23 +17,23 @@ import SotoIAM
 
 public protocol BlueGreenPublisher {
     var functionRole: String? { get set }
-    var alias: String { get set }
 
-    func publishArchive(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
+    func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func createRole(_ roleName: String, services: Servicable) -> EventLoopFuture<String>
-    func createLambda(with archiveURL: URL, role: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
+    func createLambda(with archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func createFunctionCode(archiveURL: URL, role: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func getFunctionConfiguration(for archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func getRoleName(archiveURL: URL, services: Servicable) -> EventLoopFuture<String>
-    func handlePublishingError(_ error: Error, for archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
+    func generateRoleName(archiveURL: URL, services: Servicable) -> EventLoopFuture<String>
+    func handlePublishingError(_ error: Error, for archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func parseFunctionName(from archiveURL: URL, services: Servicable) -> EventLoopFuture<String>
-    func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]>
+//    func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]>
+    func publishFunctionCode(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func publishLatest(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func updateFunctionCode(_ configuration: Lambda.FunctionConfiguration, archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func updateAliasVersion(_ configuration: Lambda.FunctionConfiguration, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
-    func updateLambda(with archiveURL: URL, configuration: Lambda.FunctionConfiguration, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func validateRole(_ role: String, services: Servicable) -> EventLoopFuture<String>
-    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
+    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
 }
 
 // MARK: - Publisher
@@ -46,48 +46,31 @@ public struct Publisher: BlueGreenPublisher {
     public var functionRole: String? = nil
     
     public static var defaultAlias = "development"
-    public var alias: String = Self.defaultAlias
     
     public init() {}
 
     /// Creates a new Lambda function or updates an existing one.
     /// During which, it also invokes the function to make sure that it's not crashing.
     /// Finally, it points the API Gateway to the new Lambda function version.
-    public func publishArchives(_ archiveURLs: [URL], services: Servicable) throws -> EventLoopFuture<[Lambda.AliasConfiguration]> {
-        let futures = archiveURLs.map { self.publishArchive($0, alias: services.publisher.alias, services: services) }
-        return EventLoopFuture.reduce(
-            into: [Lambda.AliasConfiguration](),
-            futures,
-            on: services.lambda.client.eventLoopGroup.next()
-        ) { result, nextValue in
-            result.append(nextValue)
-            services.logger.trace("Updated: \(nextValue)")
-        }
-    }
-
-    /// Determines if the Lambda should be created or updated and performs that action.
     /// - Parameters:
     ///   - archiveURL: A URL to the archive which will be used as the function's new code.
     ///   - alias: The alias that will point to the updated code.
     /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
-    public func publishArchive(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+    public func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
         // because it gives us a way to use mocks. Maybe convert to static instead?
         services.logger.trace("--- Publishing: \(archiveURL) ---")
-        // Get the name of the function
-        return parseFunctionName(from: archiveURL, services: services)
-            // Get it's current configuration
-            .flatMap({ (functionName: String) -> EventLoopFuture<Lambda.FunctionConfiguration> in
-                return services.publisher.getFunctionConfiguration(for: archiveURL, services: services)
-            })
-            // Update the function
-            .flatMap { (configuration: Lambda.FunctionConfiguration) -> EventLoopFuture<Lambda.AliasConfiguration> in
-                return services.publisher.updateLambda(with: archiveURL, configuration: configuration, alias: alias, services: services)
-            }
-            .flatMapError({ (error: Error) -> EventLoopFuture<Lambda.AliasConfiguration> in
-                // If it's "function not found", create the function
-                return services.publisher.handlePublishingError(error, for: archiveURL, alias: alias, services: services)
-            })
+        // Create/Update the source code of the function
+        return publishFunctionCode(archiveURL, alias: alias, services: services)
+            // Lock the code by publishing a new version.
+            .flatMap { services.publisher.publishLatest($0, services: services) }
+            
+            // Make sure that it's working.
+            .flatMap { services.publisher.verifyLambda($0, invokePayload: invokePayload, services: services) }
+            
+            // Update the alias to point to the new revision.
+            .flatMap { services.publisher.updateAliasVersion($0, alias: alias, services: services) }
+            
             // Log any final error that might have occurred during the process
             .flatMapError { (error: Error) -> EventLoopFuture<Lambda.AliasConfiguration> in
                 services.logger.trace("Error publishing: \(archiveURL.lastPathComponent).\n\(error)")
@@ -95,44 +78,34 @@ public struct Publisher: BlueGreenPublisher {
             }
     }
     
+    /// Determines if the Lambda should be created or updated and performs that action.
+    /// - Parameters:
+    ///   - archiveURL: A URL to the archive which will be used as the function's new code.
+    ///   - alias: The alias that will point to the updated code.
+    ///   - services: The set of services which will be used to execute your request with.
+    /// - Returns: The `Lambda.FunctionConfiguration` for the new/updated function.
+    public func publishFunctionCode(_ archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        // Get the name of the function
+        return parseFunctionName(from: archiveURL, services: services)
+            // Get it's current configuration
+            .flatMap({ (functionName: String) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+                return services.publisher.getFunctionConfiguration(for: archiveURL, services: services)
+            })
+            // Update the function
+            .flatMap { (configuration: Lambda.FunctionConfiguration) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+                return services.publisher.updateFunctionCode(configuration, archiveURL: archiveURL, services: services)
+            }
+            // If we failed to get the function configuration, we create the function here
+            .flatMapError({ (error: Error) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+                // If it's "function not found", create the function
+                return services.publisher.handlePublishingError(error, for: archiveURL, alias: alias, services: services)
+            })
+    }
+    
 }
 
 // MARK: - Update
 extension Publisher {
-    /// Publishes a new version of an existig Lambda function by doing the following:
-    /// * Update the function's code.
-    /// * Lock the new code and give it a new version number.
-    /// * Verify that the code starts up by invoking it.
-    /// * Updates the supplied alias to point to the new version.
-    /// - Parameters:
-    ///   - archiveURL: A URL to the archive which will be used as the function's new code.
-    ///   - alias: The alias that will point to the updated code.
-    /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
-    public func updateLambda(with archiveURL: URL,
-                             configuration: Lambda.FunctionConfiguration,
-                             alias: String,
-                             services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        
-        // Update the code
-        services.publisher.updateFunctionCode(
-            configuration,
-            archiveURL: archiveURL,
-            services: services
-        )
-        // Lock the code by publishing a new version.
-        .flatMap { services.publisher.publishLatest($0, services: services) }
-
-        // Make sure that it's still working.
-        .flatMap { services.publisher.verifyLambda($0, services: services) }
-
-        // Update the alias to point to the new revision.
-        .flatMap { services.publisher.updateAliasVersion($0, alias: alias, services: services) }
-
-        .map {
-            services.logger.trace("Done updating Lambda: \(archiveURL.lastPathComponent)")
-            return $0
-        }
-    }
     
     /// Updates an existing Lambda version with the provided archive.
     /// - Parameters:
@@ -161,6 +134,10 @@ extension Publisher {
             .init(functionName: functionName, revisionId: revisionId, zipFile: data),
             logger: services.awsLogger
         )
+        .map {
+            services.logger.trace("Done updating Lambda: \(archiveURL.lastPathComponent)")
+            return $0
+        }
     }
 }
 
@@ -170,20 +147,17 @@ extension Publisher {
     /// Creates a new Lambda version with the provided archive.
     /// - Parameters:
     ///    - archiveURL: A URL to the archive which will be used as the function's new code and name.
-    ///    - role: The execution role for the function.
     ///    - alias: The alias that will reference this version of the new function.
     /// - Returns: FunctionConfiguration of the updated Lambda function.
-    public func createLambda(with archiveURL: URL, role: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        return services.publisher.createFunctionCode(archiveURL: archiveURL, role: role, services: services)
-            // Lock the code by publishing a new version.
-            .flatMap { services.publisher.publishLatest($0, services: services) }
-            
-            // Make sure that it's working.
-            .flatMap { services.publisher.verifyLambda($0, services: services) }
-            
-            // Update the alias to point to the new revision.
-            .flatMap { services.publisher.updateAliasVersion($0, alias: alias, services: services) }
-            
+    public func createLambda(with archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        
+        return getRoleName(archiveURL: archiveURL, services: services)
+            .flatMap({ role in
+                services.publisher.validateRole(role, services: services)
+            })
+            .flatMap({ (role: String) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+                services.publisher.createFunctionCode(archiveURL: archiveURL, role: role, services: services)
+            })
             .map {
                 services.logger.trace("Done creating Lambda: \(archiveURL.lastPathComponent)")
                 return $0
@@ -223,22 +197,29 @@ extension Publisher {
             })
     }
     
+    public func getRoleName(archiveURL: URL, services: Servicable) -> EventLoopFuture<String> {
+        let roleFuture: EventLoopFuture<String>
+        if let role = functionRole {
+            roleFuture = services.lambda.client.eventLoopGroup.next().makeSucceededFuture(role)
+        } else {
+            roleFuture = services.publisher.generateRoleName(archiveURL: archiveURL, services: services)
+        }
+        return roleFuture
+    }
+    
     /// Uses the supplied functionRole if it's available. Otherwise it creates a unique one.
     /// - Parameter archiveURL: Path to the archive to parse the filename of if the functionRole is nil. The filename must be in the format `function-name.zip`.
     /// - Returns String that represents the name of the role.
-    public func getRoleName(archiveURL: URL, services: Servicable) -> EventLoopFuture<String> {
-        guard let role = functionRole else {
-            return parseFunctionName(from: archiveURL, services: services)
-                // Generate our own
-                .map({ (functionName: String) -> String in
-                    return "\(functionName)-role-\(UUID().uuidString.suffix(8))"
-                })
-                // We generated a role name, create it in AWS
-                .flatMap({ (role: String) -> EventLoopFuture<String> in
-                    return services.publisher.createRole(role, services: services)
-                })
-        }
-        return services.lambda.client.eventLoopGroup.next().makeSucceededFuture(role)
+    public func generateRoleName(archiveURL: URL, services: Servicable) -> EventLoopFuture<String> {
+        return parseFunctionName(from: archiveURL, services: services)
+            // Generate our own
+            .map({ (functionName: String) -> String in
+                return "\(functionName)-role-\(UUID().uuidString.suffix(8))"
+            })
+            // We generated a role name, create it in AWS
+            .flatMap({ (role: String) -> EventLoopFuture<String> in
+                return services.publisher.createRole(role, services: services)
+            })
     }
     
     /// Verifies that the role is in the required aws format.
@@ -330,26 +311,21 @@ extension Publisher {
     /// Otherwise, we just forward the error along.
     /// - Parameters:
     ///    - archiveURL: A URL to the archive which will be used as the function's new code.
-    /// - Returns: The error original error, an error from a file attempt of creating the Lambda or the alias config from a successful creation.
-    public func handlePublishingError(_ error: Error, for archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+    /// - Returns: The error original error, an error from a file attempt of creating the Lambda or the function config from a successful creation.
+    public func handlePublishingError(_ error: Error, for archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         // If we get an error that contains "Function not found", create the Lambda
         guard "\(error)".contains("Function not found") else {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(error)
         }
-        return services.publisher.getRoleName(archiveURL: archiveURL, services: services)
-            .flatMap({ role in
-                services.publisher.validateRole(role, services: services)
-            })
-            .flatMap({ (role: String) -> EventLoopFuture<Lambda.AliasConfiguration> in
-                services.publisher.createLambda(with: archiveURL, role: role, alias: alias, services: services)
-            })
+        return services.publisher.createLambda(with: archiveURL, alias: alias, services: services)
     }
     /// Verifies that the Lambda doesn't have any startup errors.
     /// - Parameters:
     ///    - configuration: FunctionConfiguration result from calling `updateFunctionCode`.
+    ///    - invokePay
     /// - Throws: Errors if the Lambda had issues being invoked.
     /// - Returns: codeSha256 for success, throws if errors are encountered.
-    public func verifyLambda(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+    public func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         services.logger.trace("Verify Lambda")
         guard let functionName = configuration.functionName else {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda"))
@@ -362,14 +338,9 @@ extension Publisher {
         
         // Delay the execution for a second while AWS wraps up.
         return services.lambda.eventLoopGroup.next().flatScheduleTask(in: TimeAmount.milliseconds(250)) { () -> EventLoopFuture<Lambda.FunctionConfiguration> in
-            services.invoker.invoke(function: functionVersion, with: "", services: services)
+            services.invoker.invoke(function: functionVersion, with: invokePayload, services: services)
                 .map({ _ in configuration })
         }.futureResult
-        // TODO: Maybe retry after delay again?
-//        .flatMapError({ _ in
-//            // retry once
-//            return action()
-//        })
     }
     
     /// Creates a version from the current code and configuration of a function.

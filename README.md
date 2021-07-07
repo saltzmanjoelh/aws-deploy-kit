@@ -121,7 +121,6 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 ## TODO:
 
 * Add option for specifying ssh key
-* invoke should take comma separate function names and payload could be comma separated files or JSON strings. If one payload/file is provided, it will be used for all supplied functions
 * invoke should optionally take a file or payload for an expected response. The format of the payload will be {KEY: REGEX} to validate the response against
 * Provide an example of the full CRUD cycle in a single invoke command. Include a not that authorization code should be in it's own function.
 
