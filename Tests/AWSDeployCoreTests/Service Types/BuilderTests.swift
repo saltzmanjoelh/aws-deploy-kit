@@ -126,6 +126,7 @@ class BuilderTests: XCTestCase {
     
     func testBuildProducts() throws {
         let packageDirectory = tempPackageDirectory()
+        let sshKey = "/path/to/key"
         let executable = Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
         let archive = mockServices.packager.archivePath(for: executable.lastPathComponent, in: packageDirectory)
         mockServices.mockBuilder.getDockerfilePath = { _ in return URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile") }
@@ -135,13 +136,14 @@ class BuilderTests: XCTestCase {
         }
         mockServices.mockPackager.packageExecutable = { _ in archive }
         
-        let result = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, skipProducts: "", services: mockServices)
+        let result = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, skipProducts: "", sshPrivateKeyPath: sshKey, services: mockServices)
         
         XCTAssertEqual([archive], result)
         XCTAssertTrue(mockServices.mockBuilder.$getDockerfilePath.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$prepareDockerImage.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$buildProduct.wasCalled)
         XCTAssertTrue(mockServices.mockPackager.$packageExecutable.wasCalled)
+        XCTAssertEqual(mockServices.mockBuilder.$buildProduct.usage.history[0].context.3, URL(fileURLWithPath: sshKey), "The supplied ssh key should have been passed to buildProduct as an URL")
     }
     func testBuildProductsThrowsWithMissingProduct() throws {
         // Setup
@@ -154,7 +156,7 @@ class BuilderTests: XCTestCase {
 
         // When calling buildProduct
         do {
-            _ = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, skipProducts: "", services: mockServices)
+            _ = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, skipProducts: "", sshPrivateKeyPath: nil, services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch DockerizedBuilderError.builtProductNotFound(_) {

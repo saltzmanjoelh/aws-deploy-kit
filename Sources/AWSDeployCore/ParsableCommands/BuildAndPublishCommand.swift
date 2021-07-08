@@ -30,6 +30,7 @@ struct BuildAndPublishCommand: ParsableCommand {
         let archiveURLs = try services.builder.buildProducts(buildOptions.products,
                                                              at: URL(fileURLWithPath: buildOptions.directory.path),
                                                              skipProducts: buildOptions.skipProducts,
+                                                             sshPrivateKeyPath: buildOptions.sshKeyPath,
                                                              services: services)
         _ = try archiveURLs.map({ archiveURL in
             try services.publisher.publishArchive(archiveURL,

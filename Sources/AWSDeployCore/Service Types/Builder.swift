@@ -19,7 +19,7 @@ public protocol DockerizedBuilder {
     func validateProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String]
     func getProducts(at packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String]
     
-    func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String, services: Servicable) throws -> [URL]
+    func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String, sshPrivateKeyPath: String?, services: Servicable) throws -> [URL]
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL
     func createTemporaryDockerfile(services: Servicable) throws -> URL
     func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL
@@ -42,15 +42,23 @@ public struct Builder: DockerizedBuilder {
     /// - Parameters:
     /// - products: Array of products in a package that you want to build.
     /// - packageDirectory: The URL to the package that you want to build.
+    /// - skipProducts: The products to be removed from the supplied `products`.
+    /// - sshPrivateKeyPath: The private key to pull from private repos with.
     /// - services: The set of services which will be used to execute your request with.
     /// - Returns: Array of URLs to the archive that contains built executables and their dependencies.
-    public func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", services: Servicable) throws -> [URL] {
+    public func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", sshPrivateKeyPath: String? = nil, services: Servicable) throws -> [URL] {
         services.logger.trace("Build products at: \(packageDirectory.path)")
         let parseProducts = try validateProducts(products, skipProducts: skipProducts, at: packageDirectory, services: services)
         let dockerfilePath = try services.builder.getDockerfilePath(from: packageDirectory, services: services)
+        let sshPrivateKey: URL?
+        if let keyPath = sshPrivateKeyPath {
+            sshPrivateKey = URL(fileURLWithPath: keyPath)
+        } else {
+            sshPrivateKey = nil
+        }
         _ = try services.builder.prepareDockerImage(at: dockerfilePath, services: services)
         let executableURLs = try parseProducts.map { (product: String) -> URL in
-            try services.builder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: nil)
+            try services.builder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKey)
         }
         return try executableURLs
             .map({ executableURL in
