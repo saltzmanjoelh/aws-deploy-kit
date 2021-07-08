@@ -39,7 +39,7 @@ struct BuildOptions: ParsableArguments {
     var postBuildCommand: String = ""
     
     @Option(name: [.customShort("k"), .long],
-    help: "Specify an SSH key for private repos with this option. Example: -k /home/user/.ssh/my_key")
+    help: "Specify an SSH key for private repos. Since we are building inside Docker, your usual .ssh directory is not available inside the container. Example: -k /home/user/.ssh/my_key")
     var sshKeyPath: String?
 }
 

@@ -13,7 +13,7 @@ also find a zip in there which contains everything needed to update AWS Lambda
 code. The archive will be in the format `$EXECUTABLE_NAME.zip`.
 
 
-USAGE: aws-deploy build [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>]
+USAGE: aws-deploy build [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>] [--ssh-key-path <ssh-key-path>]
 
 ARGUMENTS:
   <products>              You can either specify which products you want to
@@ -47,5 +47,10 @@ OPTIONS:
                           all products are built, then this command will be ran
                           after each product is built, in their source
                           directory.
+  -k, --ssh-key-path <ssh-key-path>
+                          Specify an SSH key for private repos. Since we are
+                          building inside Docker, your usual .ssh directory is
+                          not available inside the container. Example: -k
+                          /home/user/.ssh/my_key
   -h, --help              Show help information.
 ```
