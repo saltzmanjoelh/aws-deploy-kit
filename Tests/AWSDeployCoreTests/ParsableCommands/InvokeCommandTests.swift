@@ -106,47 +106,4 @@ class InvokeCommandTests: XCTestCase {
         // Then the lambda's endpoint should be updated
         XCTAssertEqual(Services.shared.lambda.endpoint, endpoint)
     }
-    
-    func testMultipleFunctionsAndPayloads() throws {
-        Services.shared = mockServices
-        defer { Services.shared = Services() }
-        mockServices.mockInvoker.invoke = { _ -> EventLoopFuture<Data?> in
-            return self.mockServices.lambda.eventLoopGroup.next().makeSucceededFuture(Data())
-        }
-        // Given multiple functions and multiple payloads
-        let functions = "my-func,my-other-func"
-        let payloads = "file://payload.json,file://other-payload.json"
-        var instance = try InvokeCommand.parseAsRoot([functions, "-p", payloads]) as! InvokeCommand
-        
-        // When calling run
-        try instance.run()
-        
-        // Then invoke should be called twice with the corresponding functions and payload
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history.count, 2)
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history[0].context.0, "my-func", "The first invocation should have been my-func")
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history[0].context.1, "file://payload.json", "The first invocation should have been called with the first payload.")
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history[1].context.0, "my-other-func", "The second invocation should have been my-other-func")
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history[1].context.1, "file://other-payload.json", "The second invocation should have been called with the second payload.")
-    }
-    func testMultipleFunctionsAndOnePayload() throws {
-        Services.shared = mockServices
-        defer { Services.shared = Services() }
-        mockServices.mockInvoker.invoke = { _ -> EventLoopFuture<Data?> in
-            return self.mockServices.lambda.eventLoopGroup.next().makeSucceededFuture(Data())
-        }
-        // Given multiple functions and a single payload
-        let functions = "my-func,my-other-func"
-        let payloads = "file://payload.json"
-        var instance = try InvokeCommand.parseAsRoot([functions, "-p", payloads]) as! InvokeCommand
-        
-        // When calling run
-        try instance.run()
-        
-        // Then invoke should be called twice with the corresponding functions and payload
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history.count, 2)
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history[0].context.0, "my-func", "The first invocation should have been my-func")
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history[1].context.0, "my-other-func", "The second invocation should have been my-other-func")
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history[0].context.1, "file://payload.json", "The first invocation should have been called with the first payload.")
-        XCTAssertEqual(mockServices.mockInvoker.$invoke.usage.history[1].context.1, "file://payload.json", "The second invocation should have been called with the same payload as the first one.")
-    }
 }

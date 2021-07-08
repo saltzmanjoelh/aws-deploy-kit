@@ -119,7 +119,9 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 
 
 ## TODO:
-
-* invoke should optionally take a file or payload for an expected response. The format of the payload will be {KEY: REGEX} to validate the response against
-* Provide an example of the full CRUD cycle in a single invoke command. Include a not that authorization code should be in it's own function.
-* Change ssh key to directory
+ 
+* Change ssh key to directory?
+* In order to run test with updating data, we need to run the create command first. Using json isn't great. You must know the format and if something changes, remember to update the file. It would be better if we could use our existing models from the functions. This way we can validate the response and we could even map the response to another function. 
+An example would be a project that has CRUD functions. There could be one test target which includes the 4 CRUD targets and AWSDeployCore.
+There would be 4 test. The create test is simple. We just execute the create function and validate the response. We don't want the test data laying around so we delete it when it's done.
+For the update test, we need to create, get the results, update using the id from the create results, validate the response and delete the entry

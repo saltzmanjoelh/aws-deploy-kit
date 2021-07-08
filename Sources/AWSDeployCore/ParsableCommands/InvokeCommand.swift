@@ -18,16 +18,12 @@ struct InvokeCommand: ParsableCommand {
     Function ARN - arn:aws:lambda:us-west-2:123456789012:function:my-function.
     Partial ARN - 123456789012:function:my-function.
     You can append a version number or alias to any of the formats. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
-    
-    For invoking multiple functions, simply provide a comma separated list of function names like: `my-function,my-other-function`.
     """
-    @Argument(help: ArgumentHelp(
-                "\(Self.functionHelp)",
-                valueName: "function(s)"))
+    @Argument(help: "\(Self.functionHelp)")
     var function: String
     
     @OptionGroup
-    var payloadsOption: InvokeMultiplePayloadsOption
+    var payloadOption: InvokeSinglePayloadOption
     
     @OptionGroup
     var options: InvokeOptions
@@ -50,17 +46,6 @@ struct InvokeSinglePayloadOption: ParsableArguments {
     @Option(name: [.short, .long], help: "\(help)")
     var payload: String = ""
 }
-struct InvokeMultiplePayloadsOption: ParsableArguments {
-    
-    static var help = """
-    When invoking multiple functions, you can provide a single value or, you can provide multiple comma separated values. The values can be with JSON strings or file paths like: `file:///path/to/payload1.json,file:///path/to/payload2.json`. If you provide the directory option (`-d` or `--directory`), you can use paths that are relative to each function's source directory. For example, if you include a file with the same name in each executable's source directory, then you can provide a single value for all functions. For example `invoke my-func,my-other-func file://payload.json -d /path/to/project`.
-    """
-    @Option(name: [.short, .long], help: ArgumentHelp(
-                "\(InvokeSinglePayloadOption.help)\n\n\(help)",
-                valueName: "payload(s)"))
-    var payload: String = ""
-}
-
 
 extension InvokeCommand {
     public mutating func run() throws {
@@ -73,18 +58,11 @@ extension InvokeCommand {
     }
 
     public mutating func run(services: Servicable) throws {
-        let functions = function.components(separatedBy: ",")
-        let payloads = payloadsOption.payload.components(separatedBy: ",")
-        for i in 0..<functions.count {
-            let function = functions[i].trimmingCharacters(in: .whitespacesAndNewlines)
-            let payloadIndex = payloads.count == functions.count ? i : 0
-            let payload = payloads[payloadIndex].trimmingCharacters(in: .whitespacesAndNewlines)
-            if let data = try services.invoker.invoke(function: function, with: payload, services: services).wait(),
-               let response = String(data: data, encoding: .utf8) {
-                services.logger.trace(.init(stringLiteral: "\(response)"))
-            } else {
-                services.logger.trace("Invoke \(function) completed with no response to print.")
-            }
+        if let data = try services.invoker.invoke(function: function, with: payloadOption.payload, services: services).wait(),
+           let response = String(data: data, encoding: .utf8) {
+            services.logger.trace(.init(stringLiteral: "\(response)"))
+        } else {
+            services.logger.trace("Invoke \(function) completed with no response to print.")
         }
     }
 }
