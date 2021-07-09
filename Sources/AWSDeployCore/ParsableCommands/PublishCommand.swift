@@ -47,6 +47,7 @@ extension PublishCommand {
         _ = try services.publisher.publishArchive(URL(fileURLWithPath: archivePath),
                                                   invokePayload: publishOptions.payloadOption.payload,
                                                   alias: publishOptions.alias,
+                                                  from: URL(fileURLWithPath: invokeOptions.directory.path),
                                                   services: services).wait()
     }
 }

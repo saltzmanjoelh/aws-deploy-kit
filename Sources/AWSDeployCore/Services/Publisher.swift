@@ -18,7 +18,7 @@ import SotoIAM
 public protocol BlueGreenPublisher {
     var functionRole: String? { get set }
 
-    func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
+    func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, from packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func createRole(_ roleName: String, services: Servicable) -> EventLoopFuture<String>
     func createLambda(with archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func createFunctionCode(archiveURL: URL, role: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
@@ -33,7 +33,7 @@ public protocol BlueGreenPublisher {
     func updateFunctionCode(_ configuration: Lambda.FunctionConfiguration, archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func updateAliasVersion(_ configuration: Lambda.FunctionConfiguration, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func validateRole(_ role: String, services: Servicable) -> EventLoopFuture<String>
-    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
+    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
 }
 
 // MARK: - Publisher
@@ -55,8 +55,9 @@ public struct Publisher: BlueGreenPublisher {
     /// - Parameters:
     ///   - archiveURL: A URL to the archive which will be used as the function's new code.
     ///   - alias: The alias that will point to the updated code.
+    ///   - packageDirectory: If the payload is a file path, this is the Swift package that 
     /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
-    public func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+    public func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, from packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
         // because it gives us a way to use mocks. Maybe convert to static instead?
         services.logger.trace("--- Publishing: \(archiveURL) ---")
@@ -66,7 +67,7 @@ public struct Publisher: BlueGreenPublisher {
             .flatMap { services.publisher.publishLatest($0, services: services) }
             
             // Make sure that it's working.
-            .flatMap { services.publisher.verifyLambda($0, invokePayload: invokePayload, services: services) }
+            .flatMap { services.publisher.verifyLambda($0, invokePayload: invokePayload, packageDirectory: packageDirectory, services: services) }
             
             // Update the alias to point to the new revision.
             .flatMap { services.publisher.updateAliasVersion($0, alias: alias, services: services) }
@@ -322,10 +323,11 @@ extension Publisher {
     /// Verifies that the Lambda doesn't have any startup errors.
     /// - Parameters:
     ///    - configuration: FunctionConfiguration result from calling `updateFunctionCode`.
-    ///    - invokePay
+    ///    - invokePayload: JSON string payload to invoke the Lambda with
+    ///    - packageDirectory: The directory of the package that we might find the payload in if it's a file path.
     /// - Throws: Errors if the Lambda had issues being invoked.
     /// - Returns: codeSha256 for success, throws if errors are encountered.
-    public func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+    public func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         services.logger.trace("Verify Lambda")
         guard let functionName = configuration.functionName else {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda"))
@@ -338,7 +340,7 @@ extension Publisher {
         
         // Delay the execution for a second while AWS wraps up.
         return services.lambda.eventLoopGroup.next().flatScheduleTask(in: TimeAmount.milliseconds(250)) { () -> EventLoopFuture<Lambda.FunctionConfiguration> in
-            services.invoker.invoke(function: functionVersion, with: invokePayload, services: services)
+            return services.invoker.invoke(function: functionVersion, with: invokePayload, services: services)
                 .map({ _ in configuration })
         }.futureResult
     }

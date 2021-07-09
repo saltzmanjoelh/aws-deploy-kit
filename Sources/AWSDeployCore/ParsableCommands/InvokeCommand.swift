@@ -58,7 +58,20 @@ extension InvokeCommand {
     }
 
     public mutating func run(services: Servicable) throws {
-        if let data = try services.invoker.invoke(function: function, with: payloadOption.payload, services: services).wait(),
+        var payload = payloadOption.payload
+        if payload.hasPrefix("file://"), // File path
+           !payload.hasPrefix("file:///"), // Not an absolute file path already
+           options.directory.path.count > 0 {
+            payload = URL(fileURLWithPath: options.directory.path)
+                .appendingPathComponent("Sources")
+                .appendingPathComponent(function)
+                .appendingPathComponent(payload.replacingOccurrences(of: "file://", with: ""))
+                .absoluteString
+        }
+        
+        if let data = try services.invoker.invoke(function: function,
+                                                  with: payload,
+                                                  services: services).wait(),
            let response = String(data: data, encoding: .utf8) {
             services.logger.trace(.init(stringLiteral: "\(response)"))
         } else {

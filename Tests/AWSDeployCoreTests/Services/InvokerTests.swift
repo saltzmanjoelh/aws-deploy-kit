@@ -53,19 +53,7 @@ class InvokerTests: XCTestCase {
     
     func testLoadPayloadFromFile() throws {
         // Given a JSON file
-        let file = "file:///tmp/payload.json"
-        let contents = UUID().uuidString
-        mockServices.mockFileManager.contentsAtPath = { _ in return contents.data(using: .utf8)! }
-        
-        // When calling loadPayloadFromFile
-        let result = try mockServices.invoker.loadPayloadFile(at: file, services: mockServices).wait()
-        
-        // Then the contents should be returned
-        XCTAssertEqual(result.getString(at: 0, length: result.readableBytes), contents)
-    }
-    func testLoadPayloadFromFileWithRelativePath() throws {
-        // Given a JSON file
-        let file = "file://payload.json"
+        let file = URL(fileURLWithPath: "/tmp/payload.json")
         let contents = UUID().uuidString
         mockServices.mockFileManager.contentsAtPath = { _ in return contents.data(using: .utf8)! }
         
@@ -77,7 +65,7 @@ class InvokerTests: XCTestCase {
     }
     func testLoadPayloadFromFileHandlesMissingFiles() throws {
         // Given a file that doesn't exist
-        let file = "file:///tmp/payload.json"
+        let file = URL(fileURLWithPath: "/tmp/payload.json")
         mockServices.mockFileManager.contentsAtPath = { _ in return nil }
         
         do {
@@ -87,7 +75,7 @@ class InvokerTests: XCTestCase {
             // Then an error should be thrown
             XCTFail("An error should have been thrown.")
         } catch {
-            XCTAssertEqual("\(error)", LambdaInvokerError.emptyPayloadFile(file).description)
+            XCTAssertEqual("\(error)", LambdaInvokerError.emptyPayloadFile(file.path).description)
         }
     }
     

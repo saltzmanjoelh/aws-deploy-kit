@@ -27,8 +27,9 @@ struct BuildAndPublishCommand: ParsableCommand {
     }
 
     public mutating func run(services: Servicable) throws {
+        let packageDirectory = URL(fileURLWithPath: buildOptions.directory.path)
         let archiveURLs = try services.builder.buildProducts(buildOptions.products,
-                                                             at: URL(fileURLWithPath: buildOptions.directory.path),
+                                                             at: packageDirectory,
                                                              skipProducts: buildOptions.skipProducts,
                                                              sshPrivateKeyPath: buildOptions.sshKeyPath,
                                                              services: services)
@@ -36,6 +37,7 @@ struct BuildAndPublishCommand: ParsableCommand {
             try services.publisher.publishArchive(archiveURL,
                                                   invokePayload: publishOptions.payloadOption.payload,
                                                   alias: publishOptions.alias,
+                                                  from: packageDirectory,
                                                   services: services).wait()
         })
         

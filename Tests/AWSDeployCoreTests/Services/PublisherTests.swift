@@ -39,6 +39,7 @@ class PublisherTests: XCTestCase {
         let alias = "my-alias"
         let version = Int.random(in: 1..<10)
         let aliasConfig: Lambda.AliasConfiguration = .init(functionVersion: "\(version)", revisionId: "\(version)")
+        let packageDirectory = tempPackageDirectory()
         let functionConfiguration = String(
             data: try JSONEncoder().encode([
                 "FunctionName": functionName,
@@ -59,7 +60,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: alias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: alias, from: packageDirectory, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then the updated version number should be included in the results
                 do {
@@ -83,11 +84,12 @@ class PublisherTests: XCTestCase {
     func testPublishArchiveErrorsAreLogged() throws {
         // Setup
         let errorReceived = expectation(description: "Error received")
+        let packageDirectory = tempPackageDirectory()
         // Given an invalid zip path
         let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/.zip")
 
         // When calling publishArchive
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: Publisher.defaultAlias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: Publisher.defaultAlias, from: packageDirectory, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -101,6 +103,7 @@ class PublisherTests: XCTestCase {
 
     func testPublishArchiveHandlesUpdates() throws {
         // Setup
+        let packageDirectory = tempPackageDirectory()
         let functionName = "my-function"
         let revisionId = Int.random(in: 1..<10)
         let aliasConfig: Lambda.AliasConfiguration = .init(revisionId: "\(revisionId)")
@@ -124,7 +127,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing to an existing function
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: Publisher.defaultAlias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: Publisher.defaultAlias, from: packageDirectory, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then a String that represents the revisionId should be returned
                 do {
@@ -275,10 +278,11 @@ class PublisherTests: XCTestCase {
     func testVerifyLambdaThrowsWithMissingFunctionName() {
         // Given a missing functionName in a FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init()
+        let packageDirectory = tempPackageDirectory()
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda").description)
@@ -291,10 +295,11 @@ class PublisherTests: XCTestCase {
     func testVerifyLambdaThrowsWithMissingVersion() {
         // Given a missing version in a FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function")
+        let packageDirectory = tempPackageDirectory()
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "verifyLambda").description)
@@ -307,10 +312,11 @@ class PublisherTests: XCTestCase {
     func testVerifyLambda() throws {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function", version: "2")
+        let packageDirectory = tempPackageDirectory()
         let resultReceived = expectation(description: "Result received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 resultReceived.fulfill()
             }
@@ -323,11 +329,12 @@ class PublisherTests: XCTestCase {
         // Given an invalid FunctionConfiguration
         let functionName = "my-function"
         let configuration: Lambda.FunctionConfiguration = .init(functionName: functionName, version: "2")
+        let packageDirectory = tempPackageDirectory()
         let errorReceived = expectation(description: "Error received")
         let payload = "{\"errorMessage\":\"RequestId: 590ec71e-14c1-4498-8edf-2bd808dc3c0e Error: Runtime exited without providing a reason\",\"errorType\":\"Runtime.ExitError\"}"
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, services: mockServices)
             .whenFailure { (error: Error) in
                 XCTAssertEqual("\(error)", LambdaInvokerError.invokeLambdaFailed("\(functionName):2", payload).description)
                 errorReceived.fulfill()

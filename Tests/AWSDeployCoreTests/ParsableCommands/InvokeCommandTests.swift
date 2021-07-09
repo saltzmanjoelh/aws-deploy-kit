@@ -69,7 +69,7 @@ class InvokeCommandTests: XCTestCase {
         // Given a path to a json file
         let payload = "{\"key\":\"value\"}"
         mockServices.mockFileManager.contentsAtPath = { _ in return payload.data(using: .utf8)! }
-        var instance = try InvokeCommand.parseAsRoot(["my-function", "-p", "file://payload.json"]) as! InvokeCommand
+        var instance = try InvokeCommand.parseAsRoot([ExamplePackage.executableOne, "-p", "file://payload.json", "-d", tempPackageDirectory().path]) as! InvokeCommand
         let resultProcessed = expectation(description: "Result processed")
         _ = mockServices.awsServer // start the server
         DispatchQueue.global().async {
@@ -88,6 +88,7 @@ class InvokeCommandTests: XCTestCase {
         // Then the file should be loaded
         wait(for: [resultProcessed], timeout: 2.0)
         XCTAssertTrue(mockServices.mockFileManager.$contentsAtPath.wasCalled)
+        XCTAssertTrue(mockServices.mockFileManager.$contentsAtPath.wasCalled(with: "/tmp/\(ExamplePackage.name)/Sources/\(ExamplePackage.executableOne)/payload.json"))
     }
     
     func testEndpointOption() throws {

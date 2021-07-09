@@ -23,10 +23,10 @@ struct MockInvoker: LambdaInvoker {
     }
     
     @Mock
-    var loadPayloadFile = { (file: String, services: Servicable) -> EventLoopFuture<ByteBuffer> in
+    var loadPayloadFile = { (file: URL, services: Servicable) -> EventLoopFuture<ByteBuffer> in
         return MockInvoker.liveInvoker.loadPayloadFile(at: file, services: services)
     }
-    func loadPayloadFile(at file: String, services: Servicable) -> EventLoopFuture<ByteBuffer> {
+    func loadPayloadFile(at file: URL, services: Servicable) -> EventLoopFuture<ByteBuffer> {
         return $loadPayloadFile.getValue((file, services))
     }
     
