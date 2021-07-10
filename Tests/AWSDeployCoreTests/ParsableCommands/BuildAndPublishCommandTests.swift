@@ -29,7 +29,6 @@ class BuildAndPublishCommandTests: XCTestCase {
     func testRunWithMocks() throws {
         // Given a valid configuration
         let packageDirectory = tempPackageDirectory()
-        let sshKey = URL(fileURLWithPath: "/path/to/key")
         var instance = try! AWSDeployCommand.parseAsRoot(["build-and-publish", ExamplePackage.executableOne, "-d", packageDirectory.path]) as! BuildAndPublishCommand
         Services.shared = mockServices
         mockServices.mockFileManager.fileExists = { _ in return true }
@@ -64,6 +63,6 @@ class BuildAndPublishCommandTests: XCTestCase {
         // Then no errors are thrown
         XCTAssertNoThrow(try instance.run())
         XCTAssertTrue(mockServices.mockBuilder.$buildProducts.wasCalled)
-        XCTAssertEqual(mockServices.mockBuilder.$buildProducts.usage.history[0].context.3, sshKey)
+        XCTAssertEqual(mockServices.mockBuilder.$buildProducts.usage.history[0].context.2, sshKey)
     }
 }

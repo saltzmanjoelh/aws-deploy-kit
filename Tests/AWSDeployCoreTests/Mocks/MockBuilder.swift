@@ -18,12 +18,12 @@ class MockBuilder: DockerizedBuilder {
     
     static var liveBuilder = Builder()
     
-    func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
-        return try $buildProducts.getValue((products, packageDirectory, skipProducts, sshPrivateKeyPath, services))
+    func buildProducts(_ products: [String], at packageDirectory: URL, sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
+        return try $buildProducts.getValue((products, packageDirectory, sshPrivateKeyPath, services))
     }
     @ThrowingMock
-    var buildProducts = { (products: [String], packageDirectory: URL, skipProducts: String, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL] in
-        return try liveBuilder.buildProducts(products, at: packageDirectory, skipProducts: skipProducts, sshPrivateKeyPath: sshPrivateKeyPath, services: services)
+    var buildProducts = { (products: [String], packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL] in
+        return try liveBuilder.buildProducts(products, at: packageDirectory, sshPrivateKeyPath: sshPrivateKeyPath, services: services)
     }
     
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL {
@@ -49,12 +49,12 @@ class MockBuilder: DockerizedBuilder {
     var parseProducts = { (products: [String], skipProducts: String, packageDirectory: URL, services: Servicable) throws -> [String] in
         return try liveBuilder.parseProducts(products, skipProducts: skipProducts, at: packageDirectory, services: services)
     }
-    func getProducts(at packageDirectory: URL, type: ProductType = .executable, services: Servicable) throws -> [String] {
-        return try $getProducts.getValue((packageDirectory, type, services))
+    func loadProducts(at packageDirectory: URL, type: ProductType = .executable, services: Servicable) throws -> [String] {
+        return try $loadProducts.getValue((packageDirectory, type, services))
     }
     @ThrowingMock
-    var getProducts = { (packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String] in
-        return try liveBuilder.getProducts(at: packageDirectory, type: type, services: services)
+    var loadProducts = { (packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String] in
+        return try liveBuilder.loadProducts(at: packageDirectory, type: type, services: services)
     }
     
     func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String {

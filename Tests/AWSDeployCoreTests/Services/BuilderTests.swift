@@ -136,7 +136,7 @@ class BuilderTests: XCTestCase {
         }
         mockServices.mockPackager.packageExecutable = { _ in archive }
         
-        let result = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, skipProducts: "", sshPrivateKeyPath: sshKey, services: mockServices)
+        let result = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, sshPrivateKeyPath: sshKey, services: mockServices)
         
         XCTAssertEqual([archive], result)
         XCTAssertTrue(mockServices.mockBuilder.$getDockerfilePath.wasCalled)
@@ -156,7 +156,7 @@ class BuilderTests: XCTestCase {
 
         // When calling buildProduct
         do {
-            _ = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, skipProducts: "", sshPrivateKeyPath: nil, services: mockServices)
+            _ = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, sshPrivateKeyPath: nil, services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch DockerizedBuilderError.builtProductNotFound(_) {
@@ -308,25 +308,25 @@ class BuilderTests: XCTestCase {
         }
     }
 
-    func testGetProducts() throws {
+    func testLoadProducts() throws {
         // Given a package with a library and multiple executables
         let packageDirectory = try createTempPackage()
 
-        // When calling getProducts
-        let result = try mockServices.builder.getProducts(at: packageDirectory, type: .executable, services: mockServices)
+        // When calling loadProducts
+        let result = try mockServices.builder.loadProducts(at: packageDirectory, type: .executable, services: mockServices)
 
         // Then all executables should be returned
         XCTAssertEqual(result.count, ExamplePackage.executables.count)
     }
-    func testGetProductsThrowsWithInvalidShellOutput() throws {
+    func testLoadProductsThrowsWithInvalidShellOutput() throws {
         // Give a failed shell output
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "")
         }
 
-        // When calling getProducts
+        // When calling loadProducts
         do {
-            _ = try mockServices.builder.getProducts(at: URL(fileURLWithPath: ""), type: .executable, services: mockServices)
+            _ = try mockServices.builder.loadProducts(at: URL(fileURLWithPath: ""), type: .executable, services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch {

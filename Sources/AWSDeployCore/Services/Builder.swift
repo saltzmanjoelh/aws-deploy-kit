@@ -17,9 +17,9 @@ public protocol DockerizedBuilder {
     var postBuildCommand: String { get set }
     
     func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String]
-    func getProducts(at packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String]
+    func loadProducts(at packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String]
     
-    func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL]
+    func buildProducts(_ products: [String], at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL]
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL
     func createTemporaryDockerfile(services: Servicable) throws -> URL
     func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL
@@ -42,15 +42,13 @@ public struct Builder: DockerizedBuilder {
     /// - Parameters:
     ///    - products: Array of products in a package that you want to build.
     ///    - packageDirectory: The URL to the package that you want to build.
-    ///    - skipProducts: The products to be removed from the supplied `products`.
     ///    - sshPrivateKeyPath: The private key to pull from private repos with.
     ///    - services: The set of services which will be used to execute your request with.
     /// - Returns: Array of URLs to the archive that contains built executables and their dependencies.
-    public func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
+    public func buildProducts(_ products: [String], at packageDirectory: URL, sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
         services.logger.trace("Build products at: \(packageDirectory.path)")
-        let parsedProducts = try parseProducts(products, skipProducts: skipProducts, at: packageDirectory, services: services)
         try prepareDocker(packageDirectory: packageDirectory, services: services)
-        let archiveURLs = try parsedProducts.map { (product: String) -> URL in
+        let archiveURLs = try products.map { (product: String) -> URL in
             let executableURL = try services.builder.buildProduct(product,
                                                                   at: packageDirectory,
                                                                   services: services,
@@ -225,7 +223,7 @@ extension Builder {
     public func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String] {
         var result = products
         if products.count == 0 {
-            result = try self.getProducts(at: packageDirectory, type: .executable, services: services)
+            result = try self.loadProducts(at: packageDirectory, type: .executable, services: services)
         }
         result = Self.removeSkippedProducts(skipProducts, from: result, logger: services.logger)
         if result.count == 0 {
@@ -241,7 +239,7 @@ extension Builder {
     ///   - services: The set of services which will be used to execute your request with.
     /// - Throws: Throws if it as problems getting the list of products from the package
     /// - Returns: Array of product names in the package.
-    public func getProducts(at packageDirectory: URL, type: ProductType = .executable, services: Servicable) throws -> [String] {
+    public func loadProducts(at packageDirectory: URL, type: ProductType = .executable, services: Servicable) throws -> [String] {
         let command = "swift package dump-package"
         let logs: LogCollector.Logs = try services.shell.run(
             command,

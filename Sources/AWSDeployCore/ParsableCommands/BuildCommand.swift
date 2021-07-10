@@ -59,9 +59,12 @@ extension BuildCommand {
         } else {
             sshPrivateKey = nil
         }
-        return try services.builder.buildProducts(options.products,
+        let parsedProducts = try services.builder.parseProducts(options.products,
+                                                                skipProducts: options.skipProducts,
+                                                                at: packageDirectory,
+                                                                services: services)
+        return try services.builder.buildProducts(parsedProducts,
                                                   at: packageDirectory,
-                                                  skipProducts: options.skipProducts,
                                                   sshPrivateKeyPath: sshPrivateKey,
                                                   services: services)
     }

@@ -60,6 +60,6 @@ class BuildCommandTests: XCTestCase {
         XCTAssertNoThrow(try instance.run())
         // And the ssh key is provided
         XCTAssertTrue(mockServices.mockBuilder.$buildProducts.wasCalled)
-        XCTAssertEqual(mockServices.mockBuilder.$buildProducts.usage.history[0].context.3, key)
+        XCTAssertEqual(mockServices.mockBuilder.$buildProducts.usage.history[0].context.2, key)
     }
 }
