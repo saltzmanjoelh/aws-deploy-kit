@@ -16,7 +16,7 @@ public protocol DockerizedBuilder {
     var preBuildCommand: String { get set }
     var postBuildCommand: String { get set }
     
-    func validateProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String]
+    func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String]
     func getProducts(at packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String]
     
     func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL]
@@ -40,27 +40,34 @@ public struct Builder: DockerizedBuilder {
 
     /// Build the products in Docker.
     /// - Parameters:
-    /// - products: Array of products in a package that you want to build.
-    /// - packageDirectory: The URL to the package that you want to build.
-    /// - skipProducts: The products to be removed from the supplied `products`.
-    /// - sshPrivateKeyPath: The private key to pull from private repos with.
-    /// - services: The set of services which will be used to execute your request with.
+    ///    - products: Array of products in a package that you want to build.
+    ///    - packageDirectory: The URL to the package that you want to build.
+    ///    - skipProducts: The products to be removed from the supplied `products`.
+    ///    - sshPrivateKeyPath: The private key to pull from private repos with.
+    ///    - services: The set of services which will be used to execute your request with.
     /// - Returns: Array of URLs to the archive that contains built executables and their dependencies.
     public func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
         services.logger.trace("Build products at: \(packageDirectory.path)")
-        let parseProducts = try validateProducts(products, skipProducts: skipProducts, at: packageDirectory, services: services)
+        let parsedProducts = try parseProducts(products, skipProducts: skipProducts, at: packageDirectory, services: services)
+        try prepareDocker(packageDirectory: packageDirectory, services: services)
+        let archiveURLs = try parsedProducts.map { (product: String) -> URL in
+            let executableURL = try services.builder.buildProduct(product,
+                                                                  at: packageDirectory,
+                                                                  services: services,
+                                                                  sshPrivateKeyPath: sshPrivateKeyPath)
+            return try services.packager.packageExecutable(executableURL.lastPathComponent, at: packageDirectory, services: services)
+        }
+        return archiveURLs
+    }
+    
+    /// Using a Dockerfile either from the package directory or the default one,
+    /// creates a new Docker image to build the executables within.
+    /// - Parameters;
+    ///    - packageDirectory: The Swift package directory that might contain the Dockerfile
+    ///    - services: The set of services which will be used to execute your request with.
+    public func prepareDocker(packageDirectory: URL, services: Servicable) throws {
         let dockerfilePath = try services.builder.getDockerfilePath(from: packageDirectory, services: services)
         _ = try services.builder.prepareDockerImage(at: dockerfilePath, services: services)
-        let executableURLs = try parseProducts.map { (product: String) -> URL in
-            try services.builder.buildProduct(product,
-                                              at: packageDirectory,
-                                              services: services,
-                                              sshPrivateKeyPath: sshPrivateKeyPath)
-        }
-        return try executableURLs
-            .map({ executableURL in
-                try services.packager.packageExecutable(executableURL.lastPathComponent, at: packageDirectory, services: services)
-            })
     }
 
     
@@ -215,7 +222,7 @@ extension Builder {
     ///   - services: The set of services which will be used to execute your request with.
     /// - Throws: Throws if it as problems getting the list of products from the package
     /// - Returns: The supplied products from either the input `products` or the `packageDirectory` minus the `skipProducs`.
-    public func validateProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String] {
+    public func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String] {
         var result = products
         if products.count == 0 {
             result = try self.getProducts(at: packageDirectory, type: .executable, services: services)

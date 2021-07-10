@@ -276,13 +276,13 @@ class BuilderTests: XCTestCase {
         XCTAssertFalse(mockServices.mockShell.$launchShell.wasCalled)
     }
     
-    func testValidateProducts_logsWhenSkippingProducts() throws {
+    func testparseProducts_logsWhenSkippingProducts() throws {
         // Given a product to skip
         let skipProducts = ExamplePackage.executableThree
         let packageDirectory = try createTempPackage()
 
         // When calling verifyConfiguration
-        _ = try mockServices.builder.validateProducts([], skipProducts: skipProducts, at: packageDirectory, services: mockServices)
+        _ = try mockServices.builder.parseProducts([], skipProducts: skipProducts, at: packageDirectory, services: mockServices)
 
         // Then a "Skipping $PRODUCT" log should be received
         let messages = mockServices.logCollector.logs.allMessages()
@@ -297,8 +297,8 @@ class BuilderTests: XCTestCase {
         }
 
         do {
-            // When calling validateProducts
-            _ = try mockServices.builder.validateProducts([], skipProducts: "", at: packageDirectory, services: mockServices)
+            // When calling parseProducts
+            _ = try mockServices.builder.parseProducts([], skipProducts: "", at: packageDirectory, services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch DockerizedBuilderError.missingProducts {
