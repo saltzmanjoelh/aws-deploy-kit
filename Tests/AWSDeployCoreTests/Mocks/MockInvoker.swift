@@ -31,10 +31,10 @@ struct MockInvoker: LambdaInvoker {
     }
     
     @Mock
-    var invoke = { (function: String, payload: String, verifyResponse: ((Data?) -> Bool)?, services: Servicable) -> EventLoopFuture<Data?> in
+    var invoke = { (function: String, payload: String, verifyResponse: ((Data) -> Bool)?, services: Servicable) -> EventLoopFuture<Data?> in
         return MockInvoker.liveInvoker.invoke(function: function, with: payload, verifyResponse: verifyResponse, services: services)
     }
-    func invoke(function: String, with payload: String, verifyResponse: ((Data?) -> Bool)?, services: Servicable) -> EventLoopFuture<Data?> {
+    func invoke(function: String, with payload: String, verifyResponse: ((Data) -> Bool)?, services: Servicable) -> EventLoopFuture<Data?> {
         return $invoke.getValue((function, payload, verifyResponse, services))
     }
 }

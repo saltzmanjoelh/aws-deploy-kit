@@ -21,10 +21,10 @@ class MockPublisher: BlueGreenPublisher {
     public var alias: String = Publisher.defaultAlias
     
     @Mock
-    var publishArchive = { (archiveURL: URL, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data?) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
+    var publishArchive = { (archiveURL: URL, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
         return livePublisher.publishArchive(archiveURL, invokePayload: invokePayload, from: packageDirectory, verifyResponse: verifyResponse, alias: alias, services: services)
     }
-    func publishArchive(_ archiveURL: URL, invokePayload: String, from packageDirectory: URL, verifyResponse: ((Data?) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+    func publishArchive(_ archiveURL: URL, invokePayload: String, from packageDirectory: URL, verifyResponse: ((Data) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
         return $publishArchive.getValue((archiveURL, invokePayload, packageDirectory, verifyResponse, alias, services))
     }
     
@@ -45,10 +45,10 @@ class MockPublisher: BlueGreenPublisher {
     }
     
     @Mock
-    var verifyLambda = { (configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data?) -> Bool)?, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+    var verifyLambda = { (configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data) -> Bool)?, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
         return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, packageDirectory: packageDirectory, verifyResponse: verifyResponse, services: services)
     }
-    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data?) -> Bool)?, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data) -> Bool)?, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         return $verifyLambda.getValue((configuration, invokePayload, packageDirectory, verifyResponse, services))
     }
     

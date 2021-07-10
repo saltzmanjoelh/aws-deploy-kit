@@ -12,7 +12,7 @@ import SotoLambda
 public protocol LambdaInvoker {
     func parsePayload(_ payload: String, services: Servicable) -> EventLoopFuture<ByteBuffer>
     func loadPayloadFile(at file: URL, services: Servicable) -> EventLoopFuture<ByteBuffer>
-    func invoke(function: String, with payload: String, verifyResponse: ((Data?) -> Bool)?, services: Servicable) -> EventLoopFuture<Data?>
+    func invoke(function: String, with payload: String, verifyResponse: ((Data) -> Bool)?, services: Servicable) -> EventLoopFuture<Data?>
 }
 
 
@@ -55,7 +55,7 @@ public struct Invoker: LambdaInvoker {
     /// - Returns: Data of the response from your Lambda.
     public func invoke(function: String,
                        with payload: String,
-                       verifyResponse: ((Data?) -> Bool)? = nil,
+                       verifyResponse: ((Data) -> Bool)? = nil,
                        services: Servicable) -> EventLoopFuture<Data?> {
         services.logger.trace("Invoking Lambda: \(function). Payload: \(payload)")
         return services.invoker.parsePayload(payload, services: services)
@@ -70,7 +70,7 @@ public struct Invoker: LambdaInvoker {
                 {
                     throw LambdaInvokerError.invokeLambdaFailed(function, responseMessage)
                 }
-                let data = response.payload?.asData()
+                let data = response.payload?.asData() ?? Data()
                 if let action = verifyResponse,
                    !action(data) {
                     throw LambdaInvokerError.verificationFailed(function)

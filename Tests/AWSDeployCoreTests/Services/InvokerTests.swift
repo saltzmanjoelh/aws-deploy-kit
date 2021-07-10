@@ -106,7 +106,7 @@ class InvokerTests: XCTestCase {
     }
     func testInvokeThrowsWhenVerifyResponseFails() throws {
         // Given a verify action that fails
-        let verifyResponse: (Data?) -> Bool = { _ in return false }
+        let verifyResponse: (Data) -> Bool = { _ in return false }
         let functionName = "my-function"
         let responseReceived = expectation(description: "Response received")
         

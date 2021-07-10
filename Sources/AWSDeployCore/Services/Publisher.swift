@@ -21,7 +21,7 @@ public protocol BlueGreenPublisher {
     func publishArchive(_ archiveURL: URL,
                         invokePayload: String,
                         from packageDirectory: URL,
-                        verifyResponse: ((Data?) -> Bool)?,
+                        verifyResponse: ((Data) -> Bool)?,
                         alias: String,
                         services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     
@@ -41,7 +41,7 @@ public protocol BlueGreenPublisher {
     func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
                       invokePayload: String,
                       packageDirectory: URL,
-                      verifyResponse: ((Data?) -> Bool)?,
+                      verifyResponse: ((Data) -> Bool)?,
                       services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
 }
 
@@ -71,7 +71,7 @@ public struct Publisher: BlueGreenPublisher {
     public func publishArchive(_ archiveURL: URL,
                                invokePayload: String,
                                from packageDirectory: URL,
-                               verifyResponse: ((Data?) -> Bool)?,
+                               verifyResponse: ((Data) -> Bool)?,
                                alias: String = Self.defaultAlias,
                                services: Servicable = Services.shared) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
@@ -369,7 +369,7 @@ extension Publisher {
     public func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
                              invokePayload: String,
                              packageDirectory: URL,
-                             verifyResponse: ((Data?) -> Bool)? = nil,
+                             verifyResponse: ((Data) -> Bool)? = nil,
                              services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         services.logger.trace("Verify Lambda")
         guard let functionName = configuration.functionName else {
