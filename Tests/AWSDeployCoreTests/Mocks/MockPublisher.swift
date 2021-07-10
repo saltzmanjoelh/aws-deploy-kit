@@ -21,11 +21,11 @@ class MockPublisher: BlueGreenPublisher {
     public var alias: String = Publisher.defaultAlias
     
     @Mock
-    var publishArchive = { (archiveURL: URL, invokePayload: String, alias: String, packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
-        return livePublisher.publishArchive(archiveURL, invokePayload: invokePayload, alias: alias, from: packageDirectory, services: services)
+    var publishArchive = { (archiveURL: URL, invokePayload: String, packageDirectory: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
+        return livePublisher.publishArchive(archiveURL, invokePayload: invokePayload, from: packageDirectory, alias: alias, services: services)
     }
-    func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, from packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        return $publishArchive.getValue((archiveURL, invokePayload, alias, packageDirectory, services))
+    func publishArchive(_ archiveURL: URL, invokePayload: String, from packageDirectory: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+        return $publishArchive.getValue((archiveURL, invokePayload, packageDirectory, alias, services))
     }
     
     @Mock

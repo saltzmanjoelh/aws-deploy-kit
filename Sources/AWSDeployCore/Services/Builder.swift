@@ -141,7 +141,10 @@ public struct Builder: DockerizedBuilder {
     ///   - sshPrivateKeyPath: The private key to pull from private repos with.
     /// - Throws: If there was a problem building the product.
     /// - Returns: Archive to the built product
-    public func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL {
+    public func buildProduct(_ product: String,
+                             at packageDirectory: URL,
+                             services: Servicable = Services.shared,
+                             sshPrivateKeyPath: URL? = nil) throws -> URL {
         // We change the path here so that when we process the pre and post commands, we can use a relative paths
         // to files that might be in their directories
         let sourceDirectory = packageDirectory.appendingPathComponent("Sources").appendingPathComponent(product)

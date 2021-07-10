@@ -46,8 +46,8 @@ extension PublishCommand {
     public mutating func run(services: Servicable) throws {
         _ = try services.publisher.publishArchive(URL(fileURLWithPath: archivePath),
                                                   invokePayload: publishOptions.payloadOption.payload,
-                                                  alias: publishOptions.alias,
                                                   from: URL(fileURLWithPath: invokeOptions.directory.path),
+                                                  alias: publishOptions.alias,
                                                   services: services).wait()
     }
 }

@@ -18,7 +18,7 @@ import SotoIAM
 public protocol BlueGreenPublisher {
     var functionRole: String? { get set }
 
-    func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, from packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
+    func publishArchive(_ archiveURL: URL, invokePayload: String, from packageDirectory: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func createRole(_ roleName: String, services: Servicable) -> EventLoopFuture<String>
     func createLambda(with archiveURL: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func createFunctionCode(archiveURL: URL, role: String, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
@@ -54,10 +54,16 @@ public struct Publisher: BlueGreenPublisher {
     /// Finally, it points the API Gateway to the new Lambda function version.
     /// - Parameters:
     ///   - archiveURL: A URL to the archive which will be used as the function's new code.
+    ///   - invokePayload: a JSON string or a file apth to a JSON file prefixed with "file://".
+    ///   - packageDirectory: If the payload is a file path, this is the Swift package that
     ///   - alias: The alias that will point to the updated code.
-    ///   - packageDirectory: If the payload is a file path, this is the Swift package that 
+    ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
-    public func publishArchive(_ archiveURL: URL, invokePayload: String, alias: String, from packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+    public func publishArchive(_ archiveURL: URL,
+                               invokePayload: String,
+                               from packageDirectory: URL,
+                               alias: String = Self.defaultAlias,
+                               services: Servicable = Services.shared) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
         // because it gives us a way to use mocks. Maybe convert to static instead?
         services.logger.trace("--- Publishing: \(archiveURL) ---")

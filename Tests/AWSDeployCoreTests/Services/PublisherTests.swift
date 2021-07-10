@@ -60,7 +60,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: alias, from: packageDirectory, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, alias: alias, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then the updated version number should be included in the results
                 do {
@@ -89,7 +89,7 @@ class PublisherTests: XCTestCase {
         let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/.zip")
 
         // When calling publishArchive
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: Publisher.defaultAlias, from: packageDirectory, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, alias: Publisher.defaultAlias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -127,7 +127,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing to an existing function
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", alias: Publisher.defaultAlias, from: packageDirectory, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, alias: Publisher.defaultAlias, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then a String that represents the revisionId should be returned
                 do {
