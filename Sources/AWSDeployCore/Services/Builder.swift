@@ -132,7 +132,15 @@ public struct Builder: DockerizedBuilder {
         let targetDirectory = packageDirectory.appendingPathComponent("Sources").appendingPathComponent(product)
         let _: LogCollector.Logs = try services.shell.run(command, at: targetDirectory, logger: services.logger)
     }
-
+    
+    /// Builds the product in Docker.
+    /// - Parameters:
+    ///   - product: The executable that you want to build.
+    ///   - packageDirectory: The Swift package that the executable is in.
+    ///   - services: The set of services which will be used to execute your request with.
+    ///   - sshPrivateKeyPath: The private key to pull from private repos with.
+    /// - Throws: If there was a problem building the product.
+    /// - Returns: Archive to the built product
     public func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL {
         // We change the path here so that when we process the pre and post commands, we can use a relative paths
         // to files that might be in their directories
