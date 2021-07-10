@@ -52,6 +52,17 @@ extension BuildCommand {
     
     public mutating func run(services: Servicable) throws -> [URL] {
         let packageDirectory = URL(fileURLWithPath: options.directory.path)
-        return try services.builder.buildProducts(options.products, at: packageDirectory, skipProducts: options.skipProducts, sshPrivateKeyPath: options.sshKeyPath, services: services)
+        let sshPrivateKey: URL?
+        if let keyPath = options.sshKeyPath,
+           services.fileManager.fileExists(atPath: keyPath){
+            sshPrivateKey = URL(fileURLWithPath: keyPath)
+        } else {
+            sshPrivateKey = nil
+        }
+        return try services.builder.buildProducts(options.products,
+                                                  at: packageDirectory,
+                                                  skipProducts: options.skipProducts,
+                                                  sshPrivateKeyPath: sshPrivateKey,
+                                                  services: services)
     }
 }

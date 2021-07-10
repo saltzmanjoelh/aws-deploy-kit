@@ -29,8 +29,10 @@ class BuildAndPublishCommandTests: XCTestCase {
     func testRunWithMocks() throws {
         // Given a valid configuration
         let packageDirectory = tempPackageDirectory()
+        let sshKey = URL(fileURLWithPath: "/path/to/key")
         var instance = try! AWSDeployCommand.parseAsRoot(["build-and-publish", ExamplePackage.executableOne, "-d", packageDirectory.path]) as! BuildAndPublishCommand
         Services.shared = mockServices
+        mockServices.mockFileManager.fileExists = { _ in return true }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
             return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }
@@ -43,5 +45,25 @@ class BuildAndPublishCommandTests: XCTestCase {
         XCTAssertNoThrow(try instance.run())
         XCTAssertTrue(mockServices.mockBuilder.$buildProducts.wasCalled)
         XCTAssertTrue(mockServices.mockPublisher.$publishArchive.wasCalled)
+    }
+    func testSSHKeyIsApplied() throws {
+        // Given a valid configuration
+        let packageDirectory = tempPackageDirectory()
+        let sshKey = URL(fileURLWithPath: "/path/to/key")
+        var instance = try! AWSDeployCommand.parseAsRoot(["build-and-publish", ExamplePackage.executableOne, "-d", packageDirectory.path, "-k", sshKey.path]) as! BuildAndPublishCommand
+        Services.shared = mockServices
+        mockServices.mockFileManager.fileExists = { _ in return true }
+        mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
+            return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
+        }
+        mockServices.mockPublisher.publishArchive = { _ -> EventLoopFuture<Lambda.AliasConfiguration> in
+            return self.mockServices.stubAliasConfiguration()
+        }
+        
+        // When calling run()
+        // Then no errors are thrown
+        XCTAssertNoThrow(try instance.run())
+        XCTAssertTrue(mockServices.mockBuilder.$buildProducts.wasCalled)
+        XCTAssertEqual(mockServices.mockBuilder.$buildProducts.usage.history[0].context.3, sshKey)
     }
 }

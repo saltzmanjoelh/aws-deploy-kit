@@ -28,10 +28,17 @@ struct BuildAndPublishCommand: ParsableCommand {
 
     public mutating func run(services: Servicable) throws {
         let packageDirectory = URL(fileURLWithPath: buildOptions.directory.path)
+        let sshPrivateKey: URL?
+        if let keyPath = buildOptions.sshKeyPath,
+           services.fileManager.fileExists(atPath: keyPath){
+            sshPrivateKey = URL(fileURLWithPath: keyPath)
+        } else {
+            sshPrivateKey = nil
+        }
         let archiveURLs = try services.builder.buildProducts(buildOptions.products,
                                                              at: packageDirectory,
                                                              skipProducts: buildOptions.skipProducts,
-                                                             sshPrivateKeyPath: buildOptions.sshKeyPath,
+                                                             sshPrivateKeyPath: sshPrivateKey,
                                                              services: services)
         _ = try archiveURLs.map({ archiveURL in
             try services.publisher.publishArchive(archiveURL,

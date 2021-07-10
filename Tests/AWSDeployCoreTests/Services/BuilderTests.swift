@@ -126,7 +126,7 @@ class BuilderTests: XCTestCase {
     
     func testBuildProducts() throws {
         let packageDirectory = tempPackageDirectory()
-        let sshKey = "/path/to/key"
+        let sshKey = URL(fileURLWithPath: "/path/to/key")
         let executable = Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
         let archive = mockServices.packager.archivePath(for: executable.lastPathComponent, in: packageDirectory)
         mockServices.mockBuilder.getDockerfilePath = { _ in return URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile") }
@@ -143,7 +143,7 @@ class BuilderTests: XCTestCase {
         XCTAssertTrue(mockServices.mockBuilder.$prepareDockerImage.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$buildProduct.wasCalled)
         XCTAssertTrue(mockServices.mockPackager.$packageExecutable.wasCalled)
-        XCTAssertEqual(mockServices.mockBuilder.$buildProduct.usage.history[0].context.3, URL(fileURLWithPath: sshKey), "The supplied ssh key should have been passed to buildProduct as an URL")
+        XCTAssertEqual(mockServices.mockBuilder.$buildProduct.usage.history[0].context.3, URL(fileURLWithPath: sshKey.path), "The supplied ssh key should have been passed to buildProduct as an URL")
     }
     func testBuildProductsThrowsWithMissingProduct() throws {
         // Setup

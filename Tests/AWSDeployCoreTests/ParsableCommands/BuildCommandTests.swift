@@ -46,10 +46,11 @@ class BuildCommandTests: XCTestCase {
     
     func testSSHKey() throws {
         // Given an ssh key
-        let key = "/path/to/key"
+        let key = URL(fileURLWithPath: "/path/to/key")
         let packageDirectory = tempPackageDirectory()
-        var instance = try! BuildCommand.parseAsRoot([packageDirectory.path, ExamplePackage.executableOne, "-k", key]) as! BuildCommand
+        var instance = try! BuildCommand.parseAsRoot([packageDirectory.path, ExamplePackage.executableOne, "-k", key.path]) as! BuildCommand
         Services.shared = mockServices
+        mockServices.mockFileManager.fileExists = { _ in return true }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
             return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }

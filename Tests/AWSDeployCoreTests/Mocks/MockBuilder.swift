@@ -18,11 +18,11 @@ class MockBuilder: DockerizedBuilder {
     
     static var liveBuilder = Builder()
     
-    func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", sshPrivateKeyPath: String? = nil, services: Servicable) throws -> [URL] {
+    func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
         return try $buildProducts.getValue((products, packageDirectory, skipProducts, sshPrivateKeyPath, services))
     }
     @ThrowingMock
-    var buildProducts = { (products: [String], packageDirectory: URL, skipProducts: String, sshPrivateKeyPath: String?, services: Servicable) throws -> [URL] in
+    var buildProducts = { (products: [String], packageDirectory: URL, skipProducts: String, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL] in
         return try liveBuilder.buildProducts(products, at: packageDirectory, skipProducts: skipProducts, sshPrivateKeyPath: sshPrivateKeyPath, services: services)
     }
     
