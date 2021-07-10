@@ -4,7 +4,7 @@
 [<img src="https://github.com/saltzmanjoelh/AWSDeployKit/workflows/Swift/badge.svg" />](https://github.com/saltzmanjoelh/AWSDeployKit/actions)
 [<img src="https://codecov.io/gh/saltzmanjoelh/AWSDeployKit/branch/main/graph/badge.svg" alt="Codecov Result" />](https://codecov.io/gh/saltzmanjoelh/AWSDeployKit)
 
-Helps with building Swift packages in Linux and publishing to an AWS Lambda. 
+Helps with building Swift packages in Linux and publishing to an AWS Lambda. Using this as a package dependency, you can leverage your existing Lambda request and response objects to test your update Lambdas with. Take a look at the AdvancedExample in the [AWSDeployKitExample](https://github.com/saltzmanjoelh/AWSDeployKitExample).
 
 ## TLDR
 If you plan on [using this from the command line](#using-from-the-command-line), you will simply build the aws-deploy target and copy the product to somewhere. However, I prefer to use this in Xcode, more on this [below](#use-this-in-xcode)
