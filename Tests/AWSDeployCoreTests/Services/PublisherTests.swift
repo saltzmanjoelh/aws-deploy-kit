@@ -165,7 +165,7 @@ class PublisherTests: XCTestCase {
         let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
 
         // When publishing to a new function
-        mockServices.publisher.publishFunctionCode(archiveURL, alias: Publisher.defaultAlias, services: mockServices)
+        mockServices.publisher.publishFunctionCode(archiveURL, services: mockServices)
             .whenComplete { (result: Result<Lambda.FunctionConfiguration, Error>) in
                 do {
                     _ = try result.get()
@@ -492,7 +492,6 @@ class PublisherTests: XCTestCase {
         // Given a valid configuration
         let functionName = "my-function"
         let role = "arn:aws:iam::12345678912:role/role"
-        let alias = "development"
         let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         // Setup some stubs
         MockPublisher.livePublisher.functionRole = role
@@ -505,8 +504,7 @@ class PublisherTests: XCTestCase {
         
         // When calling createLambda
         let result = try mockServices.publisher.createLambda(with: archiveURL,
-                                                alias: alias,
-                                                services: mockServices).wait()
+                                                             services: mockServices).wait()
         
         // Then the FunctionConfiguration should be returned
         XCTAssertEqual(result.functionName, functionName)
