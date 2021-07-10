@@ -71,6 +71,7 @@ extension InvokeCommand {
         
         if let data = try services.invoker.invoke(function: function,
                                                   with: payload,
+                                                  verifyResponse: nil,
                                                   services: services).wait(),
            let response = String(data: data, encoding: .utf8) {
             services.logger.trace(.init(stringLiteral: "\(response)"))

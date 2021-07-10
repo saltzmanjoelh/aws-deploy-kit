@@ -60,7 +60,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, alias: alias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, verifyResponse: nil, alias: alias, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then the updated version number should be included in the results
                 do {
@@ -89,7 +89,7 @@ class PublisherTests: XCTestCase {
         let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/.zip")
 
         // When calling publishArchive
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, alias: Publisher.defaultAlias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, verifyResponse: nil, alias: Publisher.defaultAlias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -127,7 +127,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing to an existing function
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, alias: Publisher.defaultAlias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, verifyResponse: nil, alias: Publisher.defaultAlias, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then a String that represents the revisionId should be returned
                 do {
@@ -282,7 +282,7 @@ class PublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, verifyResponse: nil, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda").description)
@@ -299,7 +299,7 @@ class PublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, verifyResponse: nil, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "verifyLambda").description)
@@ -316,7 +316,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, verifyResponse: nil, services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 resultReceived.fulfill()
             }
@@ -334,7 +334,7 @@ class PublisherTests: XCTestCase {
         let payload = "{\"errorMessage\":\"RequestId: 590ec71e-14c1-4498-8edf-2bd808dc3c0e Error: Runtime exited without providing a reason\",\"errorType\":\"Runtime.ExitError\"}"
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, verifyResponse: nil, services: mockServices)
             .whenFailure { (error: Error) in
                 XCTAssertEqual("\(error)", LambdaInvokerError.invokeLambdaFailed("\(functionName):2", payload).description)
                 errorReceived.fulfill()
@@ -344,6 +344,27 @@ class PublisherTests: XCTestCase {
             let buffer = ByteBuffer(string: payload)
             return .result(.init(httpStatus: .ok, headers: ["X-Amz-Function-Error": "Unhandled"], body: buffer))
         }
+        wait(for: [errorReceived], timeout: 3.0)
+    }
+    func testVerifyLambdaThrowsWhenVerifyResponseFails() throws {
+        // Given an invalid FunctionConfiguration
+        let functionName = "my-function"
+        let configuration: Lambda.FunctionConfiguration = .init(functionName: functionName, version: "2")
+        let packageDirectory = tempPackageDirectory()
+        let errorReceived = expectation(description: "Error received")
+
+        // When calling verifyLambda
+        mockServices.publisher.verifyLambda(configuration,
+                                            invokePayload: "",
+                                            packageDirectory: packageDirectory,
+                                            verifyResponse: { _ in return false},
+                                            services: mockServices)
+            .whenFailure { (error: Error) in
+                XCTAssertEqual("\(error)", LambdaInvokerError.verificationFailed("\(functionName):2").description)
+                errorReceived.fulfill()
+            }
+
+        try waitToProcess([ByteBuffer(string: "{\"CodeSha256\": \"12345\", \"Version\": \"1\"}")], mockServices: mockServices)
         wait(for: [errorReceived], timeout: 3.0)
     }
 

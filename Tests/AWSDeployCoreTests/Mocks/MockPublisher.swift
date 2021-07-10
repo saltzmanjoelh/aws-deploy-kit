@@ -21,11 +21,11 @@ class MockPublisher: BlueGreenPublisher {
     public var alias: String = Publisher.defaultAlias
     
     @Mock
-    var publishArchive = { (archiveURL: URL, invokePayload: String, packageDirectory: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
-        return livePublisher.publishArchive(archiveURL, invokePayload: invokePayload, from: packageDirectory, alias: alias, services: services)
+    var publishArchive = { (archiveURL: URL, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data?) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
+        return livePublisher.publishArchive(archiveURL, invokePayload: invokePayload, from: packageDirectory, verifyResponse: verifyResponse, alias: alias, services: services)
     }
-    func publishArchive(_ archiveURL: URL, invokePayload: String, from packageDirectory: URL, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        return $publishArchive.getValue((archiveURL, invokePayload, packageDirectory, alias, services))
+    func publishArchive(_ archiveURL: URL, invokePayload: String, from packageDirectory: URL, verifyResponse: ((Data?) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+        return $publishArchive.getValue((archiveURL, invokePayload, packageDirectory, verifyResponse, alias, services))
     }
     
     @Mock
@@ -45,11 +45,11 @@ class MockPublisher: BlueGreenPublisher {
     }
     
     @Mock
-    var verifyLambda = { (configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
-        return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, packageDirectory: packageDirectory, services: services)
+    var verifyLambda = { (configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data?) -> Bool)?, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+        return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, packageDirectory: packageDirectory, verifyResponse: verifyResponse, services: services)
     }
-    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
-        return $verifyLambda.getValue((configuration, invokePayload, packageDirectory, services))
+    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data?) -> Bool)?, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        return $verifyLambda.getValue((configuration, invokePayload, packageDirectory, verifyResponse, services))
     }
     
     @Mock

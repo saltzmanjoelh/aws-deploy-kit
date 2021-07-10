@@ -49,13 +49,13 @@ public struct Builder: DockerizedBuilder {
     public func buildProducts(_ products: [String], at packageDirectory: URL, skipProducts: String = "", sshPrivateKeyPath: String? = nil, services: Servicable) throws -> [URL] {
         services.logger.trace("Build products at: \(packageDirectory.path)")
         let parseProducts = try validateProducts(products, skipProducts: skipProducts, at: packageDirectory, services: services)
-        let dockerfilePath = try services.builder.getDockerfilePath(from: packageDirectory, services: services)
         let sshPrivateKey: URL?
         if let keyPath = sshPrivateKeyPath {
             sshPrivateKey = URL(fileURLWithPath: keyPath)
         } else {
             sshPrivateKey = nil
         }
+        let dockerfilePath = try services.builder.getDockerfilePath(from: packageDirectory, services: services)
         _ = try services.builder.prepareDockerImage(at: dockerfilePath, services: services)
         let executableURLs = try parseProducts.map { (product: String) -> URL in
             try services.builder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKey)

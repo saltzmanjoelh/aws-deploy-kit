@@ -37,6 +37,7 @@ struct BuildAndPublishCommand: ParsableCommand {
             try services.publisher.publishArchive(archiveURL,
                                                   invokePayload: publishOptions.payloadOption.payload,
                                                   from: packageDirectory,
+                                                  verifyResponse: nil,
                                                   alias: publishOptions.alias,
                                                   services: services).wait()
         })
