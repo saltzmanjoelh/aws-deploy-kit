@@ -20,10 +20,11 @@ public protocol DockerizedBuilder {
     func loadProducts(at packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String]
     
     func buildProducts(_ products: [String], at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL]
+    func prepareDocker(packageDirectory: URL, services: Servicable) throws
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL
     func createTemporaryDockerfile(services: Servicable) throws -> URL
-    func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL
     func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String
+    func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL
     func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws
     func buildProductInDocker(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs
     func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL

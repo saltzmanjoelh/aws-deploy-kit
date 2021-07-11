@@ -57,6 +57,14 @@ class MockBuilder: DockerizedBuilder {
         return try liveBuilder.loadProducts(at: packageDirectory, type: type, services: services)
     }
     
+    func prepareDocker(packageDirectory: URL, services: Servicable) throws {
+        try $prepareDocker.getValue((packageDirectory, services))
+    }
+    @ThrowingMock
+    var prepareDocker = { (packageDirectory: URL, services: Servicable) throws in
+        try liveBuilder.prepareDocker(packageDirectory: packageDirectory, services: services)
+    }
+    
     func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String {
         return try $prepareDockerImage.getValue((dockerfilePath, services))
     }
