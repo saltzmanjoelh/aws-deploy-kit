@@ -81,6 +81,14 @@ class MockBuilder: DockerizedBuilder {
         try liveBuilder.executeShellCommand(command, for: product, at: packageDirectory, services: services)
     }
     
+    func buildAndPackage(product: String, at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL {
+        return try $buildAndPackage.getValue((product, packageDirectory, sshPrivateKeyPath, services))
+    }
+    @ThrowingMock
+    var buildAndPackage = { (product: String, packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL in
+        try liveBuilder.buildAndPackage(product: product, at: packageDirectory, sshPrivateKeyPath: sshPrivateKeyPath, services: services)
+    }
+    
     func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL {
         return try $buildProduct.getValue((product, packageDirectory, services, sshPrivateKeyPath))
     }

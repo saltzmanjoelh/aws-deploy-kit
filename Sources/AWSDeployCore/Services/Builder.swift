@@ -24,6 +24,7 @@ public protocol DockerizedBuilder {
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL
     func createTemporaryDockerfile(services: Servicable) throws -> URL
     func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String
+    func buildAndPackage(product: String, at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL
     func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL
     func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws
     func buildProductInDocker(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs
@@ -50,11 +51,7 @@ public struct Builder: DockerizedBuilder {
         services.logger.trace("Build products at: \(packageDirectory.path)")
         try prepareDocker(packageDirectory: packageDirectory, services: services)
         let archiveURLs = try products.map { (product: String) -> URL in
-            let executableURL = try services.builder.buildProduct(product,
-                                                                  at: packageDirectory,
-                                                                  services: services,
-                                                                  sshPrivateKeyPath: sshPrivateKeyPath)
-            return try services.packager.packageExecutable(executableURL.lastPathComponent, at: packageDirectory, services: services)
+            try services.builder.buildAndPackage(product: product, at: packageDirectory, sshPrivateKeyPath: sshPrivateKeyPath, services: services)
         }
         return archiveURLs
     }
@@ -123,6 +120,23 @@ public struct Builder: DockerizedBuilder {
         )
         return output
     }
+    
+    
+    /// Builds the product in Docker, then packages it with it's library dependencies into a zip.
+    /// - Parameters:
+    ///   - product: The product from a Swift package to build and archive.
+    ///   - packageDirectory: The directory of the Swift package that the product is from.
+    ///   - sshPrivateKeyPath: An ssh private key that can be used to pull Swift dependencies from private repos.
+    ///   - services: The set of services which will be used to execute your request with.
+    /// - Returns: An URL to a zip archive that contains the built product and it's library dependencies.
+    public func buildAndPackage(product: String, at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL {
+        let executableURL = try services.builder.buildProduct(product,
+                                                              at: packageDirectory,
+                                                              services: services,
+                                                              sshPrivateKeyPath: sshPrivateKeyPath)
+        return try services.packager.packageExecutable(executableURL.lastPathComponent, at: packageDirectory, services: services)
+    }
+    
     /// Executes a shell command for a specific product in it's source directory.
     /// - Parameters:
     ///   - command: The shell command to execute.

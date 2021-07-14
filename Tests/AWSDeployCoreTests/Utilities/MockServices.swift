@@ -75,7 +75,7 @@ class MockServices: Servicable {
     }
     func stubFunctionConfiguration(functionName: String = "functionName") -> EventLoopFuture<Lambda.FunctionConfiguration> {
         let promise = lambda.eventLoopGroup.next().makePromise(of: Lambda.FunctionConfiguration.self)
-        promise.succeed(.init(codeSha256: "1234", functionName: functionName))
+        promise.succeed(.init(codeSha256: "1234", functionName: functionName, version: "1"))
         return promise.futureResult
     }
 }

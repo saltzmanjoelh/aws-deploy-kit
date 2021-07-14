@@ -34,8 +34,8 @@ class InvokeCommandTests: XCTestCase {
         defer { Services.shared = Services() }
         // Given a successful invocation
         mockServices.mockInvoker.invoke = { _ in
-            let promise = self.mockServices.lambda.eventLoopGroup.next().makePromise(of: Optional<Data>.self)
-            promise.succeed(expectedResponse.data(using: .utf8))
+            let promise = self.mockServices.lambda.eventLoopGroup.next().makePromise(of: Data.self)
+            promise.succeed(expectedResponse.data(using: .utf8)!)
             return promise.futureResult
         }
         
@@ -52,9 +52,9 @@ class InvokeCommandTests: XCTestCase {
         Services.shared = mockServices
         defer { Services.shared = Services() }
         // Given a successful invocation
-        mockServices.mockInvoker.invoke = { _ in
-            let promise = self.mockServices.lambda.eventLoopGroup.next().makePromise(of: Optional<Data>.self)
-            promise.succeed(nil)
+        mockServices.mockInvoker.verifyLambda = { _ in
+            let promise = self.mockServices.lambda.eventLoopGroup.next().makePromise(of: Data.self)
+            promise.succeed(Data())
             return promise.futureResult
         }
         
@@ -62,7 +62,8 @@ class InvokeCommandTests: XCTestCase {
         try instance.run()
         
         // Then the response should be logged
-        XCTAssertTrue(mockServices.logCollector.logs.debugDescription.contains("Invoke my-function completed"))
+        let message = mockServices.logCollector.logs.debugDescription
+        XCTAssertTrue(message.contains("Invoke my-function completed"), "Response was not logged: \(message)")
     }
     
     func testJSONFileIsHandled() throws {
@@ -94,7 +95,7 @@ class InvokeCommandTests: XCTestCase {
     func testEndpointOption() throws {
         Services.shared = mockServices
         defer { Services.shared = Services() }
-        mockServices.mockInvoker.invoke = { _ -> EventLoopFuture<Data?> in
+        mockServices.mockInvoker.verifyLambda = { _ -> EventLoopFuture<Data> in
             return self.mockServices.lambda.eventLoopGroup.next().makeSucceededFuture(Data())
         }
         // Given a custom endpoint provided as an option

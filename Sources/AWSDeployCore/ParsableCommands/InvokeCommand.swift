@@ -69,10 +69,11 @@ extension InvokeCommand {
                 .absoluteString
         }
         
-        if let data = try services.invoker.invoke(function: function,
-                                                  with: payload,
-                                                  verifyResponse: nil,
-                                                  services: services).wait(),
+        let data = try services.invoker.verifyLambda(function: function,
+                                                        with: payload,
+                                                        verifyResponse: nil,
+                                                        services: services).wait()
+        if data.count > 0,
            let response = String(data: data, encoding: .utf8) {
             services.logger.trace(.init(stringLiteral: "\(response)"))
         } else {

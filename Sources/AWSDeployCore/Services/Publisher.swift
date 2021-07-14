@@ -19,8 +19,9 @@ public protocol BlueGreenPublisher {
     var functionRole: String? { get set }
 
     func publishArchive(_ archiveURL: URL,
-                        invokePayload: String,
                         from packageDirectory: URL,
+                        invokePayload: String,
+                        preVerifyAction: (() -> EventLoopFuture<Void>)?,
                         verifyResponse: ((Data) -> Bool)?,
                         alias: String,
                         services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
@@ -35,6 +36,7 @@ public protocol BlueGreenPublisher {
     func parseFunctionName(from archiveURL: URL, services: Servicable) -> EventLoopFuture<String>
     func publishFunctionCode(_ archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func publishLatest(_ configuration: Lambda.FunctionConfiguration, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
+    func publishNewVersion(_ archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func updateFunctionCode(_ configuration: Lambda.FunctionConfiguration, archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
     func updateAliasVersion(_ configuration: Lambda.FunctionConfiguration, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func validateRole(_ role: String, services: Servicable) -> EventLoopFuture<String>
@@ -63,25 +65,34 @@ public struct Publisher: BlueGreenPublisher {
     /// Finally, it points the API Gateway to the new Lambda function version.
     /// - Parameters:
     ///   - archiveURL: A URL to the archive which will be used as the function's new code.
-    ///   - invokePayload: a JSON string or a file apth to a JSON file prefixed with "file://".
     ///   - packageDirectory: If the payload is a file path, this is the Swift package that
+    ///   - invokePayload: a JSON string or a file apth to a JSON file prefixed with "file://".
+    ///   - preVerifyAction: Optionally, before running the `verifyLambda` step you can run some async tasks with this like setting up some existing data in the datastore.
+    ///   - verifyResponse: Optionally, add some extra verification for the new response that the updated Lambda is returning.
     ///   - alias: The alias that will point to the updated code.
     ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
     public func publishArchive(_ archiveURL: URL,
-                               invokePayload: String,
                                from packageDirectory: URL,
-                               verifyResponse: ((Data) -> Bool)?,
+                               invokePayload: String,
+                               preVerifyAction: (() -> EventLoopFuture<Void>)? = nil,
+                               verifyResponse: ((Data) -> Bool)? = nil,
                                alias: String = Self.defaultAlias,
                                services: Servicable = Services.shared) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
-        // because it gives us a way to use mocks. Maybe convert to static instead?
+        // because it gives us a way to use mocks.
         services.logger.trace("--- Publishing: \(archiveURL) ---")
-        // Create/Update the source code of the function
-        return publishFunctionCode(archiveURL, services: services)
-            // Lock the code by publishing a new version.
-            .flatMap { services.publisher.publishLatest($0, services: services) }
+        return publishNewVersion(archiveURL, services: services)
             
+            .flatMap { (functionConfig: Lambda.FunctionConfiguration) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+                // If there is something to do before running the verification step, we do it now
+                guard let action = preVerifyAction else {
+                    return services.lambda.eventLoopGroup.next().makeSucceededFuture(functionConfig)
+                }
+                return action()
+                    .map({ functionConfig })
+            }
+                
             // Make sure that it's working.
             .flatMap { services.publisher.verifyLambda($0,
                                                        invokePayload: invokePayload,
@@ -97,6 +108,13 @@ public struct Publisher: BlueGreenPublisher {
                 services.logger.trace("Error publishing: \(archiveURL.lastPathComponent).\n\(error)")
                 return services.lambda.client.eventLoopGroup.next().makeFailedFuture(error)
             }
+    }
+    
+    // Create/Update the source code of the function
+    public func publishNewVersion(_ archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        return services.publisher.publishFunctionCode(archiveURL, services: services)
+            // Lock the code by publishing a new version.
+            .flatMap { services.publisher.publishLatest($0, services: services) }
     }
     
     /// Determines if the Lambda should be created or updated and performs that action.
@@ -383,7 +401,7 @@ extension Publisher {
         
         // Delay the execution for a second while AWS wraps up.
         return services.lambda.eventLoopGroup.next().flatScheduleTask(in: TimeAmount.milliseconds(250)) { () -> EventLoopFuture<Lambda.FunctionConfiguration> in
-            return services.invoker.invoke(function: functionVersion, with: invokePayload, verifyResponse: verifyResponse, services: services)
+            return services.invoker.verifyLambda(function: functionVersion, with: invokePayload, verifyResponse: verifyResponse, services: services)
                 .map({ _ in configuration })
         }.futureResult
     }

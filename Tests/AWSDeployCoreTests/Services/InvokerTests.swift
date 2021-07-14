@@ -86,13 +86,13 @@ class InvokerTests: XCTestCase {
         let responseReceived = expectation(description: "Response received")
         
         // When calling invoke
-        mockServices.invoker.invoke(function: "function", with: payload, verifyResponse: nil, services: mockServices)
-            .whenComplete({ (result: Result<Data?, Error>) in
+        mockServices.invoker.invoke(function: "function", with: payload, services: mockServices)
+            .whenComplete({ (result: Result<Data, Error>) in
                 // Then a response should be received
                 do {
                     let data = try result.get()
                     XCTAssertNotNil(data)
-                    let response = String(data: data!, encoding: .utf8)
+                    let response = String(data: data, encoding: .utf8)
                     XCTAssertEqual(response, expectedResponse)
                 } catch {
                     XCTFail(error)
@@ -104,15 +104,15 @@ class InvokerTests: XCTestCase {
         try waitToProcess([.init(string: expectedResponse)], mockServices: mockServices)
         wait(for: [responseReceived], timeout: 2.0)
     }
-    func testInvokeThrowsWhenVerifyResponseFails() throws {
+    func testVerifyLambdaThrowsWhenVerifyResponseFails() throws {
         // Given a verify action that fails
         let verifyResponse: (Data) -> Bool = { _ in return false }
         let functionName = "my-function"
         let responseReceived = expectation(description: "Response received")
         
         // When calling invoke
-        mockServices.invoker.invoke(function: functionName, with: "", verifyResponse: verifyResponse, services: mockServices)
-            .whenComplete({ (result: Result<Data?, Error>) in
+        mockServices.invoker.verifyLambda(function: functionName, with: "", verifyResponse: verifyResponse, services: mockServices)
+            .whenComplete({ (result: Result<Data, Error>) in
                 // Then an error should be received
                 do {
                     _ = try result.get()

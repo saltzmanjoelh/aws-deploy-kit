@@ -49,6 +49,17 @@ class PublisherTests: XCTestCase {
             ]),
             encoding: .utf8
         )!
+        var preVerifyActionWasCalled = false
+        let preVerifyAction = { () -> EventLoopFuture<Void> in
+            preVerifyActionWasCalled = true
+            return self.mockServices.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
+        }
+        var verifyResponseWasCalled = false
+        let verifyResponseAction = { (data: Data) -> Bool in
+            verifyResponseWasCalled = true
+            return true
+        }
+        
         // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
         let fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 5)
         // Given an archive
@@ -60,7 +71,13 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, verifyResponse: nil, alias: alias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL,
+                                              from: packageDirectory,
+                                              invokePayload: "",
+                                              preVerifyAction: preVerifyAction,
+                                              verifyResponse: verifyResponseAction,
+                                              alias: alias,
+                                              services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then the updated version number should be included in the results
                 do {
@@ -77,7 +94,9 @@ class PublisherTests: XCTestCase {
         wait(for: [resultReceived], timeout: 2.0)
         
         XCTAssertEqual(mockServices.mockPublisher.$publishLatest.usage.history.count, 1, "publishLatest should have been called.")
+        XCTAssertTrue(preVerifyActionWasCalled, "preVerifyAction was not called.")
         XCTAssertEqual(mockServices.mockPublisher.$verifyLambda.usage.history.count, 1, "verifyLambda should have been called.")
+        XCTAssertTrue(verifyResponseWasCalled, "verifyResponse was not called.")
         XCTAssertEqual(mockServices.mockPublisher.$updateAliasVersion.usage.history.count, 1, "updateAliasVersion should have been called.")
     }
     
@@ -89,7 +108,7 @@ class PublisherTests: XCTestCase {
         let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/.zip")
 
         // When calling publishArchive
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, verifyResponse: nil, alias: Publisher.defaultAlias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, from: packageDirectory, invokePayload: "", preVerifyAction: nil, verifyResponse: nil, alias: Publisher.defaultAlias, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidArchiveName(archiveURL.path).description)
@@ -127,7 +146,7 @@ class PublisherTests: XCTestCase {
         let resultReceived = expectation(description: "Result received")
 
         // When publishing to an existing function
-        mockServices.publisher.publishArchive(archiveURL, invokePayload: "", from: packageDirectory, verifyResponse: nil, alias: Publisher.defaultAlias, services: mockServices)
+        mockServices.publisher.publishArchive(archiveURL, from: packageDirectory, invokePayload: "", preVerifyAction: nil, verifyResponse: nil, alias: Publisher.defaultAlias, services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
                 // Then a String that represents the revisionId should be returned
                 do {

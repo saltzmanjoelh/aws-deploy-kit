@@ -21,11 +21,39 @@ class MockPublisher: BlueGreenPublisher {
     public var alias: String = Publisher.defaultAlias
     
     @Mock
-    var publishArchive = { (archiveURL: URL, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
-        return livePublisher.publishArchive(archiveURL, invokePayload: invokePayload, from: packageDirectory, verifyResponse: verifyResponse, alias: alias, services: services)
+    var publishArchive = { (archiveURL: URL,
+                            packageDirectory: URL,
+                            invokePayload: String,
+                            preVerifyAction: (() -> EventLoopFuture<Void>)?,
+                            verifyResponse: ((Data) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
+        return livePublisher.publishArchive(archiveURL,
+                                            from: packageDirectory,
+                                            invokePayload: invokePayload,
+                                            preVerifyAction: preVerifyAction,
+                                            verifyResponse: verifyResponse,
+                                            alias: alias,
+                                            services: services)
     }
-    func publishArchive(_ archiveURL: URL, invokePayload: String, from packageDirectory: URL, verifyResponse: ((Data) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
-        return $publishArchive.getValue((archiveURL, invokePayload, packageDirectory, verifyResponse, alias, services))
+    func publishArchive(_ archiveURL: URL,
+                        from packageDirectory: URL,
+                        invokePayload: String,
+                        preVerifyAction: (() -> EventLoopFuture<Void>)?,
+                        verifyResponse: ((Data) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+        return $publishArchive.getValue((archiveURL,
+                                         packageDirectory,
+                                         invokePayload,
+                                         preVerifyAction: preVerifyAction,
+                                         verifyResponse,
+                                         alias,
+                                         services))
+    }
+    
+    @Mock
+    var publishNewVersion = { (_ archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+        return livePublisher.publishNewVersion(archiveURL, services: services)
+    }
+    func publishNewVersion(_ archiveURL: URL, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        return $publishNewVersion.getValue((archiveURL, services))
     }
     
     @Mock

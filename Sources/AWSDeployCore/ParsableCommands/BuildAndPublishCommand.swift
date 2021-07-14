@@ -50,8 +50,9 @@ struct BuildAndPublishCommand: ParsableCommand {
         // Publish
         _ = try archiveURLs.map({ archiveURL in
             try services.publisher.publishArchive(archiveURL,
-                                                  invokePayload: publishOptions.payloadOption.payload,
                                                   from: packageDirectory,
+                                                  invokePayload: publishOptions.payloadOption.payload,
+                                                  preVerifyAction: nil,
                                                   verifyResponse: nil,
                                                   alias: publishOptions.alias,
                                                   services: services).wait()
