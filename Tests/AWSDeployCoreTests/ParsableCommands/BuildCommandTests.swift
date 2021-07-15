@@ -50,7 +50,7 @@ class BuildCommandTests: XCTestCase {
         let packageDirectory = tempPackageDirectory()
         var instance = try! BuildCommand.parseAsRoot([packageDirectory.path, ExamplePackage.executableOne, "-k", key.path]) as! BuildCommand
         Services.shared = mockServices
-        mockServices.mockFileManager.fileExists = { _ in return true }
+        mockServices.mockFileManager.fileExistsMock = { _ in return true }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
             return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }

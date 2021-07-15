@@ -29,7 +29,7 @@ class InvokerTests: XCTestCase {
         // Given a file path to a JSON file
         let file = "file:///tmp/payload.json"
         let contents = UUID().uuidString
-        mockServices.mockFileManager.contentsAtPath = { _ in return contents.data(using: .utf8)! }
+        mockServices.mockFileManager.contentsAtPathMock = { _ in return contents.data(using: .utf8)! }
         
         // When calling parsePayload
         let result = try mockServices.invoker.parsePayload(file, services: mockServices).wait()
@@ -55,7 +55,7 @@ class InvokerTests: XCTestCase {
         // Given a JSON file
         let file = URL(fileURLWithPath: "/tmp/payload.json")
         let contents = UUID().uuidString
-        mockServices.mockFileManager.contentsAtPath = { _ in return contents.data(using: .utf8)! }
+        mockServices.mockFileManager.contentsAtPathMock = { _ in return contents.data(using: .utf8)! }
         
         // When calling loadPayloadFromFile
         let result = try mockServices.invoker.loadPayloadFile(at: file, services: mockServices).wait()
@@ -66,7 +66,7 @@ class InvokerTests: XCTestCase {
     func testLoadPayloadFromFileHandlesMissingFiles() throws {
         // Given a file that doesn't exist
         let file = URL(fileURLWithPath: "/tmp/payload.json")
-        mockServices.mockFileManager.contentsAtPath = { _ in return nil }
+        mockServices.mockFileManager.contentsAtPathMock = { _ in return nil }
         
         do {
             // When calling loadPayloadFromFile

@@ -72,15 +72,15 @@ class BuilderTests: XCTestCase {
     }
     func testCreateTemporaryDockerfile() throws {
         // Given a valid environment
-        mockServices.mockFileManager.createDirectory = { _ in }
+        mockServices.mockFileManager.createDirectoryMock = { _ in }
         
         // When calling createTemporaryDockerfile
         let result = try mockServices.builder.createTemporaryDockerfile(services: mockServices)
         
         // Then a file URL is returned
         XCTAssertTrue(result.isFileURL)
-        XCTAssertTrue(mockServices.mockFileManager.$removeItem.wasCalled)
-        XCTAssertTrue(mockServices.mockFileManager.$createDirectory.wasCalled)
+        XCTAssertTrue(mockServices.mockFileManager.$removeItemMock.wasCalled)
+        XCTAssertTrue(mockServices.mockFileManager.$createDirectoryMock.wasCalled)
     }
     
     func testGetProjectDockerfilePath() throws {
@@ -97,7 +97,7 @@ class BuilderTests: XCTestCase {
     func testGetBuiltProductPath() throws {
         // Given a package
         let packageDirectory = URL(fileURLWithPath: "/tmp/package/")
-        mockServices.mockFileManager.fileExists = { _ in return true }
+        mockServices.mockFileManager.fileExistsMock = { _ in return true }
         
         // When calling getBuiltProduct
         let result = try mockServices.builder.getBuiltProductPath(at: packageDirectory, for: "executable", services: mockServices)
@@ -110,7 +110,7 @@ class BuilderTests: XCTestCase {
     }
     func testGetBuiltProductPath_handlesMissingFile() throws {
         // Given the path to a built product that doesn't exist
-        mockServices.mockFileManager.fileExists = { _ in return false }
+        mockServices.mockFileManager.fileExistsMock = { _ in return false }
         
         // When calling getBuiltProduct
         do {
