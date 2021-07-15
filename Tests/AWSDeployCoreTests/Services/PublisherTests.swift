@@ -297,11 +297,10 @@ class PublisherTests: XCTestCase {
     func testVerifyLambdaThrowsWithMissingFunctionName() {
         // Given a missing functionName in a FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init()
-        let packageDirectory = tempPackageDirectory()
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, verifyResponse: nil, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", preVerifyAction: nil, verifyResponse: nil, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda").description)
@@ -314,11 +313,10 @@ class PublisherTests: XCTestCase {
     func testVerifyLambdaThrowsWithMissingVersion() {
         // Given a missing version in a FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function")
-        let packageDirectory = tempPackageDirectory()
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, verifyResponse: nil, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", preVerifyAction: nil, verifyResponse: nil, services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
                 XCTAssertEqual("\(error)", BlueGreenPublisherError.invalidFunctionConfiguration("version", "verifyLambda").description)
@@ -331,11 +329,10 @@ class PublisherTests: XCTestCase {
     func testVerifyLambda() throws {
         // Given an invalid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function", version: "2")
-        let packageDirectory = tempPackageDirectory()
         let resultReceived = expectation(description: "Result received")
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, verifyResponse: nil, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", preVerifyAction: nil, verifyResponse: nil, services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 resultReceived.fulfill()
             }
@@ -348,12 +345,11 @@ class PublisherTests: XCTestCase {
         // Given an invalid FunctionConfiguration
         let functionName = "my-function"
         let configuration: Lambda.FunctionConfiguration = .init(functionName: functionName, version: "2")
-        let packageDirectory = tempPackageDirectory()
         let errorReceived = expectation(description: "Error received")
         let payload = "{\"errorMessage\":\"RequestId: 590ec71e-14c1-4498-8edf-2bd808dc3c0e Error: Runtime exited without providing a reason\",\"errorType\":\"Runtime.ExitError\"}"
 
         // When calling verifyLambda
-        mockServices.publisher.verifyLambda(configuration, invokePayload: "", packageDirectory: packageDirectory, verifyResponse: nil, services: mockServices)
+        mockServices.publisher.verifyLambda(configuration, invokePayload: "", preVerifyAction: nil, verifyResponse: nil, services: mockServices)
             .whenFailure { (error: Error) in
                 XCTAssertEqual("\(error)", LambdaInvokerError.invokeLambdaFailed("\(functionName):2", payload).description)
                 errorReceived.fulfill()
@@ -369,13 +365,12 @@ class PublisherTests: XCTestCase {
         // Given an invalid FunctionConfiguration
         let functionName = "my-function"
         let configuration: Lambda.FunctionConfiguration = .init(functionName: functionName, version: "2")
-        let packageDirectory = tempPackageDirectory()
         let errorReceived = expectation(description: "Error received")
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
                                             invokePayload: "",
-                                            packageDirectory: packageDirectory,
+                                            preVerifyAction: nil,
                                             verifyResponse: { _ in return false},
                                             services: mockServices)
             .whenFailure { (error: Error) in

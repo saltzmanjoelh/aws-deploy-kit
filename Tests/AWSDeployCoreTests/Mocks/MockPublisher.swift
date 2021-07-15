@@ -73,11 +73,18 @@ class MockPublisher: BlueGreenPublisher {
     }
     
     @Mock
-    var verifyLambda = { (configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data) -> Bool)?, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
-        return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, packageDirectory: packageDirectory, verifyResponse: verifyResponse, services: services)
+    var verifyLambda = { (configuration: Lambda.FunctionConfiguration,
+                          invokePayload: String,
+                          preVerifyAction: (() -> EventLoopFuture<Void>)?,
+                          verifyResponse: ((Data) -> Bool)?,
+                          services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
+        return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, preVerifyAction: preVerifyAction, verifyResponse: verifyResponse, services: services)
     }
-    func verifyLambda(_ configuration: Lambda.FunctionConfiguration, invokePayload: String, packageDirectory: URL, verifyResponse: ((Data) -> Bool)?, services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
-        return $verifyLambda.getValue((configuration, invokePayload, packageDirectory, verifyResponse, services))
+    func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
+                      invokePayload: String, preVerifyAction: (() -> EventLoopFuture<Void>)?,
+                      verifyResponse: ((Data) -> Bool)?,
+                      services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        return $verifyLambda.getValue((configuration, invokePayload, preVerifyAction, verifyResponse, services))
     }
     
     @Mock

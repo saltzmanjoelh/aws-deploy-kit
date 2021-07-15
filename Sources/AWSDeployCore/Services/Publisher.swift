@@ -42,7 +42,7 @@ public protocol BlueGreenPublisher {
     func validateRole(_ role: String, services: Servicable) -> EventLoopFuture<String>
     func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
                       invokePayload: String,
-                      packageDirectory: URL,
+                      preVerifyAction: (() -> EventLoopFuture<Void>)?,
                       verifyResponse: ((Data) -> Bool)?,
                       services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
 }
@@ -83,20 +83,11 @@ public struct Publisher: BlueGreenPublisher {
         // because it gives us a way to use mocks.
         services.logger.trace("--- Publishing: \(archiveURL) ---")
         return publishNewVersion(archiveURL, services: services)
-            
-            .flatMap { (functionConfig: Lambda.FunctionConfiguration) -> EventLoopFuture<Lambda.FunctionConfiguration> in
-                // If there is something to do before running the verification step, we do it now
-                guard let action = preVerifyAction else {
-                    return services.lambda.eventLoopGroup.next().makeSucceededFuture(functionConfig)
-                }
-                return action()
-                    .map({ functionConfig })
-            }
                 
             // Make sure that it's working.
             .flatMap { services.publisher.verifyLambda($0,
                                                        invokePayload: invokePayload,
-                                                       packageDirectory: packageDirectory,
+                                                       preVerifyAction: preVerifyAction,
                                                        verifyResponse: verifyResponse,
                                                        services: services) }
             
@@ -386,7 +377,7 @@ extension Publisher {
     /// - Returns: codeSha256 for success, throws if errors are encountered.
     public func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
                              invokePayload: String,
-                             packageDirectory: URL,
+                             preVerifyAction: (() -> EventLoopFuture<Void>)? = nil,
                              verifyResponse: ((Data) -> Bool)? = nil,
                              services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         services.logger.trace("Verify Lambda")
@@ -398,12 +389,15 @@ extension Publisher {
         }
 
         let functionVersion = "\(functionName):\(version)"
+        let verify = services.invoker.verifyLambda(function: functionVersion, with: invokePayload, verifyResponse: verifyResponse, services: services)
+            .map({ _ in configuration })
         
-        // Delay the execution for a second while AWS wraps up.
-        return services.lambda.eventLoopGroup.next().flatScheduleTask(in: TimeAmount.milliseconds(250)) { () -> EventLoopFuture<Lambda.FunctionConfiguration> in
-            return services.invoker.verifyLambda(function: functionVersion, with: invokePayload, verifyResponse: verifyResponse, services: services)
-                .map({ _ in configuration })
-        }.futureResult
+        guard let setUp = preVerifyAction else {
+            // Otherwise, we just run the invoker.verifyLambda step
+            return verify
+        }
+        // If there is something to do before running the verification step, we do it now, then verify
+        return setUp().flatMap { verify }
     }
     
     /// Creates a version from the current code and configuration of a function.

@@ -24,7 +24,7 @@ public protocol DeploymentTask {
     /// Called after the test to remove anything that may have been needed to perform the test.
     func testTearDown() -> EventLoopFuture<Void>
     
-    /// Create a InvocationTask to Invoke the Lambda with.
+    /// Create a InvocationTask which describes how to test the Lambda.
     func createInvocationTask() throws -> InvocationTask
 }
 extension DeploymentTask {

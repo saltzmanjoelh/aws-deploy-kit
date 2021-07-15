@@ -14,19 +14,21 @@ public struct InvocationTask {
     let functionName: String
     
     /// Optionally, before invoking the Lambda, you can run some async tasks with this like setting up some existing data in the datastore.
-    let preVerifyAction: (() -> EventLoopFuture<Void>)? = nil
+    let preVerifyAction: (() -> EventLoopFuture<Void>)?
     
     /// The payload to invoke with.
     let payload: String
     
     /// Verify the response from invoking with the payload.
-    let verifyResponse: (Data) -> Bool
+    let verifyResponse: ((Data) -> Bool)?
     
     public init(functionName: String,
                 payload: String,
-                verifyResponse: @escaping (Data) -> Bool) {
+                preVerifyAction: (() -> EventLoopFuture<Void>)? = nil,
+                verifyResponse: ((Data) -> Bool)? = nil) {
         self.functionName = functionName
         self.payload = payload
+        self.preVerifyAction = preVerifyAction
         self.verifyResponse = verifyResponse
     }
 }
