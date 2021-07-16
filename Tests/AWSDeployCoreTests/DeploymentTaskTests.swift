@@ -20,7 +20,7 @@ class DeploymentTaskTests: XCTestCase {
         @ThrowingMock
         var buildSetUpMock = { () throws -> Void in
         }
-        func buildSetUp() throws {
+        func buildSetUp(services: Servicable) throws {
             try $buildSetUpMock.getValue(Void())
         }
 
@@ -28,7 +28,7 @@ class DeploymentTaskTests: XCTestCase {
         var testSetUpMock = { () -> EventLoopFuture<Void> in
             return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
         }
-        func testSetUp() -> EventLoopFuture<Void> {
+        func testSetUp(services: Servicable) -> EventLoopFuture<Void> {
             return $testSetUpMock.getValue(Void())
         }
 
@@ -36,7 +36,7 @@ class DeploymentTaskTests: XCTestCase {
         var testTearDownMock = { () -> EventLoopFuture<Void> in
             return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
         }
-        func testTearDown() -> EventLoopFuture<Void> {
+        func testTearDown(services: Servicable) -> EventLoopFuture<Void> {
             return $testTearDownMock.getValue(Void())
         }
         
@@ -44,7 +44,7 @@ class DeploymentTaskTests: XCTestCase {
         var createInvocationTaskMock = { () throws -> InvocationTask in
             return InvocationTask.init(functionName: Self.functionName, payload: "", verifyResponse: { _ in return true })
         }
-        func createInvocationTask() throws -> InvocationTask {
+        func createInvocationTask(services: Servicable) throws -> InvocationTask {
             return try $createInvocationTaskMock.getValue(Void())
         }
     }
@@ -118,7 +118,7 @@ class DeploymentTaskTests: XCTestCase {
             var createInvocationTaskMock = { () throws -> InvocationTask in
                 return InvocationTask.init(functionName: "", payload: "", verifyResponse: { _ in return true })
             }
-            func createInvocationTask() throws -> InvocationTask {
+            func createInvocationTask(services: Servicable) throws -> InvocationTask {
                 return try $createInvocationTaskMock.getValue(())
             }
         }

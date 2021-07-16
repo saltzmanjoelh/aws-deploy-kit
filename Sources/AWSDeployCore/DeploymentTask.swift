@@ -15,23 +15,27 @@ public protocol DeploymentTask {
     var functionName: String { get }
     
     /// Called before building the executable
-    func buildSetUp() throws
+    func buildSetUp(services: Servicable) throws
     
     /// Called before invoking the Lambda function. You can perform some
     /// setup like creating some fixture data in a datastore so that your test has data to modify.
-    func testSetUp() -> EventLoopFuture<Void>
+    func testSetUp(services: Servicable) -> EventLoopFuture<Void>
     
     /// Called after the test to remove anything that may have been needed to perform the test.
-    func testTearDown() -> EventLoopFuture<Void>
+    func testTearDown(services: Servicable) -> EventLoopFuture<Void>
     
     /// Create a InvocationTask which describes how to test the Lambda.
-    func createInvocationTask() throws -> InvocationTask
+    func createInvocationTask(services: Servicable) throws -> InvocationTask
 }
 extension DeploymentTask {
     // Default implementations to make it optional functions
-    public func buildSetUp() throws {}
-    public func testSetUp() -> EventLoopFuture<Void> { return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void()) }
-    public func testTearDown() -> EventLoopFuture<Void> { return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void()) }
+    public func buildSetUp(services: Servicable) throws {}
+    public func testSetUp(services: Servicable) -> EventLoopFuture<Void> {
+        return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
+    }
+    public func testTearDown(services: Servicable) -> EventLoopFuture<Void> {
+        return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
+    }
 }
 
 extension DeploymentTask {
@@ -43,7 +47,7 @@ extension DeploymentTask {
     }
     public func build(from packageDirectory: URL, services: Servicable) throws -> URL {
         // Prepare for the build step
-        try buildSetUp()
+        try buildSetUp(services: services)
         // Build and package everything to a zip
         let archiveURL = try services.builder.buildAndPackage(product: functionName,
                                                               at: packageDirectory,
@@ -55,20 +59,20 @@ extension DeploymentTask {
     // * Test that it is working correctly by invoking the function and verifying the response
     // * Update the alias to point to the new version if it succeeds
     public func publish(archiveURL: URL, from packageDirectory: URL, alias: String = Publisher.defaultAlias, services: Servicable) throws -> EventLoopFuture<Lambda.AliasConfiguration> {
-        let invocationTest = try createInvocationTask()
+        let invocationTest = try createInvocationTask(services: services)
         return services.publisher.publishArchive(archiveURL,
                                                  from: packageDirectory,
                                                  invokePayload: invocationTest.payload,
                                                  preVerifyAction: {
                                                     // Prepare to run the test
-                                                    return testSetUp()
+                                                    return testSetUp(services: services)
                                                  },
                                                  verifyResponse: invocationTest.verifyResponse,
                                                  alias: alias,
                                                  services: services)
             .flatMap({ (config: Lambda.AliasConfiguration) -> EventLoopFuture<Lambda.AliasConfiguration> in
                 // Cleanup from testing
-                testTearDown()
+                testTearDown(services: services)
                     .map({ config })
             })
     }
