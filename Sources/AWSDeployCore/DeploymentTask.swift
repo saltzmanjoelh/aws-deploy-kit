@@ -74,7 +74,7 @@ extension DeploymentTask {
     }
 }
 
-extension Collection where Element: DeploymentTask {
+extension Collection where Element == DeploymentTask {
     
     /// Deploys Lambda functions defined in the DeploymentTasks
     /// - Parameters:

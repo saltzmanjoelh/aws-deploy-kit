@@ -79,7 +79,7 @@ class DeploymentTaskTests: XCTestCase {
         }
         // Given an array of DeploymentTasks
         let task = Task()
-        let tasks = [task]
+        let tasks: [DeploymentTask] = [task]
         
         // When calling deploy
         _ = try tasks.deploy(from: packageDirectory, services: mockServices).wait()
