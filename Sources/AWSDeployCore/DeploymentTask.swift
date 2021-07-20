@@ -31,7 +31,7 @@ public protocol DeploymentTask {
 }
 extension DeploymentTask {
     
-    // The protocol defines
+    /// Create an InvocationTask from the implemented protocol properties and methods
     public func createInvocationTask(services: Servicable) throws -> InvocationTask {
         return InvocationTask.init(functionName: functionName,
                                    payload: try invocationPayload(),
@@ -41,10 +41,16 @@ extension DeploymentTask {
     }
     
     // Default implementations to make it optional functions
+    
+    /// Default implementation doesn't do anything
     public func buildSetUp(services: Servicable) throws {}
+    
+    /// Default implementation doesn't do anything, it simply returns a succeeded future
     public func invocationSetUp(services: Servicable) -> EventLoopFuture<Void> {
         return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
     }
+    
+    /// Default implementation doesn't do anything, it simply returns a succeeded future
     public func invocationTearDown(services: Servicable) -> EventLoopFuture<Void> {
         return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
     }
@@ -52,24 +58,47 @@ extension DeploymentTask {
 
 extension DeploymentTask {
     
+    /// Builds the target in Docker and publishes a new version.
+    /// This asumes that the Docker image is ready. The `[DeploymentTask].deploy` implementation of this
+    /// is preferred because it handles that for you.
+    /// - Parameters:
+    ///   - packageDirectory: The Swift package that the executable is in.
+    ///   - alias: The alias that will point to the updated code.
+    ///   - services: The set of services which will be used to execute your request with.
+    /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
     public func deploy(from packageDirectory: URL, alias: String = Publisher.defaultAlias, services: Servicable) throws -> EventLoopFuture<Lambda.AliasConfiguration> {
+        //try services.builder.prepareDocker(packageDirectory: packageDirectory, services: services)
         let archiveURL = try build(from: packageDirectory, services: services)
         return try publish(archiveURL: archiveURL, from: packageDirectory, services: services)
             
     }
-    public func build(from packageDirectory: URL, services: Servicable) throws -> URL {
+    
+    /// Builds the product in Docker.
+    /// - Parameters:
+    ///   - packageDirectory: The Swift package that the executable is in.
+    ///   - services: The set of services which will be used to execute your request with.
+    ///   - sshPrivateKeyPath: The private key to pull from private repos with.
+    /// - Throws: If there was a problem building the product.
+    /// - Returns: Archive to the built product
+    public func build(from packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> URL {
         // Prepare for the build step
         try buildSetUp(services: services)
         // Build and package everything to a zip
         let archiveURL = try services.builder.buildAndPackage(product: functionName,
                                                               at: packageDirectory,
-                                                              sshPrivateKeyPath: nil,
+                                                              sshPrivateKeyPath: sshPrivateKeyPath,
                                                               services: services)
         return archiveURL
     }
-    // * Publish the archive
-    // * Test that it is working correctly by invoking the function and verifying the response
-    // * Update the alias to point to the new version if it succeeds
+    /// Creates a new Lambda function or updates an existing one.
+    /// During which, it also invokes the function to make sure that it's not crashing.
+    /// Finally, it points the API Gateway to the new Lambda function version.
+    /// - Parameters:
+    ///   - archiveURL: A URL to the archive which will be used as the function's new code.
+    ///   - packageDirectory: If the payload is a file path, this is the Swift package that
+    ///   - alias: The alias that will point to the updated code.
+    ///   - services: The set of services which will be used to execute your request with.
+    /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
     public func publish(archiveURL: URL, from packageDirectory: URL, alias: String = Publisher.defaultAlias, services: Servicable) throws -> EventLoopFuture<Lambda.AliasConfiguration> {
         let invocationTask = try createInvocationTask(services: services)
         return services.publisher.publishArchive(archiveURL,
