@@ -19,21 +19,33 @@ public protocol DeploymentTask {
     
     /// Called before invoking the Lambda function. You can perform some
     /// setup like creating some fixture data in a datastore so that your test has data to modify.
-    func testSetUp(services: Servicable) -> EventLoopFuture<Void>
+    func invocationSetUp(services: Servicable) -> EventLoopFuture<Void>
+    
+    func invocationPayload() throws -> String
+    
+    /// The Lambda returns Data when being invoked. Verify that it is returning the correct data.
+    func verifyInvocation(_ responseData: Data) -> Bool
     
     /// Called after the test to remove anything that may have been needed to perform the test.
-    func testTearDown(services: Servicable) -> EventLoopFuture<Void>
-    
-    /// Create a InvocationTask which describes how to test the Lambda.
-    func createInvocationTask(services: Servicable) throws -> InvocationTask
+    func invocationTearDown(services: Servicable) -> EventLoopFuture<Void>
 }
 extension DeploymentTask {
+    
+    // The protocol defines
+    public func createInvocationTask(services: Servicable) throws -> InvocationTask {
+        return InvocationTask.init(functionName: functionName,
+                                   payload: try invocationPayload(),
+                                   setUp: invocationSetUp,
+                                   verifyResponse: verifyInvocation,
+                                   tearDown: invocationTearDown)
+    }
+    
     // Default implementations to make it optional functions
     public func buildSetUp(services: Servicable) throws {}
-    public func testSetUp(services: Servicable) -> EventLoopFuture<Void> {
+    public func invocationSetUp(services: Servicable) -> EventLoopFuture<Void> {
         return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
     }
-    public func testTearDown(services: Servicable) -> EventLoopFuture<Void> {
+    public func invocationTearDown(services: Servicable) -> EventLoopFuture<Void> {
         return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
     }
 }
@@ -59,20 +71,18 @@ extension DeploymentTask {
     // * Test that it is working correctly by invoking the function and verifying the response
     // * Update the alias to point to the new version if it succeeds
     public func publish(archiveURL: URL, from packageDirectory: URL, alias: String = Publisher.defaultAlias, services: Servicable) throws -> EventLoopFuture<Lambda.AliasConfiguration> {
-        let invocationTest = try createInvocationTask(services: services)
+        let invocationTask = try createInvocationTask(services: services)
         return services.publisher.publishArchive(archiveURL,
                                                  from: packageDirectory,
-                                                 invokePayload: invocationTest.payload,
-                                                 preVerifyAction: {
-                                                    // Prepare to run the test
-                                                    return testSetUp(services: services)
-                                                 },
-                                                 verifyResponse: invocationTest.verifyResponse,
+                                                 invokePayload: invocationTask.payload,
+                                                 invocationSetUp: invocationTask.setUp,
+                                                 verifyResponse: invocationTask.verifyResponse,
+                                                 invocationTearDown: invocationTask.tearDown,
                                                  alias: alias,
                                                  services: services)
             .flatMap({ (config: Lambda.AliasConfiguration) -> EventLoopFuture<Lambda.AliasConfiguration> in
                 // Cleanup from testing
-                testTearDown(services: services)
+                invocationTearDown(services: services)
                     .map({ config })
             })
     }

@@ -21,8 +21,9 @@ public protocol BlueGreenPublisher {
     func publishArchive(_ archiveURL: URL,
                         from packageDirectory: URL,
                         invokePayload: String,
-                        preVerifyAction: (() -> EventLoopFuture<Void>)?,
+                        invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
                         verifyResponse: ((Data) -> Bool)?,
+                        invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
                         alias: String,
                         services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     
@@ -42,8 +43,9 @@ public protocol BlueGreenPublisher {
     func validateRole(_ role: String, services: Servicable) -> EventLoopFuture<String>
     func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
                       invokePayload: String,
-                      preVerifyAction: (() -> EventLoopFuture<Void>)?,
+                      invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
                       verifyResponse: ((Data) -> Bool)?,
+                      invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
                       services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
 }
 
@@ -67,7 +69,7 @@ public struct Publisher: BlueGreenPublisher {
     ///   - archiveURL: A URL to the archive which will be used as the function's new code.
     ///   - packageDirectory: If the payload is a file path, this is the Swift package that
     ///   - invokePayload: a JSON string or a file apth to a JSON file prefixed with "file://".
-    ///   - preVerifyAction: Optionally, before running the `verifyLambda` step you can run some async tasks with this like setting up some existing data in the datastore.
+    ///   - invocationSetUp: Optionally, before running the `verifyLambda` step you can run some async tasks with this like setting up some existing data in the datastore.
     ///   - verifyResponse: Optionally, add some extra verification for the new response that the updated Lambda is returning.
     ///   - alias: The alias that will point to the updated code.
     ///   - services: The set of services which will be used to execute your request with.
@@ -75,8 +77,9 @@ public struct Publisher: BlueGreenPublisher {
     public func publishArchive(_ archiveURL: URL,
                                from packageDirectory: URL,
                                invokePayload: String,
-                               preVerifyAction: (() -> EventLoopFuture<Void>)? = nil,
+                               invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)? = nil,
                                verifyResponse: ((Data) -> Bool)? = nil,
+                               invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)? = nil,
                                alias: String = Self.defaultAlias,
                                services: Servicable = Services.shared) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
@@ -87,8 +90,9 @@ public struct Publisher: BlueGreenPublisher {
             // Make sure that it's working.
             .flatMap { services.publisher.verifyLambda($0,
                                                        invokePayload: invokePayload,
-                                                       preVerifyAction: preVerifyAction,
+                                                       invocationSetUp: invocationSetUp,
                                                        verifyResponse: verifyResponse,
+                                                       invocationTearDown: invocationTearDown,
                                                        services: services) }
             
             // Update the alias to point to the new revision.
@@ -370,15 +374,16 @@ extension Publisher {
     /// - Parameters:
     ///    - configuration: FunctionConfiguration result from calling `updateFunctionCode`.
     ///    - invokePayload: JSON string payload to invoke the Lambda with
-    ///    - packageDirectory: The directory of the package that we might find the payload in if it's a file path.
+    ///    - invocationSetUp: Before invoking the Lambda, you can run some async tasks with this like setting up some existing data in the datastore.
     ///    - verifyAction: When invoking the Lambda, we simply check if an error was returned or not. You can further verify the details of the response with this action.
     ///    - services: The set of services which will be used to execute your request with.
     /// - Throws: Errors if the Lambda had issues being invoked.
     /// - Returns: codeSha256 for success, throws if errors are encountered.
     public func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
                              invokePayload: String,
-                             preVerifyAction: (() -> EventLoopFuture<Void>)? = nil,
+                             invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)? = nil,
                              verifyResponse: ((Data) -> Bool)? = nil,
+                             invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)? = nil,
                              services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
         services.logger.trace("Verify Lambda")
         guard let functionName = configuration.functionName else {
@@ -389,15 +394,15 @@ extension Publisher {
         }
 
         let functionVersion = "\(functionName):\(version)"
-        let verify = services.invoker.verifyLambda(function: functionVersion, with: invokePayload, verifyResponse: verifyResponse, services: services)
-            .map({ _ in configuration })
+        var task = InvocationTask(functionName: functionVersion,
+                                  payload: invokePayload,
+                                  setUp: invocationSetUp,
+                                  verifyResponse: verifyResponse ?? { _ in true },
+                                  tearDown: invocationTearDown)
+        task.functionName = functionVersion
         
-        guard let setUp = preVerifyAction else {
-            // Otherwise, we just run the invoker.verifyLambda step
-            return verify
-        }
-        // If there is something to do before running the verification step, we do it now, then verify
-        return setUp().flatMap { verify }
+        return task.run(services: services)
+            .map({ _ in configuration })
     }
     
     /// Creates a version from the current code and configuration of a function.

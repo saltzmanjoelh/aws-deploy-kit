@@ -24,26 +24,34 @@ class MockPublisher: BlueGreenPublisher {
     var publishArchive = { (archiveURL: URL,
                             packageDirectory: URL,
                             invokePayload: String,
-                            preVerifyAction: (() -> EventLoopFuture<Void>)?,
-                            verifyResponse: ((Data) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
+                            invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
+                            verifyResponse: ((Data) -> Bool)?,
+                            invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
+                            alias: String,
+                            services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
         return livePublisher.publishArchive(archiveURL,
                                             from: packageDirectory,
                                             invokePayload: invokePayload,
-                                            preVerifyAction: preVerifyAction,
+                                            invocationSetUp: invocationSetUp,
                                             verifyResponse: verifyResponse,
+                                            invocationTearDown: invocationTearDown,
                                             alias: alias,
                                             services: services)
     }
     func publishArchive(_ archiveURL: URL,
                         from packageDirectory: URL,
                         invokePayload: String,
-                        preVerifyAction: (() -> EventLoopFuture<Void>)?,
-                        verifyResponse: ((Data) -> Bool)?, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
+                        invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
+                        verifyResponse: ((Data) -> Bool)?,
+                        invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
+                        alias: String,
+                        services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
         return $publishArchive.getValue((archiveURL,
                                          packageDirectory,
                                          invokePayload,
-                                         preVerifyAction: preVerifyAction,
+                                         invocationSetUp,
                                          verifyResponse,
+                                         invocationTearDown,
                                          alias,
                                          services))
     }
@@ -75,16 +83,19 @@ class MockPublisher: BlueGreenPublisher {
     @Mock
     var verifyLambda = { (configuration: Lambda.FunctionConfiguration,
                           invokePayload: String,
-                          preVerifyAction: (() -> EventLoopFuture<Void>)?,
+                          invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
                           verifyResponse: ((Data) -> Bool)?,
+                          invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
                           services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
-        return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, preVerifyAction: preVerifyAction, verifyResponse: verifyResponse, services: services)
+        return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, invocationSetUp: invocationSetUp, verifyResponse: verifyResponse, invocationTearDown: invocationTearDown, services: services)
     }
     func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
-                      invokePayload: String, preVerifyAction: (() -> EventLoopFuture<Void>)?,
+                      invokePayload: String,
+                      invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
                       verifyResponse: ((Data) -> Bool)?,
+                      invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
                       services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
-        return $verifyLambda.getValue((configuration, invokePayload, preVerifyAction, verifyResponse, services))
+        return $verifyLambda.getValue((configuration, invokePayload, invocationSetUp, verifyResponse, invocationTearDown, services))
     }
     
     @Mock

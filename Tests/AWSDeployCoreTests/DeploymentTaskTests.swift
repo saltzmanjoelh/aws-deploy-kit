@@ -14,39 +14,45 @@ import Mocking
 class DeploymentTaskTests: XCTestCase {
     
     struct Task: DeploymentTask {
+        
         static var functionName: String { "test-task" }
+        
         var functionName: String { Self.functionName }
         
-        @ThrowingMock
-        var buildSetUpMock = { () throws -> Void in
-        }
         func buildSetUp(services: Servicable) throws {
             try $buildSetUpMock.getValue(Void())
         }
-
-        @Mock
-        var testSetUpMock = { () -> EventLoopFuture<Void> in
-            return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
-        }
-        func testSetUp(services: Servicable) -> EventLoopFuture<Void> {
-            return $testSetUpMock.getValue(Void())
-        }
-
-        @Mock
-        var testTearDownMock = { () -> EventLoopFuture<Void> in
-            return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
-        }
-        func testTearDown(services: Servicable) -> EventLoopFuture<Void> {
-            return $testTearDownMock.getValue(Void())
+        func invocationSetUp(services: Servicable) -> EventLoopFuture<Void> {
+            return $invocationSetUpMock.getValue(Void())
         }
         
+        func invocationPayload() throws -> String {
+            return ""
+        }
+        
+        func verifyInvocation(_ data: Data) -> Bool {
+            return true
+        }
+        
+        func invocationTearDown(services: Servicable) -> EventLoopFuture<Void> {
+            return $invocationTearDownMock.getValue(Void())
+        }
+        
+        
+        // The mocks don't do anything but they keep track of their usage
+        // so we can make sure that they were called as expected.
         @ThrowingMock
-        var createInvocationTaskMock = { () throws -> InvocationTask in
-            return InvocationTask.init(functionName: Self.functionName, payload: "", verifyResponse: { _ in return true })
+        var buildSetUpMock = { () throws -> Void in
         }
-        func createInvocationTask(services: Servicable) throws -> InvocationTask {
-            return try $createInvocationTaskMock.getValue(Void())
+        @Mock
+        var invocationSetUpMock = { () -> EventLoopFuture<Void> in
+            return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
         }
+        @Mock
+        var invocationTearDownMock = { () -> EventLoopFuture<Void> in
+            return Services.shared.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
+        }
+        
     }
     
     var mockServices: MockServices!
@@ -88,9 +94,8 @@ class DeploymentTaskTests: XCTestCase {
         XCTAssertTrue(mockServices.mockBuilder.$buildAndPackage.wasCalled, "buildProducts should have been called.")
         XCTAssertTrue(mockServices.mockPublisher.$publishArchive.wasCalled, "publishArchive should have been called.")
         XCTAssertTrue(task.$buildSetUpMock.wasCalled, "buildSetUp was not called.")
-        XCTAssertTrue(task.$testSetUpMock.wasCalled, "testSetUp was not called.")
-        XCTAssertTrue(task.$testTearDownMock.wasCalled, "testTearDown was not called.")
-        XCTAssertTrue(task.$createInvocationTaskMock.wasCalled, "createInvocationTask was not called.")
+        XCTAssertTrue(task.$invocationSetUpMock.wasCalled, "testSetUp was not called.")
+        XCTAssertTrue(task.$invocationTearDownMock.wasCalled, "testTearDown was not called.")
         
     }
     
@@ -113,13 +118,11 @@ class DeploymentTaskTests: XCTestCase {
         // Given a DeploymentTask that does not override buildSetUp, testSetUp and testTearDown
         struct MyTask: DeploymentTask {
             var functionName: String = "custom"
-            
-            @ThrowingMock
-            var createInvocationTaskMock = { () throws -> InvocationTask in
-                return InvocationTask.init(functionName: "", payload: "", verifyResponse: { _ in return true })
+            func invocationPayload() throws -> String {
+                return ""
             }
-            func createInvocationTask(services: Servicable) throws -> InvocationTask {
-                return try $createInvocationTaskMock.getValue(())
+            func verifyInvocation(_ data: Data) -> Bool {
+                return true
             }
         }
         let task = MyTask()
@@ -130,7 +133,6 @@ class DeploymentTaskTests: XCTestCase {
         // Then the default DeploymentTask functions are called
         XCTAssertTrue(mockServices.mockBuilder.$buildAndPackage.wasCalled, "buildProducts should have been called.")
         XCTAssertTrue(mockServices.mockPublisher.$publishArchive.wasCalled, "publishArchive should have been called.")
-        XCTAssertTrue(task.$createInvocationTaskMock.wasCalled, "createInvocationTask was not called.")
         // This is more for code coverage
     }
 }
