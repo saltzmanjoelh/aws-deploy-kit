@@ -2,7 +2,7 @@
 
 [<img src="http://img.shields.io/badge/swift-5.3-brightgreen.svg" alt="Swift 5.3" />](https://swift.org)
 [<img src="https://github.com/saltzmanjoelh/AWSDeployKit/workflows/Swift/badge.svg" />](https://github.com/saltzmanjoelh/AWSDeployKit/actions)
-[<img src="https://codecov.io/gh/saltzmanjoelh/AWSDeployKit/branch/main/graph/badge.svg" alt="Codecov Result" />](https://codecov.io/gh/saltzmanjoelh/AWSDeployKit)
+[![codecov](https://codecov.io/gh/saltzmanjoelh/aws-deploy-kit/branch/main/graph/badge.svg?token=FVLJG1OOLF)](https://codecov.io/gh/saltzmanjoelh/aws-deploy-kit)
 
 Helps with building Swift packages in Linux and publishing to an AWS Lambda. Using this as a package dependency, you can leverage your existing Lambda request and response objects to test your update Lambdas with. Take a look at the AdvancedExample in the [AWSDeployKitExample](https://github.com/saltzmanjoelh/AWSDeployKitExample).
 
