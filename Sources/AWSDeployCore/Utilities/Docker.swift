@@ -23,7 +23,7 @@ public enum Docker {
         )
     }
     static func createShellCommand(_ shellCommand: String, at packageDirectory: URL, sshPrivateKeyPath: URL? = nil) -> String {
-        let dockerCommand = "export PATH=$PATH:/usr/local/bin/ && /usr/local/bin/docker"
+        let dockerCommand = "/usr/local/bin/docker"
         var arguments = [
             "run",
             "-i",

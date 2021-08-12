@@ -9,6 +9,7 @@ Helps with building Swift packages in Linux and publishing to an AWS Lambda. Usi
 ## TLDR
 If you plan on [using this from the command line](#using-from-the-command-line), you will simply build the aws-deploy target and copy the product to somewhere. However, I prefer to use this in Xcode, more on this [below](#use-this-in-xcode)
 
+Since the Docker filesystem is slow on macOS, we get the dependencies first before we start the build processs.
 ```shell
 git clone https://github.com/saltzmanjoelh/aws-deploy-kit.git && \
 cd aws-deploy-kit && \

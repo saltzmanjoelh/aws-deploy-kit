@@ -94,12 +94,7 @@ extension Process {
 
         launch()
 
-//        waitUntilExit()
-        var done = false
-        while !done {
-            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
-            done = isRunning == false
-        }
+        waitUntilExit()
         let status = terminationStatus
          
         if status == 0 {
