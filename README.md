@@ -15,7 +15,7 @@ cd aws-deploy-kit && \
 swift build && \
 git clone https://github.com/saltzmanjoelh/AWSDeployKitExample ../AWSDeployKitExample && \
 swift package update --package-path ../AWSDeployKitExample/BasicExample && \
-swift run aws-deploy build-and-publish --directory ../AWSDeployKitExample/BasicExample --skip-products Deploy --payload "{\"name\": \"World!\"}"
+swift run aws-deploy build-and-publish --directory ../AWSDeployKitExample/BasicExample --skip-products Deploy --payload '{"name": "World!}'
 ```
 
 ## [Commands](cli-help/)
