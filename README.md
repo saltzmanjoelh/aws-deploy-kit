@@ -13,7 +13,9 @@ If you plan on [using this from the command line](#using-from-the-command-line),
 git clone https://github.com/saltzmanjoelh/aws-deploy-kit.git && \
 cd aws-deploy-kit && \
 swift build && \
-swift run aws-deploy build-and-publish -d /path/to/project aws-lambda-function-name
+git clone https://github.com/saltzmanjoelh/AWSDeployKitExample ../AWSDeployKitExample && \
+swift package update --package-path ../AWSDeployKitExample/BasicExample && \
+swift run aws-deploy build-and-publish --directory ../AWSDeployKitExample/BasicExample --skip-products Deploy --payload "{\"name\": \"World!\"}"
 ```
 
 ## [Commands](cli-help/)
