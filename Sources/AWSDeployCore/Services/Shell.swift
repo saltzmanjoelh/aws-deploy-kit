@@ -94,8 +94,19 @@ extension Process {
 
         launch()
 
-        waitUntilExit()
-
+//        waitUntilExit()
+        var done = false
+        while !done {
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
+            done = isRunning == false
+        }
+        let status = terminationStatus
+         
+        if status == 0 {
+            print("Task succeeded.")
+        } else {
+            print("Task failed.")
+        }
 
         // Block until all writes have occurred
         return try outputQueue.sync {
