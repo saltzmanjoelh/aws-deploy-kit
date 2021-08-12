@@ -1,3 +1,5 @@
+# Execute with an absolute path. Just drag and drop it into Terminal
+
 packageDir="$(echo $0 | rev | cut -d'/' -f3- | rev)"
 destination="$packageDir/cli-help"
 
