@@ -1,6 +1,6 @@
 ## AWSDeployKit
 
-[<img src="http://img.shields.io/badge/swift-5.3-brightgreen.svg" alt="Swift 5.3" />](https://swift.org)
+[<img src="http://img.shields.io/badge/swift-5.5-brightgreen.svg" alt="Swift 5.5" />](https://swift.org)
 [<img src="https://github.com/saltzmanjoelh/AWSDeployKit/workflows/Swift/badge.svg" />](https://github.com/saltzmanjoelh/AWSDeployKit/actions)
 [![codecov](https://codecov.io/gh/saltzmanjoelh/aws-deploy-kit/branch/main/graph/badge.svg?token=FVLJG1OOLF)](https://codecov.io/gh/saltzmanjoelh/aws-deploy-kit)
 
