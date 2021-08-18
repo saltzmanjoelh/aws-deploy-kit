@@ -22,7 +22,7 @@ let package = Package(
         .package(url: "https://github.com/saltzmanjoelh/mocking", .branch("main")),
         .package(url: "https://github.com/saltzmanjoelh/log-kit", .branch("main")),
         .package(url: "https://github.com/apple/swift-argument-parser", .branch("main")),
-        .package(url: "https://github.com/swift-server/swift-aws-lambda-runtime.git", .branch("main")),
+        .package(url: "https://github.com/saltzmanjoelh/swift-aws-lambda-runtime.git", .branch("main")),
         .package(url: "https://github.com/apple/swift-log", .branch("main")),
         .package(url: "https://github.com/apple/swift-nio", .branch("main")),
         .package(url: "https://github.com/soto-project/soto", .branch("main")),
