@@ -1,4 +1,4 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -72,7 +72,7 @@ let package = Package(
                 .product(name: "AWSLambdaEvents", package: "swift-aws-lambda-events"),
             ]
         ),
-        .executableTarget(
+        .target(
             name: "aws-deploy",
             dependencies: [
                 "AWSDeployCore",
