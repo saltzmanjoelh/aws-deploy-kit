@@ -33,7 +33,7 @@ class BuildAndPublishCommandTests: XCTestCase {
         Services.shared = mockServices
         mockServices.mockFileManager.fileExistsMock = { _ in return true }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
+            return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }
         mockServices.mockPublisher.publishArchive = { _ -> EventLoopFuture<Lambda.AliasConfiguration> in
             return self.mockServices.stubAliasConfiguration()
@@ -53,7 +53,7 @@ class BuildAndPublishCommandTests: XCTestCase {
 //        Services.shared = mockServices
 //        mockServices.mockFileManager.fileExistsMock = { _ in return true }
 //        mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-//            return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
+//            return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
 //        }
 //        mockServices.mockPublisher.publishArchive = { _ -> EventLoopFuture<Lambda.AliasConfiguration> in
 //            return self.mockServices.stubAliasConfiguration()
@@ -73,7 +73,7 @@ class BuildAndPublishCommandTests: XCTestCase {
         Services.shared = mockServices
         mockServices.mockFileManager.fileExistsMock = { _ in return true }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
+            return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }
         mockServices.mockPublisher.publishArchive = { _ -> EventLoopFuture<Lambda.AliasConfiguration> in
             return self.mockServices.stubAliasConfiguration()

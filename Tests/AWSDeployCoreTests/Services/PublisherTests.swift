@@ -610,7 +610,7 @@ class PublisherTests: XCTestCase {
     func testCreateFunctionCode() throws {
         // Given a valid archive
         let archiveURL = mockServices.packager.archivePath(for: ExamplePackage.executableOne,
-                                                           in: mockServices.packager.destinationURLForExecutable(ExamplePackage.executableOne,
+                                                           in: mockServices.packager.destinationURLForProduct(ExamplePackage.executableOne,
                                                                                                                  in: tempPackageDirectory()))
         try? FileManager.default.createDirectory(atPath: archiveURL.deletingPathExtension().path,
                                                  withIntermediateDirectories: true,

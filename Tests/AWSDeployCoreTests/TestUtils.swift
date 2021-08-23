@@ -27,6 +27,7 @@ enum ExamplePackage {
     static var executableTwo = "executableTwo"
     static var executableThree = "executableThree"
     static var executables = [ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
+    static var libraries = [ExamplePackage.library]
     
     static var invokeJSON = "{\"name\": \"World!\"}"
 }

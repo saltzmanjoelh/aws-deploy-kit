@@ -50,7 +50,7 @@ class LiveTests: XCTestCase {
         var build = try AWSDeployCommand.parseAsRoot([BuildCommand.configuration.commandName!, "-d", packageDirectory.path, ExamplePackage.executableOne]) as! BuildCommand
         try build.run()
         // After a successful build, there should be a zip file
-        let destinationDirectory = Services.shared.packager.destinationURLForExecutable(ExamplePackage.executableOne, in: packageDirectory)
+        let destinationDirectory = Services.shared.packager.destinationURLForProduct(ExamplePackage.executableOne, in: packageDirectory)
         let archivePath = Services.shared.packager.archivePath(for: ExamplePackage.executableOne, in: destinationDirectory)
         XCTAssertTrue(Services.shared.fileManager.fileExists(atPath: archivePath.path))
 

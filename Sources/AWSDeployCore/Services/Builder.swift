@@ -17,7 +17,7 @@ public protocol DockerizedBuilder {
     var postBuildCommand: String { get set }
     
     func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String]
-    func loadProducts(at packageDirectory: URL, type: ProductType, services: Servicable) throws -> [String]
+    func loadProducts(at packageDirectory: URL, services: Servicable) throws -> [String]
     
     func buildProducts(_ products: [String], at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL]
     func prepareDocker(packageDirectory: URL, services: Servicable) throws
@@ -46,7 +46,7 @@ public struct Builder: DockerizedBuilder {
     ///    - packageDirectory: The URL to the package that you want to build.
     ///    - sshPrivateKeyPath: The private key to pull from private repos with.
     ///    - services: The set of services which will be used to execute your request with.
-    /// - Returns: Array of URLs to the archive that contains built executables and their dependencies.
+    /// - Returns: Array of URLs to the archive that contains built the products and their dependencies.
     public func buildProducts(_ products: [String], at packageDirectory: URL, sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
         services.logger.trace("Build products at: \(packageDirectory.path)")
         try prepareDocker(packageDirectory: packageDirectory, services: services)
@@ -57,7 +57,7 @@ public struct Builder: DockerizedBuilder {
     }
     
     /// Using a Dockerfile either from the package directory or the default one,
-    /// creates a new Docker image to build the executables within.
+    /// creates a new Docker image to build the products within.
     /// - Parameters;
     ///    - packageDirectory: The Swift package directory that might contain the Dockerfile
     ///    - services: The set of services which will be used to execute your request with.
@@ -130,11 +130,11 @@ public struct Builder: DockerizedBuilder {
     ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: An URL to a zip archive that contains the built product and it's library dependencies.
     public func buildAndPackage(product: String, at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL {
-        let executableURL = try services.builder.buildProduct(product,
-                                                              at: packageDirectory,
-                                                              services: services,
-                                                              sshPrivateKeyPath: sshPrivateKeyPath)
-        return try services.packager.packageExecutable(executableURL.lastPathComponent, at: packageDirectory, services: services)
+        let productURL = try services.builder.buildProduct(product,
+                                                           at: packageDirectory,
+                                                           services: services,
+                                                           sshPrivateKeyPath: sshPrivateKeyPath)
+        return try services.packager.packageProduct(productURL.lastPathComponent, at: packageDirectory, services: services)
     }
     
     /// Executes a shell command for a specific product in it's source directory.
@@ -152,8 +152,8 @@ public struct Builder: DockerizedBuilder {
     
     /// Builds the product in Docker.
     /// - Parameters:
-    ///   - product: The executable that you want to build.
-    ///   - packageDirectory: The Swift package that the executable is in.
+    ///   - product: The product that you want to build.
+    ///   - packageDirectory: The Swift package that the product is in.
     ///   - services: The set of services which will be used to execute your request with.
     ///   - sshPrivateKeyPath: The private key to pull from private repos with.
     /// - Throws: If there was a problem building the product.
@@ -184,7 +184,7 @@ public struct Builder: DockerizedBuilder {
     /// - Returns: The output from building in Docker.
     public func buildProductInDocker(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> LogCollector.Logs {
         services.logger.trace("-- Building \(product) ---")
-        let swiftBuildCommand = "swift build -c release --product \(product)"
+        let swiftBuildCommand = "swift build -c release --target \(product)"
         let logs: LogCollector.Logs
         do {
             logs = try Docker.runShellCommand(swiftBuildCommand, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
@@ -198,15 +198,21 @@ public struct Builder: DockerizedBuilder {
     }
     
     /// - Parameters
-    ///   - executable: The built executable target that should be in the release directory.
+    ///   - product: The built product that should be in the release directory.
     ///   - product: The name of the
     ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: URL destination for packaging everything before we zip it up.
-    static func URLForBuiltExecutable(_ executable: String, at packageDirectory: URL, services: Servicable) -> URL {
-        return packageDirectory
-            .appendingPathComponent(".build")
-            .appendingPathComponent("release")
-            .appendingPathComponent(executable)
+    static func URLForBuiltProduct(_ product: String, at packageDirectory: URL, services: Servicable) -> URL {
+        let dir = packageDirectory
+                .appendingPathComponent(".build")
+                .appendingPathComponent("release")
+        if services.fileManager.fileExists(atPath: dir.appendingPathComponent(product).path) {
+            return dir.appendingPathComponent(product) // Executable
+        }
+        // Built libraries have some string substitution.
+        // TODO: Check in the Swift compiler to see what else is replaced
+        let productName = product.replacingOccurrences(of: "-", with: "_")
+        return dir.appendingPathComponent("\(productName).swiftmodule") // Library
     }
     /// Get's the URL for the built product.
     /// - Parameters:
@@ -216,9 +222,9 @@ public struct Builder: DockerizedBuilder {
     /// - Returns: URL of the built product.
     /// - Throws: If the built product is not available.
     public func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
-        let url = Self.URLForBuiltExecutable(product,
-                                             at: packageDirectory,
-                                             services: services)
+        let url = Self.URLForBuiltProduct(product,
+                                          at: packageDirectory,
+                                          services: services)
         guard services.fileManager.fileExists(atPath: url.path) else {
             throw DockerizedBuilderError.builtProductNotFound(url.path)
         }
@@ -229,7 +235,7 @@ public struct Builder: DockerizedBuilder {
 extension Builder {
     /// If no products were supplied, reads the package for a list of products. If any skip products were supplied, removes those.
     /// - Parameters:
-    ///   - products: The products to validate. If you don't provide any, the `packageDirectory` will be parsed to get a list of executable products.
+    ///   - products: The products to validate. If you don't provide any, the `packageDirectory` will be parsed to get a list of products.
     ///   - skipProducts: The products that should be skipped
     ///   - packageDirectory: The Swift Package directory to check if no products are supplied.
     ///   - services: The set of services which will be used to execute your request with.
@@ -238,7 +244,7 @@ extension Builder {
     public func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String] {
         var result = products
         if products.count == 0 {
-            result = try self.loadProducts(at: packageDirectory, type: .executable, services: services)
+            result = try self.loadProducts(at: packageDirectory, services: services)
         }
         result = Self.removeSkippedProducts(skipProducts, from: result, logger: services.logger)
         if result.count == 0 {
@@ -250,11 +256,10 @@ extension Builder {
     /// Get an array of products of a specific type in a Swift package.
     /// - Parameters:
     ///   - packageDirectory: String path to the directory that contains the package.
-    ///   - type: The ProductTypes you want to get.
     ///   - services: The set of services which will be used to execute your request with.
     /// - Throws: Throws if it as problems getting the list of products from the package
     /// - Returns: Array of product names in the package.
-    public func loadProducts(at packageDirectory: URL, type: ProductType = .executable, services: Servicable) throws -> [String] {
+    public func loadProducts(at packageDirectory: URL, services: Servicable) throws -> [String] {
         let command = "swift package dump-package"
         let logs: LogCollector.Logs = try services.shell.run(
             command,
@@ -274,16 +279,14 @@ extension Builder {
         let package = try JSONDecoder().decode(SwiftPackage.self, from: data)
         
         // Remove empty values
-        let allProducts: [String] = package.products.filter { (product: SwiftPackage.Product) in
-            product.isExecutable == (type == .executable)
-        }.map({ $0.name })
+        let allProducts: [String] = package.products.map({ $0.name })
         return allProducts
     }
     
     /// Filters the `skipProducts` from the list of `products`.
     /// If the running process named `processName` is in the list of products,
     /// it will be skipped as well. We do this for when we want to include a deployment target in a project.
-    /// The deployment target deploys the executables in the package. However, the deployment target is
+    /// The deployment target deploys the products in the package. However, the deployment target is
     /// an executable itself. We don't want to have to specify that it should skip itself. We know that it should
     /// be skipped.
     /// - Parameters:

@@ -49,7 +49,7 @@ class MockServices: Servicable {
     var builder: DockerizedBuilder = MockBuilder()
     var mockBuilder: MockBuilder { return builder as! MockBuilder }
     
-    var packager: ExecutablePackager = MockPackager()
+    var packager: ProductPackager = MockPackager()
     var mockPackager: MockPackager { return packager as! MockPackager }
     
     var publisher: BlueGreenPublisher = MockPublisher()

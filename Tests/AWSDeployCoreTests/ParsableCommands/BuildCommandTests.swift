@@ -28,13 +28,26 @@ class BuildCommandTests: XCTestCase {
         try cleanupTestPackage()
     }
     
+    func testURLForBuiltProductForExecutable() {
+        let packageDirectory = tempPackageDirectory()
+        mockServices.mockFileManager.fileExistsMock = { _ in return true }
+        let result = Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
+        XCTAssertFalse(result.path.contains(".swiftmodule"), "Executables should not get .swiftmodule appended to the path.")
+    }
+    func testURLForBuiltProductForLibrary() {
+        let packageDirectory = tempPackageDirectory()
+        mockServices.mockFileManager.fileExistsMock = { _ in return false }
+        let result = Builder.URLForBuiltProduct(ExamplePackage.library, at: packageDirectory, services: self.mockServices)
+        XCTAssertTrue(result.path.contains(".swiftmodule"), "Executables should get .swiftmodule appended to the path.")
+    }
+    
     func testRunWithMocks() throws {
         // Given a valid configuration
         let packageDirectory = tempPackageDirectory()
         var instance = try! BuildCommand.parseAsRoot([packageDirectory.path, ExamplePackage.executableOne]) as! BuildCommand
         Services.shared = mockServices
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
+            return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }
         
         // When calling run()
@@ -52,7 +65,7 @@ class BuildCommandTests: XCTestCase {
         Services.shared = mockServices
         mockServices.mockFileManager.fileExistsMock = { _ in return true }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return [Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
+            return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }
         
         // When calling run()

@@ -8,7 +8,7 @@
 import Foundation
 
 public enum PackagerError: Error, CustomStringConvertible {
-    case executableNotFound(String)
+    case productNotFound(String)
     case bootstrapFailure(String)
     case archivingFailure(String)
     case archiveNotFound(String)
@@ -16,8 +16,8 @@ public enum PackagerError: Error, CustomStringConvertible {
     
     public var description: String {
         switch self {
-        case .executableNotFound(let path):
-            return "Executable was not found at path: \(path)"
+        case .productNotFound(let path):
+            return "Product was not found at path: \(path)"
         case .bootstrapFailure(let messages):
             return "Errors symlinking bootstrap: \(messages)"
         case .archivingFailure(let messages):

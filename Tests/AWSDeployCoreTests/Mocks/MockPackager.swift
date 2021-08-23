@@ -12,20 +12,20 @@ import LogKit
 @testable import AWSDeployCore
 
 
-class MockPackager: ExecutablePackager {
+class MockPackager: ProductPackager {
     
     static var livePackager = Packager()
     
-    func destinationURLForExecutable(_ executable: String, in packageDirectory: URL) -> URL {
-        return Self.livePackager.destinationURLForExecutable(executable, in: packageDirectory)
+    func destinationURLForProduct(_ product: String, in packageDirectory: URL) -> URL {
+        return Self.livePackager.destinationURLForProduct(product, in: packageDirectory)
     }
     
     @ThrowingMock
-    var packageExecutable = { (executable: String, packageDirectory: URL, services: Servicable) throws -> URL in
-        return try livePackager.packageExecutable(executable, at: packageDirectory, services: services)
+    var packageProduct = { (product: String, packageDirectory: URL, services: Servicable) throws -> URL in
+        return try livePackager.packageProduct(product, at: packageDirectory, services: services)
     }
-    func packageExecutable(_ executable: String, at packageDirectory: URL, services: Servicable) throws -> URL {
-        return try $packageExecutable.getValue((executable, packageDirectory, services))
+    func packageProduct(_ product: String, at packageDirectory: URL, services: Servicable) throws -> URL {
+        return try $packageProduct.getValue((product, packageDirectory, services))
     }
     
     @ThrowingMock
@@ -37,80 +37,80 @@ class MockPackager: ExecutablePackager {
     }
     
     @ThrowingMock
-    var prepareDestinationDirectory = { (executable: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
-        try livePackager.prepareDestinationDirectory(executable: executable,
+    var prepareDestinationDirectory = { (product: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
+        try livePackager.prepareDestinationDirectory(product: product,
                                                      packageDirectory: packageDirectory,
                                                      destinationDirectory: destinationDirectory,
                                                      services: services)
     }
-    func prepareDestinationDirectory(executable: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
-        try $prepareDestinationDirectory.getValue((executable, packageDirectory, destinationDirectory, services))
+    func prepareDestinationDirectory(product: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
+        try $prepareDestinationDirectory.getValue((product, packageDirectory, destinationDirectory, services))
     }
     
     @ThrowingMock
-    var copyExecutable = { (executable: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
-        try livePackager.copyExecutable(executable: executable,
+    var copyProduct = { (product: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
+        try livePackager.copyProduct(product: product,
                                         at: packageDirectory,
                                         destinationDirectory: destinationDirectory,
                                         services: services)
     }
-    func copyExecutable(executable: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
-        try $copyExecutable.getValue((executable, packageDirectory, destinationDirectory, services))
+    func copyProduct(product: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
+        try $copyProduct.getValue((product, packageDirectory, destinationDirectory, services))
     }
     
     @ThrowingMock
-    var copyEnvFile = { (packageDirectory: URL, executable: String, destinationDirectory: URL, services: Servicable) throws in
+    var copyEnvFile = { (packageDirectory: URL, product: String, destinationDirectory: URL, services: Servicable) throws in
         try livePackager.copyEnvFile(at: packageDirectory,
-                                     executable: executable,
+                                     product: product,
                                      destinationDirectory: destinationDirectory,
                                      services: services)
     }
-    func copyEnvFile(at packageDirectory: URL, executable: String, destinationDirectory: URL, services: Servicable) throws {
-        try $copyEnvFile.getValue((packageDirectory, executable, destinationDirectory, services))
+    func copyEnvFile(at packageDirectory: URL, product: String, destinationDirectory: URL, services: Servicable) throws {
+        try $copyEnvFile.getValue((packageDirectory, product, destinationDirectory, services))
     }
     
     @ThrowingMock
-    var copySwiftDependencies = { (executable: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
-        try livePackager.copySwiftDependencies(for: executable,
+    var copySwiftDependencies = { (product: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
+        try livePackager.copySwiftDependencies(for: product,
                                                at: packageDirectory,
                                                to: destinationDirectory,
                                                services: services)
     }
-    func copySwiftDependencies(for executable: String, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
-        try $copySwiftDependencies.getValue((executable, packageDirectory, destinationDirectory, services))
+    func copySwiftDependencies(for product: String, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
+        try $copySwiftDependencies.getValue((product, packageDirectory, destinationDirectory, services))
     }
     
     @ThrowingMock
-    var addBootstrap = { (executable: String, destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs in
-        return try livePackager.addBootstrap(for: executable, in: destinationDirectory, services: services)
+    var addBootstrap = { (product: String, destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs in
+        return try livePackager.addBootstrap(for: product, in: destinationDirectory, services: services)
     }
-    func addBootstrap(for executable: String, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
-        return try $addBootstrap.getValue((executable, destinationDirectory, services))
+    func addBootstrap(for product: String, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
+        return try $addBootstrap.getValue((product, destinationDirectory, services))
     }
     
     @ThrowingMock
-    var archiveContents = { (executable: String, destinationDirectory: URL, services: Servicable) throws -> URL in
-        return try livePackager.archiveContents(for: executable, in: destinationDirectory, services: services)
+    var archiveContents = { (product: String, destinationDirectory: URL, services: Servicable) throws -> URL in
+        return try livePackager.archiveContents(for: product, in: destinationDirectory, services: services)
     }
-    func archiveContents(for executable: String, in destinationDirectory: URL, services: Servicable) throws -> URL {
-        return try $archiveContents.getValue((executable, destinationDirectory, services))
+    func archiveContents(for product: String, in destinationDirectory: URL, services: Servicable) throws -> URL {
+        return try $archiveContents.getValue((product, destinationDirectory, services))
     }
     
     @Mock
-    var archivePath = { (executable: String, destinationDirectory: URL) -> URL in
-        return livePackager.archivePath(for: executable, in: destinationDirectory)
+    var archivePath = { (product: String, destinationDirectory: URL) -> URL in
+        return livePackager.archivePath(for: product, in: destinationDirectory)
     }
-    func archivePath(for executable: String, in destinationDirectory: URL) -> URL {
-        return $archivePath.getValue((executable, destinationDirectory))
+    func archivePath(for product: String, in destinationDirectory: URL) -> URL {
+        return $archivePath.getValue((product, destinationDirectory))
     }
     
     
     @ThrowingMock
-    var getLddDependencies = { (executable: String, packageDirectory: URL, services: Servicable) throws -> [URL] in
-        return try livePackager.getLddDependencies(for: executable, at: packageDirectory, services: services)
+    var getLddDependencies = { (product: String, packageDirectory: URL, services: Servicable) throws -> [URL] in
+        return try livePackager.getLddDependencies(for: product, at: packageDirectory, services: services)
     }
-    func getLddDependencies(for executable: String, at packageDirectory: URL, services: Servicable) throws -> [URL] {
-        return try $getLddDependencies.getValue((executable, packageDirectory, services))
+    func getLddDependencies(for product: String, at packageDirectory: URL, services: Servicable) throws -> [URL] {
+        return try $getLddDependencies.getValue((product, packageDirectory, services))
     }
     
     @ThrowingMock
@@ -122,10 +122,10 @@ class MockPackager: ExecutablePackager {
     }
     
     @Mock
-    var URLForEnvFile = { (packageDirectory: URL, executable: String) -> URL in
-        return livePackager.URLForEnvFile(packageDirectory: packageDirectory, executable: executable)
+    var URLForEnvFile = { (packageDirectory: URL, product: String) -> URL in
+        return livePackager.URLForEnvFile(packageDirectory: packageDirectory, product: product)
     }
-    func URLForEnvFile(packageDirectory: URL, executable: String) -> URL {
-        return $URLForEnvFile.getValue((packageDirectory, executable))
+    func URLForEnvFile(packageDirectory: URL, product: String) -> URL {
+        return $URLForEnvFile.getValue((packageDirectory, product))
     }
 }

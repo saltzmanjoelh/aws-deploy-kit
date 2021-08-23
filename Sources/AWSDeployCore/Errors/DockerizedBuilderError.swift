@@ -20,7 +20,7 @@ public enum DockerizedBuilderError: Error, CustomStringConvertible {
         case .packageDumpFailure:
             return "There was an error trying to parse the package manifest."
         case .builtProductNotFound(let path):
-            return "The build succeeded but the executable was not found at: \(path)."
+            return "The build succeeded but the product was not found at: \(path)."
         case .invalidDockerfilePath(let path):
             return "Invalid URL to dockerfile: \(path)"
         }

@@ -27,7 +27,7 @@ public protocol Servicable {
 
     var shell: ShellExecutable { get set }
     var builder: DockerizedBuilder { get set }
-    var packager: ExecutablePackager { get set }
+    var packager: ProductPackager { get set }
 //    var uploader: ArchiveUploader { get set }
     var publisher: BlueGreenPublisher { get set }
     var invoker: LambdaInvoker { get set }
@@ -68,7 +68,7 @@ public class Services: Servicable {
 
     public var shell: ShellExecutable = Shell()
     public var builder: DockerizedBuilder = Builder()
-    public var packager: ExecutablePackager = Packager()
+    public var packager: ProductPackager = Packager()
     public var publisher: BlueGreenPublisher = Publisher()
     public var invoker: LambdaInvoker = Invoker()
 

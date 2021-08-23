@@ -127,14 +127,14 @@ class BuilderTests: XCTestCase {
     func testBuildProducts() throws {
         let packageDirectory = tempPackageDirectory()
         let sshKey = URL(fileURLWithPath: "/path/to/key")
-        let executable = Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
+        let executable = Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
         let archive = mockServices.packager.archivePath(for: executable.lastPathComponent, in: packageDirectory)
         mockServices.mockBuilder.getDockerfilePath = { _ in return URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile") }
         mockServices.mockBuilder.prepareDockerImage = { _ in return .init() }
         mockServices.mockBuilder.buildProduct = { _ in
             return executable
         }
-        mockServices.mockPackager.packageExecutable = { _ in archive }
+        mockServices.mockPackager.packageProduct = { _ in archive }
         
         let result = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, sshPrivateKeyPath: sshKey, services: mockServices)
         
@@ -142,7 +142,7 @@ class BuilderTests: XCTestCase {
         XCTAssertTrue(mockServices.mockBuilder.$getDockerfilePath.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$prepareDockerImage.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$buildProduct.wasCalled)
-        XCTAssertTrue(mockServices.mockPackager.$packageExecutable.wasCalled)
+        XCTAssertTrue(mockServices.mockPackager.$packageProduct.wasCalled)
         XCTAssertEqual(mockServices.mockBuilder.$buildProduct.usage.history[0].context.3, URL(fileURLWithPath: sshKey.path), "The supplied ssh key should have been passed to buildProduct as an URL")
     }
     func testBuildProductsThrowsWithMissingProduct() throws {
@@ -168,7 +168,7 @@ class BuilderTests: XCTestCase {
     
     func testBuildProduct() throws {
         let packageDirectory = tempPackageDirectory()
-        let buildDir = Builder.URLForBuiltExecutable(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
+        let buildDir = Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
         mockServices.mockBuilder.preBuildCommand = "ls -al"
         mockServices.mockBuilder.postBuildCommand = "ls -al"
         mockServices.mockBuilder.executeShellCommand = { _ in }
@@ -201,7 +201,7 @@ class BuilderTests: XCTestCase {
         XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: Docker.Config.containerName)
-        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --product \(ExamplePackage.executableOne)\"")
+        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --target \(ExamplePackage.executableOne)\"")
     }
 
     func testBuildProductInDockerWithPrivateKey() throws {
@@ -230,7 +230,7 @@ class BuilderTests: XCTestCase {
         XCTAssertString(message, contains: Docker.Config.containerName)
         XCTAssertString(message, contains: "ssh-agent bash -c")
         XCTAssertString(message, contains: "ssh-add -c \(keyPath.path);")
-        XCTAssertString(message, contains: "swift build -c release --product \(ExamplePackage.executableOne)")
+        XCTAssertString(message, contains: "swift build -c release --target \(ExamplePackage.executableOne)")
     }
     func testBuildProductHandlesInvalidDirectory() throws {
         // If there is no Swift package at the path, there should be a useful tip about it.
@@ -313,10 +313,10 @@ class BuilderTests: XCTestCase {
         let packageDirectory = try createTempPackage()
 
         // When calling loadProducts
-        let result = try mockServices.builder.loadProducts(at: packageDirectory, type: .executable, services: mockServices)
+        let result = try mockServices.builder.loadProducts(at: packageDirectory, services: mockServices)
 
         // Then all executables should be returned
-        XCTAssertEqual(result.count, ExamplePackage.executables.count)
+        XCTAssertEqual(result.count, ExamplePackage.executables.count + ExamplePackage.libraries.count)
     }
     func testLoadProductsThrowsWithInvalidShellOutput() throws {
         // Give a failed shell output
@@ -326,7 +326,7 @@ class BuilderTests: XCTestCase {
 
         // When calling loadProducts
         do {
-            _ = try mockServices.builder.loadProducts(at: URL(fileURLWithPath: ""), type: .executable, services: mockServices)
+            _ = try mockServices.builder.loadProducts(at: URL(fileURLWithPath: ""), services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch {
