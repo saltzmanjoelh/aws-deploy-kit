@@ -168,7 +168,7 @@ public struct Builder: DockerizedBuilder {
         FileManager.default.changeCurrentDirectoryPath(sourceDirectory.path)
         services.logger.trace("Build \(product) at: \(sourceDirectory.path)")
         try services.builder.executeShellCommand(preBuildCommand, for: product, at: sourceDirectory, services: services)
-        _ = try services.builder.buildProductInDocker(product, at: packageDirectory, services: services, sshPrivateKeyPath: nil)
+        _ = try services.builder.buildProductInDocker(product, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
         let url = try services.builder.getBuiltProductPath(at: packageDirectory, for: product, services: services)
         try services.builder.executeShellCommand(postBuildCommand, for: product, at: sourceDirectory, services: services)
         services.logger.trace("-- Built \(product) at: \(url) ---")
