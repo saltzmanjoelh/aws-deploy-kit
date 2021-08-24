@@ -37,7 +37,7 @@ func tempPackageDirectory() -> URL {
 }
 func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = true) throws -> URL {
     let packageManifest = """
-    // swift-tools-version:5.5
+    // swift-tools-version:5.3
     import PackageDescription
 
     let package = Package(
@@ -62,13 +62,13 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
             .target(
                 name: "\(ExamplePackage.library.name)",
                 dependencies: []),
-            .executableTarget(
+            .target(
                 name: "\(ExamplePackage.executableOne.name)",
                 dependencies: [ .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"), ]),
-            .executableTarget(
+            .target(
                 name: "\(ExamplePackage.executableTwo.name)",
                 dependencies: [ .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"), ]),
-            .executableTarget(
+            .target(
                 name: "\(ExamplePackage.executableThree.name)",
                 dependencies: [ .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"), ]),
         ]
