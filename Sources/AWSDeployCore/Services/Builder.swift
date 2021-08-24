@@ -204,9 +204,11 @@ extension Builder {
         // For some unknown reason, we get this error in stderr.
         // Failed to open macho file at /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift for reading: Too many levels of symbolic links.
         // Filter the logs so that we only read trace level messages and ignore that error that came from stderr.
-        guard let output = logs.filter(level: .trace).last?.message, // Get the last line of output, it should be json.
-              let data = output.data(using: .utf8),
-              data.count > 0
+        // It's all lines except the first error line
+        let traces = logs.filter(level: .trace)
+        let output = traces.compactMap({ $0.message }).joined(separator: "")
+        guard let data = output.data(using: .utf8),
+                data.count > 0
         else {
             throw DockerizedBuilderError.packageDumpFailure
         }
