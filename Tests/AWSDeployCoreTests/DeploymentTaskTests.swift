@@ -70,6 +70,7 @@ class DeploymentTaskTests: XCTestCase {
     func testDeploy() throws {
         // Setup
         let packageDirectory = try createTempPackage()
+        mockServices.mockBuilder.loadProducts = { _ in return ExamplePackage.products }
         mockServices.mockBuilder.prepareDocker = { _ in }
         mockServices.mockBuilder.buildAndPackage = { _ in return URL(fileURLWithPath: "/path/to/\(Task.functionName).zip") }
         mockServices.mockPublisher.publishFunctionCode = { _ in self.mockServices.stubFunctionConfiguration(functionName: Task.functionName)
@@ -102,6 +103,7 @@ class DeploymentTaskTests: XCTestCase {
     func testDeploymentTaskDefaultImplementation() throws {
         // Setup
         let packageDirectory = try createTempPackage()
+        mockServices.mockBuilder.loadProducts = { _ in return ExamplePackage.products }
         mockServices.mockBuilder.prepareDocker = { _ in }
         mockServices.mockBuilder.buildAndPackage = { _ in return URL(fileURLWithPath: "/path/to/\(Task.functionName).zip") }
         mockServices.mockPublisher.publishFunctionCode = { _ in self.mockServices.stubFunctionConfiguration(functionName: Task.functionName)

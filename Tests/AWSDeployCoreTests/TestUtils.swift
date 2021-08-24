@@ -28,6 +28,7 @@ enum ExamplePackage {
     static var executableThree = Product(name: "executableThree", type: .executable)
     static var executables = [ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
     static var libraries = [ExamplePackage.library]
+    static var products = Self.executables + Self.libraries
     
     static var invokeJSON = "{\"name\": \"World!\"}"
 }
@@ -181,6 +182,184 @@ extension LogCollector.Logs {
         logs.append(level: .trace, message: "   libswiftCore.so => /usr/lib/swift/linux/libswiftCore.so (0x00007fb41d09c000)", metadata: nil)
         logs.append(level: .trace, message: "   libc.so.6 => /lib64/libc.so.6 (0x00007fb41ccf1000)", metadata: nil)
         logs.append(level: .trace, message: "   libicudataswift.so.65 => /usr/lib/swift/linux/libicudataswift.so.65 (0x00007fb41a2f1000)", metadata: nil)
+        return logs
+    }
+    static func swiftPackageDump() -> LogCollector.Logs {
+        let error = """
+        Failed to open macho file at /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift for reading: Too many levels of symbolic links.
+        """
+        let trace = """
+            {
+              "cLanguageStandard" : null,
+              "cxxLanguageStandard" : null,
+              "dependencies" : [
+                {
+                  "scm" : [
+                    {
+                      "identity" : "swift-aws-lambda-runtime",
+                      "location" : "https://github.com/swift-server/swift-aws-lambda-runtime.git",
+                      "productFilter" : null,
+                      "requirement" : {
+                        "branch" : [
+                          "main"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ],
+              "name" : "ExamplePackage",
+              "packageKind" : "root",
+              "pkgConfig" : null,
+              "platforms" : [
+
+              ],
+              "products" : [
+                {
+                  "name" : "Core",
+                  "settings" : [
+
+                  ],
+                  "targets" : [
+                    "Core"
+                  ],
+                  "type" : {
+                    "library" : [
+                      "automatic"
+                    ]
+                  }
+                },
+                {
+                  "name" : "executableOne",
+                  "settings" : [
+
+                  ],
+                  "targets" : [
+                    "executableOne"
+                  ],
+                  "type" : {
+                    "executable" : null
+                  }
+                },
+                {
+                  "name" : "executableTwo",
+                  "settings" : [
+
+                  ],
+                  "targets" : [
+                    "executableTwo"
+                  ],
+                  "type" : {
+                    "executable" : null
+                  }
+                },
+                {
+                  "name" : "executableThree",
+                  "settings" : [
+
+                  ],
+                  "targets" : [
+                    "executableThree"
+                  ],
+                  "type" : {
+                    "executable" : null
+                  }
+                }
+              ],
+              "providers" : null,
+              "swiftLanguageVersions" : null,
+              "targets" : [
+                {
+                  "dependencies" : [
+
+                  ],
+                  "exclude" : [
+
+                  ],
+                  "name" : "Core",
+                  "resources" : [
+
+                  ],
+                  "settings" : [
+
+                  ],
+                  "type" : "regular"
+                },
+                {
+                  "dependencies" : [
+                    {
+                      "product" : [
+                        "AWSLambdaRuntime",
+                        "swift-aws-lambda-runtime",
+                        null
+                      ]
+                    }
+                  ],
+                  "exclude" : [
+
+                  ],
+                  "name" : "executableOne",
+                  "resources" : [
+
+                  ],
+                  "settings" : [
+
+                  ],
+                  "type" : "regular"
+                },
+                {
+                  "dependencies" : [
+                    {
+                      "product" : [
+                        "AWSLambdaRuntime",
+                        "swift-aws-lambda-runtime",
+                        null
+                      ]
+                    }
+                  ],
+                  "exclude" : [
+
+                  ],
+                  "name" : "executableTwo",
+                  "resources" : [
+
+                  ],
+                  "settings" : [
+
+                  ],
+                  "type" : "regular"
+                },
+                {
+                  "dependencies" : [
+                    {
+                      "product" : [
+                        "AWSLambdaRuntime",
+                        "swift-aws-lambda-runtime",
+                        null
+                      ]
+                    }
+                  ],
+                  "exclude" : [
+
+                  ],
+                  "name" : "executableThree",
+                  "resources" : [
+
+                  ],
+                  "settings" : [
+
+                  ],
+                  "type" : "regular"
+                }
+              ],
+              "toolsVersion" : {
+                "_version" : "5.3.0"
+              }
+            }
+        """
+        let logs = LogCollector.Logs()
+        logs.append(level: .error, message: "\(error)", metadata: nil)
+        logs.append(level: .trace, message: "\(trace)", metadata: nil)
         return logs
     }
 }

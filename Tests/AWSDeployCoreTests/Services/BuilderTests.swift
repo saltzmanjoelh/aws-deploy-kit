@@ -280,6 +280,7 @@ class BuilderTests: XCTestCase {
         // Given a product to skip
         let skipProducts = ExamplePackage.executableThree.name
         let packageDirectory = try createTempPackage()
+        mockServices.mockBuilder.loadProducts = { _ in return ExamplePackage.products }
 
         // When calling parseProducts
         _ = try mockServices.builder.parseProducts([], skipProducts: skipProducts, at: packageDirectory, services: mockServices)
@@ -311,11 +312,14 @@ class BuilderTests: XCTestCase {
     func testLoadProducts() throws {
         // Given a package with a library and multiple executables
         let packageDirectory = try createTempPackage()
+        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
+            LogCollector.Logs.swiftPackageDump()
+        }
 
         // When calling loadProducts
         let result = try mockServices.builder.loadProducts(at: packageDirectory, services: mockServices)
 
-        // Then all executables should be returned
+        // Then all products should be returned
         XCTAssertEqual(result.count, ExamplePackage.executables.count + ExamplePackage.libraries.count)
     }
     func testLoadProductsThrowsWithInvalidShellOutput() throws {

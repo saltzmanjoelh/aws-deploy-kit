@@ -178,7 +178,7 @@ extension Builder {
     /// - Throws: Throws if it as problems getting the list of products from the package
     /// - Returns: The supplied products from either the input `products` or the `packageDirectory` minus the `skipProducs`.
     public func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [Product] {
-        let allProducts = try self.loadProducts(at: packageDirectory, services: services)
+        let allProducts = try services.builder.loadProducts(at: packageDirectory, services: services)
         var result: [Product] = products.count == 0 ? allProducts : allProducts.filter({ products.contains($0.name) })
         result = Self.removeSkippedProducts(skipProducts, from: result, logger: services.logger)
         if result.count == 0 {

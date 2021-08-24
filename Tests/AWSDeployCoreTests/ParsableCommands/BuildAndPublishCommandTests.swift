@@ -32,6 +32,7 @@ class BuildAndPublishCommandTests: XCTestCase {
         var instance = try! AWSDeployCommand.parseAsRoot(["build-and-publish", ExamplePackage.executableOne.name, "-d", packageDirectory.path]) as! BuildAndPublishCommand
         Services.shared = mockServices
         mockServices.mockFileManager.fileExistsMock = { _ in return true }
+        mockServices.mockBuilder.loadProducts = { _ in return ExamplePackage.products }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
             return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }
@@ -72,6 +73,7 @@ class BuildAndPublishCommandTests: XCTestCase {
         var instance = try! AWSDeployCommand.parseAsRoot(["build-and-publish", ExamplePackage.executableOne.name, "-d", packageDirectory.path, "-k", sshKey.path]) as! BuildAndPublishCommand
         Services.shared = mockServices
         mockServices.mockFileManager.fileExistsMock = { _ in return true }
+        mockServices.mockBuilder.loadProducts = { _ in return ExamplePackage.products }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
             return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
         }
