@@ -22,10 +22,10 @@ enum ExamplePackage {
         return "/tmp"
     }()
     static var name = "ExamplePackage"
-    static var library = "Core"
-    static var executableOne = "executableOne"
-    static var executableTwo = "executableTwo"
-    static var executableThree = "executableThree"
+    static var library = Product(name: "Core", type: .library)
+    static var executableOne = Product(name: "executableOne", type: .executable)
+    static var executableTwo = Product(name: "executableTwo", type: .executable)
+    static var executableThree = Product(name: "executableThree", type: .executable)
     static var executables = [ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
     static var libraries = [ExamplePackage.library]
     
@@ -37,7 +37,7 @@ func tempPackageDirectory() -> URL {
 }
 func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = true) throws -> URL {
     let packageManifest = """
-    // swift-tools-version:5.3
+    // swift-tools-version:5.5
     import PackageDescription
 
     let package = Package(
@@ -45,32 +45,32 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
         products: [
             // Products define the executables and libraries a package produces, and make them visible to other packages.
             .library(
-                name: "\(ExamplePackage.library)",
-                targets: ["\(ExamplePackage.library)"]),
+                name: "\(ExamplePackage.library.name)",
+                targets: ["\(ExamplePackage.library.name)"]),
             .executable(
-                name: "\(ExamplePackage.executableOne)",
-                targets: ["\(ExamplePackage.executableOne)"]),
+                name: "\(ExamplePackage.executableOne.name)",
+                targets: ["\(ExamplePackage.executableOne.name)"]),
             .executable(
-                name: "\(ExamplePackage.executableTwo)",
-                targets: ["\(ExamplePackage.executableTwo)"]),
+                name: "\(ExamplePackage.executableTwo.name)",
+                targets: ["\(ExamplePackage.executableTwo.name)"]),
             .executable(
-                name: "\(ExamplePackage.executableThree)",
-                targets: ["\(ExamplePackage.executableThree)"]),
+                name: "\(ExamplePackage.executableThree.name)",
+                targets: ["\(ExamplePackage.executableThree.name)"]),
         ],
         dependencies: [ .package(url: "https://github.com/swift-server/swift-aws-lambda-runtime.git", .branch("main")) ],
         targets: [
             .target(
-                name: "\(ExamplePackage.library)",
+                name: "\(ExamplePackage.library.name)",
                 dependencies: []),
-            .target(
-                name: "\(ExamplePackage.executableOne)",
+            .executableTarget(
+                name: "\(ExamplePackage.executableOne.name)",
                 dependencies: [ .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"), ]),
-            .target(
-                name: "\(ExamplePackage.executableTwo)",
-                dependencies: []),
-            .target(
-                name: "\(ExamplePackage.executableThree)",
-                dependencies: []),
+            .executableTarget(
+                name: "\(ExamplePackage.executableTwo.name)",
+                dependencies: [ .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"), ]),
+            .executableTarget(
+                name: "\(ExamplePackage.executableThree.name)",
+                dependencies: [ .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"), ]),
         ]
     )
 
@@ -90,21 +90,21 @@ func createTempPackage(includeSource: Bool = true, includeDockerfile: Bool = tru
         let libraries = [ExamplePackage.library]
         for library in libraries {
             let sourcesURL = packageDirectory.appendingPathComponent("Sources")
-            let libraryDirectory = sourcesURL.appendingPathComponent(library)
+            let libraryDirectory = sourcesURL.appendingPathComponent(library.name)
             try FileManager.default.createDirectory(
                 at: libraryDirectory,
                 withIntermediateDirectories: true,
                 attributes: [FileAttributeKey.posixPermissions: 0o777]
             )
             let source = ""
-            let sourceFileURL = libraryDirectory.appendingPathComponent("main.swift")
+            let sourceFileURL = libraryDirectory.appendingPathComponent("\(library.name).swift")
             try source.write(to: sourceFileURL, atomically: true, encoding: .utf8)
             print("Created source file: \(sourceFileURL) success: \(FileManager.default.fileExists(atPath: sourceFileURL.path))")
         }
         let products = [ExamplePackage.executableOne, ExamplePackage.executableTwo, ExamplePackage.executableThree]
         for product in products {
             let sourcesURL = packageDirectory.appendingPathComponent("Sources")
-            let productDirectory = sourcesURL.appendingPathComponent(product)
+            let productDirectory = sourcesURL.appendingPathComponent(product.name)
             try FileManager.default.createDirectory(
                 at: productDirectory,
                 withIntermediateDirectories: true,

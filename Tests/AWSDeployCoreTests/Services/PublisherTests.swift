@@ -200,7 +200,7 @@ class PublisherTests: XCTestCase {
         
         
         // Given an archive
-        let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
+        let archiveURL = mockServices.packager.archivePath(for: Product(name: functionName, type: .executable), in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
 
         // When publishing to a new function
         mockServices.publisher.publishFunctionCode(archiveURL, services: mockServices)
@@ -571,7 +571,7 @@ class PublisherTests: XCTestCase {
         // Given a valid configuration
         let functionName = "my-function"
         let role = "arn:aws:iam::12345678912:role/role"
-        let archiveURL = mockServices.packager.archivePath(for: functionName, in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
+        let archiveURL = mockServices.packager.archivePath(for: Product(name: functionName, type: .executable), in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         // Setup some stubs
         MockPublisher.livePublisher.functionRole = role
         mockServices.mockPublisher.generateRoleName = { _ -> EventLoopFuture<String> in
@@ -641,7 +641,7 @@ class PublisherTests: XCTestCase {
         // Given a valid functionRole
         let role = "arn:aws:iam::123456789012:role/my-role"
         MockPublisher.livePublisher.functionRole = role
-        let archiveURL = mockServices.packager.archivePath(for: "functionName", in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
+        let archiveURL = mockServices.packager.archivePath(for: Product(name: "functionName", type: .executable), in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         
         // When calling getRoleName
         let result = try mockServices.publisher.getRoleName(archiveURL: archiveURL, services: mockServices).wait()
@@ -652,7 +652,7 @@ class PublisherTests: XCTestCase {
     func testGetRoleNameGeneratesUniqueRoleName() throws {
         // Given an nil functionRole
         MockPublisher.livePublisher.functionRole = nil
-        let archiveURL = mockServices.packager.archivePath(for: "function-name", in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
+        let archiveURL = mockServices.packager.archivePath(for: Product(name: "function-name", type: .executable), in: URL(fileURLWithPath: ExamplePackage.tempDirectory))
         mockServices.mockPublisher.createRole = { (context: (roleName: String, services: Servicable)) -> EventLoopFuture<String> in
             return self.eventLoop().makeSucceededFuture(context.roleName)
         }

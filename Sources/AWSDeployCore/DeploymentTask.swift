@@ -84,7 +84,8 @@ extension DeploymentTask {
         // Prepare for the build step
         try buildSetUp(services: services)
         // Build and package everything to a zip
-        let archiveURL = try services.builder.buildAndPackage(product: functionName,
+        let product = try services.builder.parseProducts([functionName], skipProducts: "", at: packageDirectory, services: services)[0]
+        let archiveURL = try services.builder.buildAndPackage(product: product,
                                                               at: packageDirectory,
                                                               sshPrivateKeyPath: sshPrivateKeyPath,
                                                               services: services)

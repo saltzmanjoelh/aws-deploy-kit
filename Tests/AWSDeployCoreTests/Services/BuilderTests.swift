@@ -100,13 +100,13 @@ class BuilderTests: XCTestCase {
         mockServices.mockFileManager.fileExistsMock = { _ in return true }
         
         // When calling getBuiltProduct
-        let result = try mockServices.builder.getBuiltProductPath(at: packageDirectory, for: "executable", services: mockServices)
+        let result = try mockServices.builder.getBuiltProductPath(product: ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
         
         // Then the archive path is returned
         XCTAssertEqual(result, packageDirectory
                         .appendingPathComponent(".build")
                         .appendingPathComponent("release")
-                        .appendingPathComponent("executable"))
+                        .appendingPathComponent(ExamplePackage.executableOne.name))
     }
     func testGetBuiltProductPath_handlesMissingFile() throws {
         // Given the path to a built product that doesn't exist
@@ -114,7 +114,7 @@ class BuilderTests: XCTestCase {
         
         // When calling getBuiltProduct
         do {
-            _ = try mockServices.builder.getBuiltProductPath(at: URL(fileURLWithPath: "/tmp"), for: "executable", services: mockServices)
+            _ = try mockServices.builder.getBuiltProductPath(product: ExamplePackage.executableOne, at: URL(fileURLWithPath: "/tmp"), services: mockServices)
             
             XCTFail("An error should have been thrown")
         } catch DockerizedBuilderError.builtProductNotFound(_) {
@@ -127,12 +127,12 @@ class BuilderTests: XCTestCase {
     func testBuildProducts() throws {
         let packageDirectory = tempPackageDirectory()
         let sshKey = URL(fileURLWithPath: "/path/to/key")
-        let executable = Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
-        let archive = mockServices.packager.archivePath(for: executable.lastPathComponent, in: packageDirectory)
+        let executableURL = Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
+        let archive = mockServices.packager.archivePath(for: ExamplePackage.executableOne, in: packageDirectory)
         mockServices.mockBuilder.getDockerfilePath = { _ in return URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile") }
         mockServices.mockBuilder.prepareDockerImage = { _ in return .init() }
         mockServices.mockBuilder.buildProduct = { _ in
-            return executable
+            return executableURL
         }
         mockServices.mockPackager.packageProduct = { _ in archive }
         
@@ -276,17 +276,17 @@ class BuilderTests: XCTestCase {
         XCTAssertFalse(mockServices.mockShell.$launchShell.wasCalled)
     }
     
-    func testparseProducts_logsWhenSkippingProducts() throws {
+    func testParseProducts_logsWhenSkippingProducts() throws {
         // Given a product to skip
-        let skipProducts = ExamplePackage.executableThree
+        let skipProducts = ExamplePackage.executableThree.name
         let packageDirectory = try createTempPackage()
 
-        // When calling verifyConfiguration
+        // When calling parseProducts
         _ = try mockServices.builder.parseProducts([], skipProducts: skipProducts, at: packageDirectory, services: mockServices)
 
         // Then a "Skipping $PRODUCT" log should be received
         let messages = mockServices.logCollector.logs.allMessages()
-        XCTAssertString(messages, contains: "Skipping: \(ExamplePackage.executableThree)")
+        XCTAssertString(messages, contains: "Skipping: \(ExamplePackage.executableThree.name)")
     }
     func testVerifyConfiguration_throwsWithMissingProducts() throws {
         // Given a package without any executables
@@ -337,17 +337,17 @@ class BuilderTests: XCTestCase {
 
     func testRemoveSkippedProducts() {
         // Given a list of skipProducts for a process
-        let skipProducts = ExamplePackage.executableThree
+        let skipProduct = ExamplePackage.executableThree
         let processName = ExamplePackage.executableTwo // Simulating that executableTwo is the executable that does the deployment
 
         // When calling removeSkippedProducts
-        let result = Builder.removeSkippedProducts(skipProducts,
-                                                             from: ExamplePackage.executables,
-                                                             logger: mockServices.logger,
-                                                             processName: processName)
+        let result = Builder.removeSkippedProducts(skipProduct.name,
+                                                   from: ExamplePackage.executables,
+                                                   logger: mockServices.logger,
+                                                   processName: processName.name)
 
         // Then the remaining products should not contain the skipProducts
-        XCTAssertFalse(result.contains(skipProducts), "The \"skipProducts\": \(skipProducts) should have been removed.")
+        XCTAssertFalse(result.contains(skipProduct), "The \"skipProduct\": \(skipProduct) should have been removed.")
         // or a product with a matching processName
         XCTAssertFalse(result.contains(processName), "The \"processName\": \(processName) should have been removed.")
     }

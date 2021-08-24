@@ -18,11 +18,11 @@ class MockBuilder: DockerizedBuilder {
     
     static var liveBuilder = Builder()
     
-    func buildProducts(_ products: [String], at packageDirectory: URL, sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
+    func buildProducts(_ products: [Product], at packageDirectory: URL, sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
         return try $buildProducts.getValue((products, packageDirectory, sshPrivateKeyPath, services))
     }
     @ThrowingMock
-    var buildProducts = { (products: [String], packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL] in
+    var buildProducts = { (products: [Product], packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL] in
         return try liveBuilder.buildProducts(products, at: packageDirectory, sshPrivateKeyPath: sshPrivateKeyPath, services: services)
     }
     
@@ -42,18 +42,18 @@ class MockBuilder: DockerizedBuilder {
         return try liveBuilder.createTemporaryDockerfile(services: services)
     }
     
-    func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [String] {
+    func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [Product] {
         return try $parseProducts.getValue((products, skipProducts, packageDirectory, services))
     }
     @ThrowingMock
-    var parseProducts = { (products: [String], skipProducts: String, packageDirectory: URL, services: Servicable) throws -> [String] in
+    var parseProducts = { (products: [String], skipProducts: String, packageDirectory: URL, services: Servicable) throws -> [Product] in
         return try liveBuilder.parseProducts(products, skipProducts: skipProducts, at: packageDirectory, services: services)
     }
-    func loadProducts(at packageDirectory: URL, services: Servicable) throws -> [String] {
+    func loadProducts(at packageDirectory: URL, services: Servicable) throws -> [Product] {
         return try $loadProducts.getValue((packageDirectory, services))
     }
     @ThrowingMock
-    var loadProducts = { (packageDirectory: URL, services: Servicable) throws -> [String] in
+    var loadProducts = { (packageDirectory: URL, services: Servicable) throws -> [Product] in
         return try liveBuilder.loadProducts(at: packageDirectory, services: services)
     }
     
@@ -73,44 +73,44 @@ class MockBuilder: DockerizedBuilder {
         return try liveBuilder.prepareDockerImage(at: dockerfilePath, services: services)
     }
     
-    func executeShellCommand(_ command: String, for product: String, at packageDirectory: URL, services: Servicable) throws {
+    func executeShellCommand(_ command: String, for product: Product, at packageDirectory: URL, services: Servicable) throws {
         return try $executeShellCommand.getValue((command, product, packageDirectory, services))
     }
     @ThrowingMock
-    var executeShellCommand = { (command: String, product: String, packageDirectory: URL, services: Servicable) throws in
+    var executeShellCommand = { (command: String, product: Product, packageDirectory: URL, services: Servicable) throws in
         try liveBuilder.executeShellCommand(command, for: product, at: packageDirectory, services: services)
     }
     
-    func buildAndPackage(product: String, at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL {
+    func buildAndPackage(product: Product, at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL {
         return try $buildAndPackage.getValue((product, packageDirectory, sshPrivateKeyPath, services))
     }
     @ThrowingMock
-    var buildAndPackage = { (product: String, packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL in
+    var buildAndPackage = { (product: Product, packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL in
         try liveBuilder.buildAndPackage(product: product, at: packageDirectory, sshPrivateKeyPath: sshPrivateKeyPath, services: services)
     }
     
-    func buildProduct(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL {
+    func buildProduct(_ product: Product, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL {
         return try $buildProduct.getValue((product, packageDirectory, services, sshPrivateKeyPath))
     }
     @ThrowingMock
-    var buildProduct = { (product: String, packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL in 
+    var buildProduct = { (product: Product, packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL in
         return try liveBuilder.buildProduct(product, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
     }
     
-    func buildProductInDocker(_ product: String, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs {
+    func buildProductInDocker(_ product: Product, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs {
         return try $buildProductInDocker.getValue((product, packageDirectory, services, sshPrivateKeyPath))
     }
     @ThrowingMock
-    var buildProductInDocker = { (product: String, packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs in
+    var buildProductInDocker = { (product: Product, packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs in
         return try liveBuilder.buildProductInDocker(product, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
     }
     
-    func getBuiltProductPath(at packageDirectory: URL, for product: String, services: Servicable) throws -> URL {
-        return try $getBuiltProductPath.getValue((packageDirectory, product, services))
+    func getBuiltProductPath(product: Product, at packageDirectory: URL, services: Servicable) throws -> URL {
+        return try $getBuiltProductPath.getValue((product, packageDirectory, services))
     }
     @ThrowingMock
-    var getBuiltProductPath = { (packageDirectory: URL, product: String, services: Servicable) throws -> URL in
-        return try liveBuilder.getBuiltProductPath(at: packageDirectory, for: product, services: services)
+    var getBuiltProductPath = { (product: Product, packageDirectory: URL, services: Servicable) throws -> URL in
+        return try liveBuilder.getBuiltProductPath(product: product, at: packageDirectory, services: services)
     }
 }
 

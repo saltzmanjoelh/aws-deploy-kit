@@ -10,20 +10,20 @@ import Logging
 import LogKit
 
 public protocol ProductPackager {
-    func packageProduct(_ product: String, at packageDirectory: URL, services: Servicable) throws -> URL
-    func destinationURLForProduct(_ product: String, in packageDirectory: URL) -> URL
+    func packageProduct(_ product: Product, at packageDirectory: URL, services: Servicable) throws -> URL
+    func destinationURLForProduct(_ product: Product, in packageDirectory: URL) -> URL
     func createDestinationDirectory(_ destinationDirectory: URL, services: Servicable) throws
-    func prepareDestinationDirectory(product: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws
-    func copyProduct(product: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws
-    func copyEnvFile(at packageDirectory: URL, product: String, destinationDirectory: URL, services: Servicable) throws
-    func copySwiftDependencies(for product: String, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws
-    func getLddDependencies(for product: String, at packageDirectory: URL, services: Servicable) throws -> [URL]
+    func prepareDestinationDirectory(product: Product, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws
+    func copyProduct(product: Product, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws
+    func copyEnvFile(at packageDirectory: URL, product: Product, destinationDirectory: URL, services: Servicable) throws
+    func copySwiftDependencies(for product: Product, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws
+    func getLddDependencies(for product: Product, at packageDirectory: URL, services: Servicable) throws -> [URL]
     func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws
     @discardableResult
-    func addBootstrap(for product: String, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs
-    func archiveContents(for product: String, in destinationDirectory: URL, services: Servicable) throws -> URL
-    func archivePath(for product: String, in destinationDirectory: URL) -> URL
-    func URLForEnvFile(packageDirectory: URL, product: String) -> URL
+    func addBootstrap(for product: Product, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs
+    func archiveContents(for product: Product, in destinationDirectory: URL, services: Servicable) throws -> URL
+    func archivePath(for product: Product, in destinationDirectory: URL) -> URL
+    func URLForEnvFile(packageDirectory: URL, product: Product) -> URL
 }
 
 
@@ -40,7 +40,7 @@ public struct Packager: ProductPackager {
     ///   - packagePath: A path to the Swift Package that contains the built product you are trying to package.
     /// - Returns URL to the zip archive which contain the built product, dependencies and "bootstrap" symlink
     /// - Throws: If one of the steps has an error.
-    public func packageProduct(_ product: String, at packageDirectory: URL, services: Servicable) throws -> URL {
+    public func packageProduct(_ product: Product, at packageDirectory: URL, services: Servicable) throws -> URL {
         services.logger.trace("--- Packaging : \(product) ---")
         // We will be copying the built binary in the packageDirectory to the destination
         // The destination defaults to .build/lambda/$product/
@@ -78,14 +78,14 @@ public struct Packager: ProductPackager {
     ///   - packageDirectory: The directory of the product's Swift Package
     ///   - destinationDirectory: The directory to copy the binary to. ie: `./build/lambda/$EXECUTABLE/`
     /// - Throws: If there was a problem copying the .env file to the destination.
-    public func prepareDestinationDirectory(product: String, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
+    public func prepareDestinationDirectory(product: Product, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
         // Copy the product
         try services.packager.copyProduct(product: product,
                                              at: packageDirectory,
                                              destinationDirectory: destinationDirectory,
                                              services: services)
         
-        guard product.hasSuffix("swiftmodule") == false else { return }
+        guard product.type == .executable else { return }
         
         // If there is a .env file, copy it too
         try services.packager.copyEnvFile(at: packageDirectory,
@@ -111,14 +111,14 @@ public struct Packager: ProductPackager {
     ///   - packageDirectory: The directory of the product's Swift Package
     ///   - destinationDirectory: The directory to copy the binary to. ie: `./build/lambda/$EXECUTABLE/`
     /// - Throws: If there was a problem copying the .env file to the destination.
-    public func copyProduct(product: String, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
+    public func copyProduct(product: Product, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
         services.logger.trace("Copy Product: \(product)")
         let productFile = Builder.URLForBuiltProduct(product, at: packageDirectory, services: services)
         guard services.fileManager.fileExists(atPath: productFile.path) else {
             throw PackagerError.productNotFound(productFile.path)
         }
         
-        let destinationFile = destinationDirectory.appendingPathComponent(product, isDirectory: false)
+        let destinationFile = destinationDirectory.appendingPathComponent(product.name, isDirectory: false)
         try? services.fileManager.removeItem(at: destinationFile)
         try services.fileManager.copyItem(at: productFile, to: destinationFile)
     }
@@ -129,7 +129,7 @@ public struct Packager: ProductPackager {
     ///   - product: The name of the product directory that contains the .env file
     ///   - destinationDirectory: The directory to copy the .env file to. ie: `./build/lambda/$EXECUTABLE/`
     /// - Throws: If there was a problem copying the .env file to the destination.
-    public func copyEnvFile(at packageDirectory: URL, product: String, destinationDirectory: URL, services: Servicable) throws {
+    public func copyEnvFile(at packageDirectory: URL, product: Product, destinationDirectory: URL, services: Servicable) throws {
         services.logger.trace("Copy .env: \(product)")
         let envFile = URLForEnvFile(packageDirectory: packageDirectory, product: product)
         
@@ -147,7 +147,7 @@ public struct Packager: ProductPackager {
     ///   - packageDirectory: An URL that points to the product's Package's directory
     ///   - destinationDirectory: The directory to copy the dependencies to. ie: `./build/lambda/$EXECUTABLE/`
     /// - Throws: if one of the steps fails.
-    public func copySwiftDependencies(for product: String, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
+    public func copySwiftDependencies(for product: Product, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
         services.logger.trace("Copy Swift Dependencies: \(product)")
         // Use ldd to get a list of Swift dependencies
         let dependencies = try getLddDependencies(for: product, at: packageDirectory, services: services)
@@ -169,7 +169,7 @@ public struct Packager: ProductPackager {
     ///    linux-vdso.so.1 (0x00007fff84ba2000)
     ///    libswiftCore.so => /usr/lib/swift/linux/libswiftCore.so (0x00007fb41d09c000)
     /// ```
-    public func getLddDependencies(for product: String, at packageDirectory: URL, services: Servicable) throws -> [URL] {
+    public func getLddDependencies(for product: Product, at packageDirectory: URL, services: Servicable) throws -> [URL] {
         let lddCommand = "ldd .build/release/\(product)"
         let lines = try Docker.runShellCommand(lddCommand, at: packageDirectory, services: services)
             .allEntries
@@ -218,7 +218,7 @@ public struct Packager: ProductPackager {
     /// - Returns: An array of full path's to the dependencies.
     /// - Throws: if there is a problem creating the symlink
     @discardableResult
-    public func addBootstrap(for product: String, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
+    public func addBootstrap(for product: Product, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
         services.logger.trace("Adding bootstrap: \(product)")
         let command = "ln -s \(product) bootstrap"
         let logs: LogCollector.Logs = try services.shell.run(command, at: destinationDirectory, logger: services.logger)
@@ -237,7 +237,7 @@ public struct Packager: ProductPackager {
     ///  - product: The name of the product that we are packaging up.
     ///  - destinationDirectory: The directory that we copied the files to.
     /// - Returns: The URL of the zip that we packaged everything into
-    public func archiveContents(for product: String, in destinationDirectory: URL, services: Servicable) throws -> URL {
+    public func archiveContents(for product: Product, in destinationDirectory: URL, services: Servicable) throws -> URL {
         // zip --symlinks $zipName * .env
         // echo -e "Built product at:\n$zipName"
         services.logger.trace("Archiving contents: \(product)")
@@ -265,27 +265,27 @@ extension Packager {
     /// - Parameters
     ///   - product: The product target that we are packaging
     /// - Returns: URL destination for packaging everything before we zip it up
-    public func destinationURLForProduct(_ product: String, in packageDirectory: URL) -> URL {
+    public func destinationURLForProduct(_ product: Product, in packageDirectory: URL) -> URL {
         return packageDirectory
             .appendingPathComponent(".build")
             .appendingPathComponent("lambda")
-            .appendingPathComponent(product)
+            .appendingPathComponent(product.name)
     }
     /// - Parameters
     ///   - packageDirectory:  The original directory of the package we are targeting
     ///   - product: The product target that we are packaging
     /// - Returns: URL destination for packaging everything before we zip it up
-    public func URLForEnvFile(packageDirectory: URL, product: String) -> URL {
+    public func URLForEnvFile(packageDirectory: URL, product: Product) -> URL {
         return URL(fileURLWithPath: packageDirectory
                     .appendingPathComponent("Sources")
-                    .appendingPathComponent(product)
+                    .appendingPathComponent(product.name)
                     .appendingPathComponent(".env").path)
     }
     /// - Parameters
     ///   - product: The product target that we are packaging
     ///   - destinationDirectory: The directory that we are copying files to before zipping it up
     /// - Returns: URL destination for packaging everything before we zip it up
-    public func archivePath(for product: String, in destinationDirectory: URL) -> URL {
+    public func archivePath(for product: Product, in destinationDirectory: URL) -> URL {
         return destinationDirectory
             .appendingPathComponent("\(product).zip")
     }

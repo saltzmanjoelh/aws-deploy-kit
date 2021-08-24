@@ -41,13 +41,13 @@ class LiveTests: XCTestCase {
     func testWithLiveAWS() throws {
         guard shouldTestWithLive() else { return }
         // Make sure that the function does not already exist
-        try deleteLambda(ExamplePackage.executableOne).wait()
+        try deleteLambda(ExamplePackage.executableOne.name).wait()
         // Create the package
         let packageDirectory = try createTempPackage()
 
         // -- Build Command --
         // Build the ExamplePackage
-        var build = try AWSDeployCommand.parseAsRoot([BuildCommand.configuration.commandName!, "-d", packageDirectory.path, ExamplePackage.executableOne]) as! BuildCommand
+        var build = try AWSDeployCommand.parseAsRoot([BuildCommand.configuration.commandName!, "-d", packageDirectory.path, ExamplePackage.executableOne.name]) as! BuildCommand
         try build.run()
         // After a successful build, there should be a zip file
         let destinationDirectory = Services.shared.packager.destinationURLForProduct(ExamplePackage.executableOne, in: packageDirectory)
@@ -59,18 +59,18 @@ class LiveTests: XCTestCase {
         var publisher = try AWSDeployCommand.parseAsRoot([PublishCommand.configuration.commandName!, archivePath.path]) as! PublishCommand
         try publisher.run()
         // The Lambda should now exist
-        let newConfig = try Services.shared.lambda.getFunctionConfiguration(.init(functionName: ExamplePackage.executableOne)).wait()
+        let newConfig = try Services.shared.lambda.getFunctionConfiguration(.init(functionName: ExamplePackage.executableOne.name)).wait()
         // The alias should be created, we check it's version later
-        let newAlias = try Services.shared.lambda.getAlias(.init(functionName: ExamplePackage.executableOne, name: Publisher.defaultAlias)).wait()
+        let newAlias = try Services.shared.lambda.getAlias(.init(functionName: ExamplePackage.executableOne.name, name: Publisher.defaultAlias)).wait()
 
         // -- Build And Publish Command --
         // Update and existing
-        var buildAndPublish = try AWSDeployCommand.parseAsRoot([BuildAndPublishCommand.configuration.commandName!, "-d", packageDirectory.path, ExamplePackage.executableOne]) as! BuildAndPublishCommand
+        var buildAndPublish = try AWSDeployCommand.parseAsRoot([BuildAndPublishCommand.configuration.commandName!, "-d", packageDirectory.path, ExamplePackage.executableOne.name]) as! BuildAndPublishCommand
         try buildAndPublish.run()
         // The Lambda should be updated now
-        let updatedConfig = try Services.shared.lambda.getFunctionConfiguration(.init(functionName: ExamplePackage.executableOne)).wait()
+        let updatedConfig = try Services.shared.lambda.getFunctionConfiguration(.init(functionName: ExamplePackage.executableOne.name)).wait()
         // The alias should be created and pointed to the first version
-        let updatedAlias = try Services.shared.lambda.getAlias(.init(functionName: ExamplePackage.executableOne, name: Publisher.defaultAlias)).wait()
+        let updatedAlias = try Services.shared.lambda.getAlias(.init(functionName: ExamplePackage.executableOne.name, name: Publisher.defaultAlias)).wait()
 
         // Check that the new and updated versions are different
         XCTAssertNotEqual(newConfig.revisionId, updatedConfig.revisionId)
@@ -78,7 +78,7 @@ class LiveTests: XCTestCase {
         
         // -- Invoke Command --
         // Invoke the Lambda
-        var invoke = try AWSDeployCommand.parseAsRoot([InvokeCommand.configuration.commandName!, ExamplePackage.executableOne, ExamplePackage.invokeJSON]) as! InvokeCommand
+        var invoke = try AWSDeployCommand.parseAsRoot([InvokeCommand.configuration.commandName!, ExamplePackage.executableOne.name, ExamplePackage.invokeJSON]) as! InvokeCommand
         try invoke.run()
         XCTAssertNotNil(Services.shared.logCollector.logs.allEntries.first(where: { $0.message.contains("Hello") }), "There should be a response log that contains \"Hello\"")
     }

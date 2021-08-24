@@ -44,7 +44,7 @@ class BuildCommandTests: XCTestCase {
     func testRunWithMocks() throws {
         // Given a valid configuration
         let packageDirectory = tempPackageDirectory()
-        var instance = try! BuildCommand.parseAsRoot([packageDirectory.path, ExamplePackage.executableOne]) as! BuildCommand
+        var instance = try! BuildCommand.parseAsRoot(["build", "-d", packageDirectory.path, ExamplePackage.executableOne.name]) as! BuildCommand
         Services.shared = mockServices
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
             return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
@@ -61,7 +61,7 @@ class BuildCommandTests: XCTestCase {
         // Given an ssh key
         let key = URL(fileURLWithPath: "/path/to/key")
         let packageDirectory = tempPackageDirectory()
-        var instance = try! BuildCommand.parseAsRoot([packageDirectory.path, ExamplePackage.executableOne, "-k", key.path]) as! BuildCommand
+        var instance = try! BuildCommand.parseAsRoot(["build", "-d", packageDirectory.path, ExamplePackage.executableOne.name, "-k", key.path]) as! BuildCommand
         Services.shared = mockServices
         mockServices.mockFileManager.fileExistsMock = { _ in return true }
         mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in

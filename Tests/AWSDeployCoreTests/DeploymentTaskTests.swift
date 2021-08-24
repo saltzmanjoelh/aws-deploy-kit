@@ -15,7 +15,7 @@ class DeploymentTaskTests: XCTestCase {
     
     struct Task: DeploymentTask {
         
-        static var functionName: String { "test-task" }
+        static var functionName: String { ExamplePackage.executableOne.name }
         
         var functionName: String { Self.functionName }
         
@@ -117,7 +117,7 @@ class DeploymentTaskTests: XCTestCase {
         }
         // Given a DeploymentTask that does not override buildSetUp, testSetUp and testTearDown
         struct MyTask: DeploymentTask {
-            var functionName: String = "custom"
+            var functionName: String = ExamplePackage.executableOne.name
             func invocationPayload() throws -> String {
                 return ""
             }

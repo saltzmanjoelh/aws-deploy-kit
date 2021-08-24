@@ -44,7 +44,7 @@ class PackagerTests: XCTestCase {
         // Then no errors should be thrown
         // and copyItem should have been called with the destination
         let expectedSource = Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
-        let expectedDestination = destinationDirectory.appendingPathComponent(ExamplePackage.executableOne, isDirectory: false)
+        let expectedDestination = destinationDirectory.appendingPathComponent(ExamplePackage.executableOne.name, isDirectory: false)
         let result = mockServices.mockFileManager.$copyItemMock.wasCalled(with: .init([expectedSource, expectedDestination]))
         XCTAssertTrue(result, "Source and/or destination were not used")
     }
@@ -236,7 +236,7 @@ class PackagerTests: XCTestCase {
     func testArchiveName() {
         let archivePath = mockServices.mockPackager.archivePath(for: ExamplePackage.executableOne,
                                                in: mockServices.mockPackager.destinationURLForProduct(ExamplePackage.executableOne, in: packageDirectory))
-        XCTAssertTrue(archivePath.description.contains(ExamplePackage.executableOne), "The archive path should contain the executable name")
+        XCTAssertTrue(archivePath.description.contains(ExamplePackage.executableOne.name), "The archive path should contain the executable name")
     }
     func testArchiveContents() throws {
         // Given a succesful zip
@@ -318,10 +318,10 @@ class PackagerTests: XCTestCase {
         mockServices.mockPackager.addBootstrap = { _ in return .init() }
         
         // When calling prepareDestinationDirectory for an executable
-        XCTAssertNoThrow(try mockServices.mockPackager.prepareDestinationDirectory(product: "executable",
-                                                                  packageDirectory: URL(fileURLWithPath: ""),
-                                                                  destinationDirectory: URL(fileURLWithPath: ""),
-                                                                  services: mockServices))
+        XCTAssertNoThrow(try mockServices.mockPackager.prepareDestinationDirectory(product: ExamplePackage.executableOne,
+                                                                                   packageDirectory: URL(fileURLWithPath: ""),
+                                                                                   destinationDirectory: URL(fileURLWithPath: ""),
+                                                                                   services: mockServices))
         
         // Then executable specific packaging commands should be called
         XCTAssertEqual(mockServices.mockPackager.$copyProduct.usage.history.count, 1, "copyProduct should have been called.")
@@ -338,10 +338,10 @@ class PackagerTests: XCTestCase {
         mockServices.mockPackager.addBootstrap = { _ in return .init() }
         
         // When calling prepareDestinationDirectory for a library
-        XCTAssertNoThrow(try mockServices.mockPackager.prepareDestinationDirectory(product: "library.swiftmodule",
-                                                                  packageDirectory: URL(fileURLWithPath: ""),
-                                                                  destinationDirectory: URL(fileURLWithPath: ""),
-                                                                  services: mockServices))
+        XCTAssertNoThrow(try mockServices.mockPackager.prepareDestinationDirectory(product: ExamplePackage.library,
+                                                                                   packageDirectory: URL(fileURLWithPath: ""),
+                                                                                   destinationDirectory: URL(fileURLWithPath: ""),
+                                                                                   services: mockServices))
         
         // Then the copy command should be called
         XCTAssertEqual(mockServices.mockPackager.$copyProduct.usage.history.count, 1, "copyProduct should have been called.")
@@ -359,7 +359,7 @@ class PackagerTests: XCTestCase {
         mockServices.mockPackager.prepareDestinationDirectory = { _ in }
         mockServices.mockPackager.archiveContents = { _ throws in return URL(fileURLWithPath: "file.zip") }
         
-        XCTAssertNoThrow(try mockServices.mockPackager.packageProduct("", at: URL(fileURLWithPath: ""), services: mockServices))
+        XCTAssertNoThrow(try mockServices.mockPackager.packageProduct(ExamplePackage.library, at: URL(fileURLWithPath: ""), services: mockServices))
         XCTAssertEqual(mockServices.mockPackager.$createDestinationDirectory.usage.history.count, 1, "createDestinationDirectory should have been called.")
         XCTAssertEqual(mockServices.mockPackager.$prepareDestinationDirectory.usage.history.count, 1, "prepareDestinationDirectory should have been called.")
         XCTAssertEqual(mockServices.mockPackager.$archiveContents.usage.history.count, 1, "archiveContents should have been called.")
