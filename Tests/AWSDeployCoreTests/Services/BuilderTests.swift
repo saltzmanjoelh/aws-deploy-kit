@@ -201,7 +201,7 @@ class BuilderTests: XCTestCase {
         XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: Docker.Config.containerName)
-        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --target \(ExamplePackage.executableOne)\"")
+        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --target \(ExamplePackage.executableOne.name)\"")
     }
 
     func testBuildProductInDockerWithPrivateKey() throws {
@@ -230,7 +230,7 @@ class BuilderTests: XCTestCase {
         XCTAssertString(message, contains: Docker.Config.containerName)
         XCTAssertString(message, contains: "ssh-agent bash -c")
         XCTAssertString(message, contains: "ssh-add -c \(keyPath.path);")
-        XCTAssertString(message, contains: "swift build -c release --target \(ExamplePackage.executableOne)")
+        XCTAssertString(message, contains: "swift build -c release --target \(ExamplePackage.executableOne.name)")
     }
     func testBuildProductHandlesInvalidDirectory() throws {
         // If there is no Swift package at the path, there should be a useful tip about it.
