@@ -183,8 +183,8 @@ class BuilderTests: XCTestCase {
         XCTAssertTrue(mockServices.mockBuilder.$getBuiltProductPath.wasCalled)
     }
 
-    func testBuildProductInDocker() throws {
-        // Given a valid package
+    func testBuildExecutableInDocker() throws {
+        // Given a valid executable
         let packageDirectory = try createTempPackage()
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "/path/to/app.zip")
@@ -202,6 +202,26 @@ class BuilderTests: XCTestCase {
         XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: Docker.Config.containerName)
         XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --target \(ExamplePackage.executableOne.name)\"")
+    }
+    func testBuildLibraryInDocker() throws {
+        // Given a valid library
+        let packageDirectory = try createTempPackage()
+        mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
+            return .stubMessage(level: .trace, message: "/path/to/app.zip")
+        }
+
+        // When calling buildProduct
+        _ = try mockServices.builder.buildProductInDocker(ExamplePackage.library, at: packageDirectory, services: mockServices, sshPrivateKeyPath: nil)
+
+        // Then the correct command should be issued
+        let message = mockServices.logCollector.logs.allMessages()
+        XCTAssertString(message, contains: "/usr/local/bin/docker")
+        XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
+        XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
+        XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
+        XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
+        XCTAssertString(message, contains: Docker.Config.containerName)
+        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --product \(ExamplePackage.library.name)\"")
     }
 
     func testBuildProductInDockerWithPrivateKey() throws {

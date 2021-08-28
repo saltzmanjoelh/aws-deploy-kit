@@ -106,7 +106,7 @@ public struct Builder: DockerizedBuilder {
     /// - Returns: The output from building in Docker.
     public func buildProductInDocker(_ product: Product, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> LogCollector.Logs {
         services.logger.trace("-- Building \(product.name) ---")
-        let flag = product.type == .executable "--product" ? "--target"
+        let flag = product.type == .executable ? "--target" : "--product"
         let swiftBuildCommand = "swift build -c release \(flag) \(product.name)"
         let logs: LogCollector.Logs
         do {
