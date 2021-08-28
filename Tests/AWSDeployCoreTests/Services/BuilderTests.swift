@@ -201,7 +201,7 @@ class BuilderTests: XCTestCase {
         XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: Docker.Config.containerName)
-        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --target \(ExamplePackage.executableOne.name)\"")
+        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --product \(ExamplePackage.executableOne.name)\"")
     }
     func testBuildLibraryInDocker() throws {
         // Given a valid library
@@ -221,7 +221,7 @@ class BuilderTests: XCTestCase {
         XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: Docker.Config.containerName)
-        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --product \(ExamplePackage.library.name)\"")
+        XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --target \(ExamplePackage.library.name)\"")
     }
 
     func testBuildProductInDockerWithPrivateKey() throws {
