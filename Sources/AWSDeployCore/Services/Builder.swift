@@ -105,8 +105,9 @@ public struct Builder: DockerizedBuilder {
     ///   - sshPrivateKeyPath: A path to a private key if the dependencies are in a private repo
     /// - Returns: The output from building in Docker.
     public func buildProductInDocker(_ product: Product, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> LogCollector.Logs {
-        services.logger.trace("-- Building \(product) ---")
-        let swiftBuildCommand = "swift build -c release --target \(product.name)"
+        services.logger.trace("-- Building \(product.name) ---")
+        let flag = product.type == .executable "--product" ? "--target"
+        let swiftBuildCommand = "swift build -c release \(flag) \(product.name)"
         let logs: LogCollector.Logs
         do {
             logs = try Docker.runShellCommand(swiftBuildCommand, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
