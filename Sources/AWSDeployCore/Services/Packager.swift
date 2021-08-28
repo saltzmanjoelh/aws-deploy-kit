@@ -41,7 +41,7 @@ public struct Packager: ProductPackager {
     /// - Returns URL to the zip archive which contain the built product, dependencies and "bootstrap" symlink
     /// - Throws: If one of the steps has an error.
     public func packageProduct(_ product: Product, at packageDirectory: URL, services: Servicable) throws -> URL {
-        services.logger.trace("--- Packaging : \(product) ---")
+        services.logger.trace("--- Packaging : \(product.name) ---")
         // We will be copying the built binary in the packageDirectory to the destination
         // The destination defaults to .build/lambda/$product/
         let destinationDirectory = destinationURLForProduct(product, in: packageDirectory)
@@ -112,7 +112,7 @@ public struct Packager: ProductPackager {
     ///   - destinationDirectory: The directory to copy the binary to. ie: `./build/lambda/$EXECUTABLE/`
     /// - Throws: If there was a problem copying the .env file to the destination.
     public func copyProduct(product: Product, at packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws {
-        services.logger.trace("Copy Product: \(product)")
+        services.logger.trace("Copy Product: \(product.name)")
         let productFile = Builder.URLForBuiltProduct(product, at: packageDirectory, services: services)
         guard services.fileManager.fileExists(atPath: productFile.path) else {
             throw PackagerError.productNotFound(productFile.path)
@@ -130,7 +130,7 @@ public struct Packager: ProductPackager {
     ///   - destinationDirectory: The directory to copy the .env file to. ie: `./build/lambda/$EXECUTABLE/`
     /// - Throws: If there was a problem copying the .env file to the destination.
     public func copyEnvFile(at packageDirectory: URL, product: Product, destinationDirectory: URL, services: Servicable) throws {
-        services.logger.trace("Copy .env: \(product)")
+        services.logger.trace("Copy .env: \(product.name)")
         let envFile = URLForEnvFile(packageDirectory: packageDirectory, product: product)
         
         // It's ok if the .env isn't there, just move on
@@ -148,7 +148,7 @@ public struct Packager: ProductPackager {
     ///   - destinationDirectory: The directory to copy the dependencies to. ie: `./build/lambda/$EXECUTABLE/`
     /// - Throws: if one of the steps fails.
     public func copySwiftDependencies(for product: Product, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
-        services.logger.trace("Copy Swift Dependencies: \(product)")
+        services.logger.trace("Copy Swift Dependencies: \(product.name)")
         // Use ldd to get a list of Swift dependencies
         let dependencies = try getLddDependencies(for: product, at: packageDirectory, services: services)
         // Iterate the URLs and copy the files
@@ -170,7 +170,7 @@ public struct Packager: ProductPackager {
     ///    libswiftCore.so => /usr/lib/swift/linux/libswiftCore.so (0x00007fb41d09c000)
     /// ```
     public func getLddDependencies(for product: Product, at packageDirectory: URL, services: Servicable) throws -> [URL] {
-        let lddCommand = "ldd .build/release/\(product)"
+        let lddCommand = "ldd .build/release/\(product.name)"
         let lines = try Docker.runShellCommand(lddCommand, at: packageDirectory, services: services)
             .allEntries
             .map({ (entry: LogCollector.Logs.Entry) -> String in // Get the raw message
@@ -219,8 +219,8 @@ public struct Packager: ProductPackager {
     /// - Throws: if there is a problem creating the symlink
     @discardableResult
     public func addBootstrap(for product: Product, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
-        services.logger.trace("Adding bootstrap: \(product)")
-        let command = "ln -s \(product) bootstrap"
+        services.logger.trace("Adding bootstrap: \(product.name)")
+        let command = "ln -s \(product.name) bootstrap"
         let logs: LogCollector.Logs = try services.shell.run(command, at: destinationDirectory, logger: services.logger)
         let errors = logs.allEntries.filter({ entry in
             return entry.level == .error
@@ -240,7 +240,7 @@ public struct Packager: ProductPackager {
     public func archiveContents(for product: Product, in destinationDirectory: URL, services: Servicable) throws -> URL {
         // zip --symlinks $zipName * .env
         // echo -e "Built product at:\n$zipName"
-        services.logger.trace("Archiving contents: \(product)")
+        services.logger.trace("Archiving contents: \(product.name)")
         let archive = archivePath(for: product, in: destinationDirectory)
         let command = "zip --symlinks \(archive.path) * .env"
         let logs: LogCollector.Logs = try services.shell.run(command, at: destinationDirectory, logger: services.logger)
@@ -254,7 +254,7 @@ public struct Packager: ProductPackager {
         guard services.fileManager.fileExists(atPath: archive.path) else {
             throw PackagerError.archiveNotFound(archive.path)
         }
-        services.logger.trace("Archived \(product): \(archive)")
+        services.logger.trace("Archived \(product.name): \(archive)")
         return archive
     }
 }
@@ -287,6 +287,6 @@ extension Packager {
     /// - Returns: URL destination for packaging everything before we zip it up
     public func archivePath(for product: Product, in destinationDirectory: URL) -> URL {
         return destinationDirectory
-            .appendingPathComponent("\(product).zip")
+            .appendingPathComponent("\(product.name).zip")
     }
 }
