@@ -13,7 +13,7 @@ Here are some of the special tasks that you can do with this package:
 * Test executing your Lambda programatically
 
 Jump to [Using in Xcode](#using-in-xcode) for the details.
-You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoelh/AWSDeployKitExample) project as well.
+You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoelh/AWSDeployKitExample) project for some examples. There is a [BasicExample](https://github.com/saltzmanjoelh/AWSDeployKitExample/BasicExample) which gets you started deploying from Xcode using a JSON string or file. But the [AdvancedExample](https://github.com/saltzmanjoelh/AWSDeployKitExample/AdvancedExample) shows you how to programatically deploy from Xcode and build your Lambda verification checks from existing structures in your code. 
 
 ## TLDR
 If you plan on [using this from the command line](#using-from-the-command-line), you will simply build the aws-deploy target and copy the product to somewhere. However, I prefer to use this in Xcode, more on this [below](#use-this-in-xcode)
