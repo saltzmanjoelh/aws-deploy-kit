@@ -57,24 +57,4 @@ class BuildCommandTests: XCTestCase {
         // And the product get's built and packaged
         XCTAssertTrue(mockServices.mockBuilder.$buildProducts.wasCalled)
     }
-    
-    func testSSHKey() throws {
-        // Given an ssh key
-        let key = URL(fileURLWithPath: "/path/to/key")
-        let packageDirectory = tempPackageDirectory()
-        var instance = try! BuildCommand.parseAsRoot(["build", "-d", packageDirectory.path, ExamplePackage.executableOne.name, "-k", key.path]) as! BuildCommand
-        Services.shared = mockServices
-        mockServices.mockFileManager.fileExistsMock = { _ in return true }
-        mockServices.mockBuilder.loadProducts = { _ in return ExamplePackage.products }
-        mockServices.mockBuilder.buildProducts = { _ throws -> [URL] in
-            return [Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)]
-        }
-        
-        // When calling run()
-        // Then no errors are thrown
-        XCTAssertNoThrow(try instance.run())
-        // And the ssh key is provided
-        XCTAssertTrue(mockServices.mockBuilder.$buildProducts.wasCalled)
-        XCTAssertEqual(mockServices.mockBuilder.$buildProducts.usage.history[0].context.2, key)
-    }
 }

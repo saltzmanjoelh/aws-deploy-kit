@@ -77,17 +77,15 @@ extension DeploymentTask {
     /// - Parameters:
     ///   - packageDirectory: The Swift package that the executable is in.
     ///   - services: The set of services which will be used to execute your request with.
-    ///   - sshPrivateKeyPath: The private key to pull from private repos with.
     /// - Throws: If there was a problem building the product.
     /// - Returns: Archive to the built product
-    public func build(from packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> URL {
+    public func build(from packageDirectory: URL, services: Servicable) throws -> URL {
         // Prepare for the build step
         try buildSetUp(services: services)
         // Build and package everything to a zip
         let product = try services.builder.parseProducts([functionName], skipProducts: "", at: packageDirectory, services: services)[0]
         let archiveURL = try services.builder.buildAndPackage(product: product,
                                                               at: packageDirectory,
-                                                              sshPrivateKeyPath: sshPrivateKeyPath,
                                                               services: services)
         return archiveURL
     }

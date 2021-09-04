@@ -6,6 +6,15 @@
 
 Helps with building Swift packages in Linux and publishing to an AWS Lambda. Using this as a package dependency, you can leverage your existing Lambda request and response objects to test your update Lambdas with. Take a look at the AdvancedExample in the [AWSDeployKitExample](https://github.com/saltzmanjoelh/AWSDeployKitExample).
 
+Here are some of the special tasks that you can do with this package:
+
+* Build and archive a Swift Package in Docker
+* Update an AWS Lambda with a Blue / Green process
+* Test executing your Lambda programatically
+
+Jump to [Using in Xcode](#using-in-xcode) for the details.
+You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoelh/AWSDeployKitExample) project as well.
+
 ## TLDR
 If you plan on [using this from the command line](#using-from-the-command-line), you will simply build the aws-deploy target and copy the product to somewhere. However, I prefer to use this in Xcode, more on this [below](#use-this-in-xcode)
 
@@ -68,6 +77,7 @@ Run both build and publish commands in one shot. `aws-deploy build-and-publish` 
 Please see the [aws-deploy build-and-publish --help](cli-help/05-build-and-publish.md) for a complete reference on this command.
 
 ## Using in Xcode
+
 The goal here is to be able to deploy your Lambda functions from within the project that you are working with. You will simply switch your run target to the deployment target and publish a new version of your Lambda. The steps will basically be duplicating the `aws-deploy` target from `aws-deploy-kit`.
 
 From your project that uses `swift-aws-lambda-runtime`, add `aws-deploy-kit` as a dependency.
@@ -119,12 +129,3 @@ You can take a look at the [AWSDeployKitExample](https://github.com/saltzmanjoel
 * Build the `aws-deploy` target.
 * Copy to `/usr/local/bin` or similar.
 * Run it with the path to your project directory. `aws-deploy build-and-publish -d /path/to/project executable-name`.
-
-
-## TODO:
- 
-* Change ssh key to directory?
-* In order to run test with updating data, we need to run the create command first. Using json isn't great. You must know the format and if something changes, remember to update the file. It would be better if we could use our existing models from the functions. This way we can validate the response and we could even map the response to another function. 
-An example would be a project that has CRUD functions. There could be one test target which includes the 4 CRUD targets and AWSDeployCore.
-There would be 4 test. The create test is simple. We just execute the create function and validate the response. We don't want the test data laying around so we delete it when it's done.
-For the update test, we need to create, get the results, update using the id from the create results, validate the response and delete the entry

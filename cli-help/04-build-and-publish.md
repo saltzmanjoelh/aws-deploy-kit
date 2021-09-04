@@ -3,7 +3,7 @@ OVERVIEW: Run both build and publish commands in one shot. `aws-deploy
 build-and-publish` supports all options from both commands. Please see the
 `aws-deploy build --help` and `aws-deploy publish --help` for a full reference.
 
-USAGE: aws-deploy build-and-publish [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>] [--ssh-key-path <ssh-key-path>] [--function-role <function-role>] [--alias <alias>] [--payload <payload>]
+USAGE: aws-deploy build-and-publish [--directory <directory>] [<products> ...] [--skip-products <skip-products>] [--pre-build-command <pre-build-command>] [--post-build-command <post-build-command>] [--function-role <function-role>] [--alias <alias>] [--payload <payload>]
 
 ARGUMENTS:
   <products>              You can either specify which products you want to
@@ -37,11 +37,6 @@ OPTIONS:
                           all products are built, then this command will be ran
                           after each product is built, in their source
                           directory.
-  -k, --ssh-key-path <ssh-key-path>
-                          Specify an SSH key for private repos. Since we are
-                          building inside Docker, your usual .ssh directory is
-                          not available inside the container. Example: -k
-                          /home/user/.ssh/my_key
   -f, --function-role <function-role>
                           When publishing, if you need to create the function,
                           this is the role being used to execute the function.

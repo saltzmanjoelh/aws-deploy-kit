@@ -146,7 +146,7 @@ class PackagerTests: XCTestCase {
         
         // Then the shell should be called
         XCTAssertTrue(mockServices.mockShell.$launchShell.wasCalled, "Shell command was not executed.")
-        let expectedCommand = Docker.createShellCommand("cp \(dependency.path) \(destinationDirectory.path)", at: packageDirectory)
+        let expectedCommand = Docker.createShellCommand("cp \(dependency.path) \(destinationDirectory.path)", at: packageDirectory, services: mockServices)
         let expectedInput = EquatableTuple([try CodableInput(expectedCommand), try CodableInput(packageDirectory)])
         XCTAssertTrue(mockServices.mockShell.$launchShell.wasCalled(with: expectedInput), "Unexpected shell command. History: \(mockServices.mockShell.$launchShell.usage.inputDescriptions.last!)")
     }
@@ -170,7 +170,7 @@ class PackagerTests: XCTestCase {
         
         // Then the shell should be called
         XCTAssertTrue(mockServices.mockShell.$launchShell.wasCalled, "Shell command was not executed.")
-        let expectedCommand = Docker.createShellCommand("cp \(dependency.path) \(destinationDirectory.path)", at: packageDirectory)
+        let expectedCommand = Docker.createShellCommand("cp \(dependency.path) \(destinationDirectory.path)", at: packageDirectory, services: mockServices)
         let expectedInput = EquatableTuple([try CodableInput(expectedCommand), try CodableInput(packageDirectory)])
         XCTAssertTrue(mockServices.mockShell.$launchShell.wasCalled(with: expectedInput), "Unexpected shell command.")
     }

@@ -19,15 +19,15 @@ public protocol DockerizedBuilder {
     func parseProducts(_ products: [String], skipProducts: String, at packageDirectory: URL, services: Servicable) throws -> [Product]
     func loadProducts(at packageDirectory: URL, services: Servicable) throws -> [Product]
     
-    func buildProducts(_ products: [Product], at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> [URL]
+    func buildProducts(_ products: [Product], at packageDirectory: URL, services: Servicable) throws -> [URL]
     func prepareDocker(packageDirectory: URL, services: Servicable) throws
     func getDockerfilePath(from packageDirectory: URL, services: Servicable) throws -> URL
     func createTemporaryDockerfile(services: Servicable) throws -> URL
     func prepareDockerImage(at dockerfilePath: URL, services: Servicable) throws -> String
-    func buildAndPackage(product: Product, at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL
-    func buildProduct(_ product: Product, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> URL
+    func buildAndPackage(product: Product, at packageDirectory: URL, services: Servicable) throws -> URL
+    func buildProduct(_ product: Product, at packageDirectory: URL, services: Servicable) throws -> URL
     func executeShellCommand(_ command: String, for product: Product, at packageDirectory: URL, services: Servicable) throws
-    func buildProductInDocker(_ product: Product, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL?) throws -> LogCollector.Logs
+    func buildProductInDocker(_ product: Product, at packageDirectory: URL, services: Servicable) throws -> LogCollector.Logs
     func getBuiltProductPath(product: Product, at packageDirectory: URL, services: Servicable) throws -> URL
 }
 
@@ -44,14 +44,13 @@ public struct Builder: DockerizedBuilder {
     /// - Parameters:
     ///    - products: Array of products in a package that you want to build.
     ///    - packageDirectory: The URL to the package that you want to build.
-    ///    - sshPrivateKeyPath: The private key to pull from private repos with.
     ///    - services: The set of services which will be used to execute your request with.
     /// - Returns: Array of URLs to the archive that contains built the products and their dependencies.
-    public func buildProducts(_ products: [Product], at packageDirectory: URL, sshPrivateKeyPath: URL? = nil, services: Servicable) throws -> [URL] {
+    public func buildProducts(_ products: [Product], at packageDirectory: URL, services: Servicable) throws -> [URL] {
         services.logger.trace("Build products at: \(packageDirectory.path)")
         try prepareDocker(packageDirectory: packageDirectory, services: services)
         let archiveURLs = try products.map { (product: Product) -> URL in
-            try services.builder.buildAndPackage(product: product, at: packageDirectory, sshPrivateKeyPath: sshPrivateKeyPath, services: services)
+            try services.builder.buildAndPackage(product: product, at: packageDirectory, services: services)
         }
         return archiveURLs
     }
@@ -61,14 +60,12 @@ public struct Builder: DockerizedBuilder {
     /// - Parameters:
     ///   - product: The product from a Swift package to build and archive.
     ///   - packageDirectory: The directory of the Swift package that the product is from.
-    ///   - sshPrivateKeyPath: An ssh private key that can be used to pull Swift dependencies from private repos.
     ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: An URL to a zip archive that contains the built product and it's library dependencies.
-    public func buildAndPackage(product: Product, at packageDirectory: URL, sshPrivateKeyPath: URL?, services: Servicable) throws -> URL {
+    public func buildAndPackage(product: Product, at packageDirectory: URL, services: Servicable) throws -> URL {
         _ = try services.builder.buildProduct(product,
                                               at: packageDirectory,
-                                              services: services,
-                                              sshPrivateKeyPath: sshPrivateKeyPath)
+                                              services: services)
         return try services.packager.packageProduct(product, at: packageDirectory, services: services)
     }
     
@@ -77,23 +74,21 @@ public struct Builder: DockerizedBuilder {
     ///   - product: The product that you want to build.
     ///   - packageDirectory: The Swift package that the product is in.
     ///   - services: The set of services which will be used to execute your request with.
-    ///   - sshPrivateKeyPath: The private key to pull from private repos with.
     /// - Throws: If there was a problem building the product.
     /// - Returns: Archive to the built product
     public func buildProduct(_ product: Product,
                              at packageDirectory: URL,
-                             services: Servicable = Services.shared,
-                             sshPrivateKeyPath: URL? = nil) throws -> URL {
+                             services: Servicable = Services.shared) throws -> URL {
         // We change the path here so that when we process the pre and post commands, we can use a relative paths
         // to files that might be in their directories
         let sourceDirectory = packageDirectory.appendingPathComponent("Sources").appendingPathComponent(product.name)
         FileManager.default.changeCurrentDirectoryPath(sourceDirectory.path)
         services.logger.trace("Build \(product) at: \(sourceDirectory.path)")
         try services.builder.executeShellCommand(preBuildCommand, for: product, at: sourceDirectory, services: services)
-        _ = try services.builder.buildProductInDocker(product, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
+        _ = try services.builder.buildProductInDocker(product, at: packageDirectory, services: services)
         let url = try services.builder.getBuiltProductPath(product: product, at: packageDirectory, services: services)
         try services.builder.executeShellCommand(postBuildCommand, for: product, at: sourceDirectory, services: services)
-        services.logger.trace("-- Built \(product) at: \(url) ---")
+        services.logger.trace("-- Built \(product.name) at: \(url) ---")
         return url
     }
     
@@ -102,15 +97,14 @@ public struct Builder: DockerizedBuilder {
     ///   - product: The name of the product to build.
     ///   - packageDirectory: The directory to find the package in.
     ///   - services: The set of services which will be used to execute your request with.
-    ///   - sshPrivateKeyPath: A path to a private key if the dependencies are in a private repo
     /// - Returns: The output from building in Docker.
-    public func buildProductInDocker(_ product: Product, at packageDirectory: URL, services: Servicable, sshPrivateKeyPath: URL? = nil) throws -> LogCollector.Logs {
+    public func buildProductInDocker(_ product: Product, at packageDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
         services.logger.trace("-- Building \(product.name) ---")
         let flag = product.type == .executable ? "--product" : "--target"
         let swiftBuildCommand = "swift build -c release \(flag) \(product.name)"
         let logs: LogCollector.Logs
         do {
-            logs = try Docker.runShellCommand(swiftBuildCommand, at: packageDirectory, services: services, sshPrivateKeyPath: sshPrivateKeyPath)
+            logs = try Docker.runShellCommand(swiftBuildCommand, at: packageDirectory, services: services)
         } catch let error {
             if "\(error)".contains("root manifest not found") {
                 services.logger.error("Did you specify a path to a Swift Package: \(packageDirectory)")

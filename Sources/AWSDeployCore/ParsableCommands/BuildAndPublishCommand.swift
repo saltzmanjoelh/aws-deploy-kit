@@ -27,14 +27,6 @@ struct BuildAndPublishCommand: ParsableCommand {
     }
 
     public mutating func run(services: Servicable) throws {
-        // Convert the String to URL
-        let sshPrivateKey: URL?
-        if let keyPath = buildOptions.sshKeyPath,
-           services.fileManager.fileExists(atPath: keyPath){
-            sshPrivateKey = URL(fileURLWithPath: keyPath)
-        } else {
-            sshPrivateKey = nil
-        }
         // Get the packageDirectory
         let packageDirectory = URL(fileURLWithPath: buildOptions.directory.path)
         // Get the final list of products we will be building
@@ -45,7 +37,6 @@ struct BuildAndPublishCommand: ParsableCommand {
         // Build and archive
         let archiveURLs = try services.builder.buildProducts(parsedProducts,
                                                              at: packageDirectory,
-                                                             sshPrivateKeyPath: sshPrivateKey,
                                                              services: services)
         // Publish
         _ = try archiveURLs.map({ archiveURL in

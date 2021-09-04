@@ -126,7 +126,6 @@ class BuilderTests: XCTestCase {
     
     func testBuildProducts() throws {
         let packageDirectory = tempPackageDirectory()
-        let sshKey = URL(fileURLWithPath: "/path/to/key")
         let executableURL = Builder.URLForBuiltProduct(ExamplePackage.executableOne, at: packageDirectory, services: self.mockServices)
         let archive = mockServices.packager.archivePath(for: ExamplePackage.executableOne, in: packageDirectory)
         mockServices.mockBuilder.getDockerfilePath = { _ in return URL(fileURLWithPath: "/tmp").appendingPathComponent("Dockerfile") }
@@ -136,14 +135,13 @@ class BuilderTests: XCTestCase {
         }
         mockServices.mockPackager.packageProduct = { _ in archive }
         
-        let result = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, sshPrivateKeyPath: sshKey, services: mockServices)
+        let result = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, services: mockServices)
         
         XCTAssertEqual([archive], result)
         XCTAssertTrue(mockServices.mockBuilder.$getDockerfilePath.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$prepareDockerImage.wasCalled)
         XCTAssertTrue(mockServices.mockBuilder.$buildProduct.wasCalled)
         XCTAssertTrue(mockServices.mockPackager.$packageProduct.wasCalled)
-        XCTAssertEqual(mockServices.mockBuilder.$buildProduct.usage.history[0].context.3, URL(fileURLWithPath: sshKey.path), "The supplied ssh key should have been passed to buildProduct as an URL")
     }
     func testBuildProductsThrowsWithMissingProduct() throws {
         // Setup
@@ -156,7 +154,7 @@ class BuilderTests: XCTestCase {
 
         // When calling buildProduct
         do {
-            _ = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, sshPrivateKeyPath: nil, services: mockServices)
+            _ = try mockServices.builder.buildProducts([ExamplePackage.executableOne], at: packageDirectory, services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch DockerizedBuilderError.builtProductNotFound(_) {
@@ -175,7 +173,7 @@ class BuilderTests: XCTestCase {
         mockServices.mockBuilder.buildProductInDocker = { _ in return .init() }
         mockServices.mockBuilder.getBuiltProductPath = { _ in return buildDir }
         
-        XCTAssertNoThrow(try mockServices.builder.buildProduct(ExamplePackage.executableOne, at: packageDirectory, services: mockServices, sshPrivateKeyPath: nil))
+        XCTAssertNoThrow(try mockServices.builder.buildProduct(ExamplePackage.executableOne, at: packageDirectory, services: mockServices))
         
         XCTAssertTrue(mockServices.mockBuilder.$executeShellCommand.wasCalled)
         XCTAssertEqual(mockServices.mockBuilder.$executeShellCommand.usage.history.count, 2, "executeShellCommand should have been called twice. Once for the pre-build command and once for the post-build command.")
@@ -189,14 +187,15 @@ class BuilderTests: XCTestCase {
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "/path/to/app.zip")
         }
+        mockServices.mockFileManager.fileExistsMock = { _ in return false } // no .ssh directory
 
         // When calling buildProduct
-        _ = try mockServices.builder.buildProductInDocker(ExamplePackage.executableOne, at: packageDirectory, services: mockServices, sshPrivateKeyPath: nil)
+        _ = try mockServices.builder.buildProductInDocker(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
 
         // Then the correct command should be issued
         let message = mockServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "/usr/local/bin/docker")
-        XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
+        XCTAssertString(message, contains: "run -it --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
         XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
@@ -209,14 +208,15 @@ class BuilderTests: XCTestCase {
         mockServices.mockShell.launchShell = { _ throws -> LogCollector.Logs in
             return .stubMessage(level: .trace, message: "/path/to/app.zip")
         }
+        mockServices.mockFileManager.fileExistsMock = { _ in return false } // no .ssh directory
 
         // When calling buildProduct
-        _ = try mockServices.builder.buildProductInDocker(ExamplePackage.library, at: packageDirectory, services: mockServices, sshPrivateKeyPath: nil)
+        _ = try mockServices.builder.buildProductInDocker(ExamplePackage.library, at: packageDirectory, services: mockServices)
 
         // Then the correct command should be issued
         let message = mockServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "/usr/local/bin/docker")
-        XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
+        XCTAssertString(message, contains: "run -it --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
         XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
@@ -224,33 +224,40 @@ class BuilderTests: XCTestCase {
         XCTAssertString(message, contains: "/usr/bin/bash -c \"swift build -c release --target \(ExamplePackage.library.name)\"")
     }
 
-    func testBuildProductInDockerWithPrivateKey() throws {
+    func testBuildProductInDockerWithSSHDirectoryAvailable() throws {
         // Setup
         let packageDirectory = try createTempPackage()
-        // Given an ssh key path
-        let keyPath = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/ssh/key")
+        // Given a user with a .ssh directory
         mockServices.mockShell.launchShell = { _ -> LogCollector.Logs in
             return .init()
+        }
+        mockServices.mockFileManager.usersHomeDirectoryMock = { _ in
+            return URL(fileURLWithPath: "/Users/janedoe/")
+        }
+        mockServices.mockFileManager.fileExistsMock = { _ in
+            return true
         }
 
         // When calling buildProduct with valid input and a private key
         _ = try mockServices.builder.buildProductInDocker(ExamplePackage.executableOne,
                                       at: packageDirectory,
-                                      services: mockServices,
-                                      sshPrivateKeyPath: keyPath)
+                                      services: mockServices)
 
         // Then the correct command should be issued and contain the key's path in a volume mount
         let message = mockServices.logCollector.logs.allMessages()
         XCTAssertString(message, contains: "/usr/local/bin/docker")
-        XCTAssertString(message, contains: "run -i --rm -e TERM=dumb")
+        XCTAssertString(message, contains: "run -it --rm -e TERM=dumb")
         XCTAssertString(message, contains: "-e GIT_TERMINAL_PROMPT=1")
         XCTAssertString(message, contains: "-v \(ExamplePackage.tempDirectory)/\(ExamplePackage.name):\(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
         XCTAssertString(message, contains: "-w \(ExamplePackage.tempDirectory)/\(ExamplePackage.name)")
-        XCTAssertString(message, contains: "-v \(keyPath.path):\(keyPath.path)")
+        XCTAssertString(message, contains: "-v /Users/janedoe/.ssh:/Users/janedoe/.ssh")
         XCTAssertString(message, contains: Docker.Config.containerName)
-        XCTAssertString(message, contains: "ssh-agent bash -c")
-        XCTAssertString(message, contains: "ssh-add -c \(keyPath.path);")
-        XCTAssertString(message, contains: "swift build -c release --target \(ExamplePackage.executableOne.name)")
+        XCTAssertString(message, contains: "ssh-agent bash -c \"")
+        // Make the .ssh directory
+        XCTAssertString(message, contains: "mkdir -p ~/.ssh/")
+        // Copy the .ssh contents
+        XCTAssertString(message, contains: "cp /Users/janedoe/.ssh/* ~/.ssh/")
+        XCTAssertString(message, contains: "swift build -c release --product \(ExamplePackage.executableOne.name)\"")
     }
     func testBuildProductHandlesInvalidDirectory() throws {
         // If there is no Swift package at the path, there should be a useful tip about it.
@@ -262,7 +269,7 @@ class BuilderTests: XCTestCase {
 
         do {
             // When calling buildProductInDocker
-            _ = try mockServices.builder.buildProductInDocker(ExamplePackage.executableOne, at: packageDirectory, services: mockServices, sshPrivateKeyPath: nil)
+            _ = try mockServices.builder.buildProductInDocker(ExamplePackage.executableOne, at: packageDirectory, services: mockServices)
 
             XCTFail("An error should have been thrown.")
         } catch _ {

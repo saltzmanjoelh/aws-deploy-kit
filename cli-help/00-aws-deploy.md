@@ -4,7 +4,7 @@ Currently, we only support building executable targets.
 
 Docker is used for building and packaging. You can use a custom Dockerfile in
 the root of the Package directory to customize the build container that is
-used. Otherwise, swift:5.3-amazonlinux2 will be used by default.
+used. Otherwise, swift:5.5-amazonlinux2 will be used by default.
 
 Once built and packaged, you should find the binary and it's shared libraries
 in .build/.lambda/$executableName/. You will also find a zip with all those

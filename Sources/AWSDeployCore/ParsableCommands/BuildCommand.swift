@@ -37,10 +37,6 @@ struct BuildOptions: ParsableArguments {
     @Option(name: [.customShort("o"), .long],
             help: "Run a custom shell command like \"aws sam-deploy\" after the build phase. The command will be executed in the same source directory as the product(s) that you specify. If you don't specify any products and all products are built, then this command will be ran after each product is built, in their source directory.")
     var postBuildCommand: String = ""
-    
-    @Option(name: [.customShort("k"), .long],
-    help: "Specify an SSH key for private repos. Since we are building inside Docker, your usual .ssh directory is not available inside the container. Example: -k /home/user/.ssh/my_key")
-    var sshKeyPath: String?
 }
 
 extension BuildCommand {
@@ -52,20 +48,12 @@ extension BuildCommand {
     
     public mutating func run(services: Servicable) throws -> [URL] {
         let packageDirectory = URL(fileURLWithPath: options.directory.path)
-        let sshPrivateKey: URL?
-        if let keyPath = options.sshKeyPath,
-           services.fileManager.fileExists(atPath: keyPath){
-            sshPrivateKey = URL(fileURLWithPath: keyPath)
-        } else {
-            sshPrivateKey = nil
-        }
         let parsedProducts = try services.builder.parseProducts(options.products,
                                                                 skipProducts: options.skipProducts,
                                                                 at: packageDirectory,
                                                                 services: services)
         return try services.builder.buildProducts(parsedProducts,
                                                   at: packageDirectory,
-                                                  sshPrivateKeyPath: sshPrivateKey,
                                                   services: services)
     }
 }
