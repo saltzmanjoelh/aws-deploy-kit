@@ -114,11 +114,11 @@ class MockPackager: ProductPackager {
     }
     
     @ThrowingMock
-    var copyDependency = { (dependency: URL, packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
-        return try livePackager.copyDependency(dependency, in: packageDirectory, to: destinationDirectory, services: services)
+    var copyDependencies = { (dependencies: [URL], packageDirectory: URL, destinationDirectory: URL, services: Servicable) throws in
+        return try livePackager.copyDependencies(dependencies, in: packageDirectory, to: destinationDirectory, services: services)
     }
-    func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
-        return try $copyDependency.getValue((dependency, packageDirectory, destinationDirectory, services))
+    func copyDependencies(_ dependencies: [URL], in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
+        return try $copyDependencies.getValue((dependencies, packageDirectory, destinationDirectory, services))
     }
     
     @Mock

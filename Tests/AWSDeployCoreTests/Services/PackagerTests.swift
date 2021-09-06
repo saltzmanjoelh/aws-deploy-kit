@@ -142,7 +142,7 @@ class PackagerTests: XCTestCase {
         mockServices.mockShell.launchShell = { _ in return .init() }// Call doesn't return an errors
         
         // When calling copyDependency
-        try mockServices.mockPackager.copyDependency(dependency, in: packageDirectory, to: destinationDirectory, services: mockServices)
+        try mockServices.mockPackager.copyDependencies([dependency], in: packageDirectory, to: destinationDirectory, services: mockServices)
         
         // Then the shell should be called
         XCTAssertTrue(mockServices.mockShell.$launchShell.wasCalled, "Shell command was not executed.")
@@ -163,9 +163,9 @@ class PackagerTests: XCTestCase {
         
         do {
             // When calling copyDependency
-            try mockServices.mockPackager.copyDependency(dependency, in: packageDirectory, to: destinationDirectory, services: mockServices)
+            try mockServices.mockPackager.copyDependencies([dependency], in: packageDirectory, to: destinationDirectory, services: mockServices)
         } catch {
-            XCTAssertEqual("\(error)", PackagerError.dependencyFailure(dependency, "File not found.").description, "Unexpected error: \(error)")
+            XCTAssertEqual("\(error)", PackagerError.dependencyFailure([dependency], "File not found.").description, "Unexpected error: \(error)")
         }
         
         // Then the shell should be called
@@ -196,7 +196,7 @@ class PackagerTests: XCTestCase {
         
         // Then those URLs should be copied to the destination
         XCTAssertTrue(mockServices.mockShell.$launchShell.wasCalled)
-        XCTAssertEqual(mockServices.mockShell.$launchShell.usage.history.count, 3, "At least 2 shell commands should have been called. One for getting the dependencies and 1 for each dependency.")
+        XCTAssertEqual(mockServices.mockShell.$launchShell.usage.history.count, 2, "2 shell commands should have been called. One for getting the dependencies and 2 for each dependency.")
     }
     
     func testAddBootstrap() throws {

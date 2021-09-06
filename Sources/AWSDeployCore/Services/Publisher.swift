@@ -20,10 +20,7 @@ public protocol BlueGreenPublisher {
 
     func publishArchive(_ archiveURL: URL,
                         from packageDirectory: URL,
-                        invokePayload: String,
-                        invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
-                        verifyResponse: ((Data) -> Bool)?,
-                        invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
+                        invocationTask: InvocationTask?,
                         alias: String,
                         services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     
@@ -42,10 +39,7 @@ public protocol BlueGreenPublisher {
     func updateAliasVersion(_ configuration: Lambda.FunctionConfiguration, alias: String, services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration>
     func validateRole(_ role: String, services: Servicable) -> EventLoopFuture<String>
     func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
-                      invokePayload: String,
-                      invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
-                      verifyResponse: ((Data) -> Bool)?,
-                      invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
+                      invocationTask: InvocationTask?,
                       services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration>
 }
 
@@ -76,10 +70,7 @@ public struct Publisher: BlueGreenPublisher {
     /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
     public func publishArchive(_ archiveURL: URL,
                                from packageDirectory: URL,
-                               invokePayload: String,
-                               invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)? = nil,
-                               verifyResponse: ((Data) -> Bool)? = nil,
-                               invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)? = nil,
+                               invocationTask: InvocationTask? = nil,
                                alias: String = Self.defaultAlias,
                                services: Servicable = Services.shared) -> EventLoopFuture<Lambda.AliasConfiguration> {
         // Since this is a control function, we use services.publisher instead of self
@@ -89,10 +80,7 @@ public struct Publisher: BlueGreenPublisher {
                 
             // Make sure that it's working.
             .flatMap { services.publisher.verifyLambda($0,
-                                                       invokePayload: invokePayload,
-                                                       invocationSetUp: invocationSetUp,
-                                                       verifyResponse: verifyResponse,
-                                                       invocationTearDown: invocationTearDown,
+                                                       invocationTask: invocationTask,
                                                        services: services) }
             
             // Update the alias to point to the new revision.
@@ -380,12 +368,11 @@ extension Publisher {
     /// - Throws: Errors if the Lambda had issues being invoked.
     /// - Returns: codeSha256 for success, throws if errors are encountered.
     public func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
-                             invokePayload: String,
-                             invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)? = nil,
-                             verifyResponse: ((Data) -> Bool)? = nil,
-                             invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)? = nil,
+                             invocationTask: InvocationTask? = nil,
                              services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
+        // If an InvocationTask was provided, we test that the Lambda still works. Otherwise, we skip this step
         services.logger.trace("Verify Lambda")
+        guard var task = invocationTask else { return services.lambda.eventLoopGroup.next().makeSucceededFuture(configuration) }
         guard let functionName = configuration.functionName else {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("functionName", "verifyLambda"))
         }
@@ -393,13 +380,7 @@ extension Publisher {
             return services.s3.client.eventLoopGroup.next().makeFailedFuture(BlueGreenPublisherError.invalidFunctionConfiguration("version", "verifyLambda"))
         }
 
-        let functionVersion = "\(functionName):\(version)"
-        var task = InvocationTask(functionName: functionVersion,
-                                  payload: invokePayload,
-                                  setUp: invocationSetUp,
-                                  verifyResponse: verifyResponse ?? { _ in true },
-                                  tearDown: invocationTearDown)
-        task.functionName = functionVersion
+        task.functionName = "\(functionName):\(version)"
         
         return task.run(services: services)
             .map({ _ in configuration })

@@ -40,12 +40,18 @@ struct BuildAndPublishCommand: ParsableCommand {
                                                              services: services)
         // Publish
         _ = try archiveURLs.map({ archiveURL in
-            try services.publisher.publishArchive(archiveURL,
+            var invocationTask: InvocationTask? = nil
+            if publishOptions.payloadOption.payload.count > 1 {
+                invocationTask = InvocationTask(functionName: archiveURL.lastPathComponent,
+                                                payload: publishOptions.payloadOption.payload,
+                                                setUp: nil,
+                                                verifyResponse: { _ in true },
+                                                tearDown: nil)
+            }
+        
+            _ = try services.publisher.publishArchive(archiveURL,
                                                   from: packageDirectory,
-                                                  invokePayload: publishOptions.payloadOption.payload,
-                                                  invocationSetUp: nil,
-                                                  verifyResponse: nil,
-                                                  invocationTearDown: nil,
+                                                  invocationTask: invocationTask,
                                                   alias: publishOptions.alias,
                                                   services: services).wait()
         })

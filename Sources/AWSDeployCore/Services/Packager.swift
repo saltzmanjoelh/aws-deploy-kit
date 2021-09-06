@@ -18,7 +18,7 @@ public protocol ProductPackager {
     func copyEnvFile(at packageDirectory: URL, product: Product, destinationDirectory: URL, services: Servicable) throws
     func copySwiftDependencies(for product: Product, at packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws
     func getLddDependencies(for product: Product, at packageDirectory: URL, services: Servicable) throws -> [URL]
-    func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws
+    func copyDependencies(_ dependencies: [URL], in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws
     @discardableResult
     func addBootstrap(for product: Product, in destinationDirectory: URL, services: Servicable) throws -> LogCollector.Logs
     func archiveContents(for product: Product, in destinationDirectory: URL, services: Servicable) throws -> URL
@@ -151,11 +151,7 @@ public struct Packager: ProductPackager {
         services.logger.trace("Copy Swift Dependencies: \(product.name)")
         // Use ldd to get a list of Swift dependencies
         let dependencies = try getLddDependencies(for: product, at: packageDirectory, services: services)
-        // Iterate the URLs and copy the files
-        try dependencies.forEach({
-//            Should be a docker command to copy the files
-            try copyDependency($0, in: packageDirectory, to: destinationDirectory, services: services)
-        })
+        try copyDependencies(dependencies, in: packageDirectory, to: destinationDirectory, services: services)
     }
     
     /// Uses ldd within a Docker container to get a list of the product's dependencies.
@@ -200,14 +196,17 @@ public struct Packager: ProductPackager {
     }
     
     /// Uses Docker to copy a dependency to the destination directory.
-    public func copyDependency(_ dependency: URL, in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
-        let logs = try Docker.runShellCommand("cp \(dependency.path) \(destinationDirectory.path)",
+    public func copyDependencies(_ dependencies: [URL], in packageDirectory: URL, to destinationDirectory: URL, services: Servicable) throws {
+        let commands = dependencies.map({ dependency in
+            return "cp \(dependency.path) \(destinationDirectory.path)"
+        })
+        let logs = try Docker.runShellCommand(commands.joined(separator: "; "),
                                               at: packageDirectory,
                                               services: services)
         let errors = logs.filter(level: .error)
         if errors.count > 0 {
             let message = errors.map({ $0.message }).joined(separator: "\n")
-            throw PackagerError.dependencyFailure(dependency, message)
+            throw PackagerError.dependencyFailure(dependencies, message)
         }
     }
     

@@ -102,10 +102,7 @@ extension DeploymentTask {
         let invocationTask = try createInvocationTask(services: services)
         return services.publisher.publishArchive(archiveURL,
                                                  from: packageDirectory,
-                                                 invokePayload: invocationTask.payload,
-                                                 invocationSetUp: invocationTask.setUp,
-                                                 verifyResponse: invocationTask.verifyResponse,
-                                                 invocationTearDown: invocationTask.tearDown,
+                                                 invocationTask: invocationTask,
                                                  alias: alias,
                                                  services: services)
             .flatMap({ (config: Lambda.AliasConfiguration) -> EventLoopFuture<Lambda.AliasConfiguration> in

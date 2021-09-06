@@ -47,8 +47,10 @@ class PublishCommandTests: XCTestCase {
     
     func testRunWithMocks() throws {
         // Given an archive
-        let archiveURL = tempPackageDirectory().appendingPathComponent("\(ExamplePackage.executableOne).zip")
-        var instance = try! PublishCommand.parseAsRoot([archiveURL.path]) as! PublishCommand
+        let payload = "{\"hello\": \"world\"}"
+        let packageURL = tempPackageDirectory()
+        let archiveURL = packageURL.appendingPathComponent("\(ExamplePackage.executableOne.name).zip")
+        var instance = try! PublishCommand.parseAsRoot([archiveURL.path, "-p", payload]) as! PublishCommand
         Services.shared = mockServices
         mockServices.mockPublisher.publishArchive = { _ -> EventLoopFuture<Lambda.AliasConfiguration> in
             return self.mockServices.stubAliasConfiguration()
@@ -59,5 +61,24 @@ class PublishCommandTests: XCTestCase {
         XCTAssertNoThrow(try instance.run())
         // And the product get's published
         XCTAssertTrue(mockServices.mockPublisher.$publishArchive.wasCalled)
+    }
+    func testInvocationTaskIsCreated() throws {
+        // Given an payload to test with
+        let payload = "{\"hello\": \"world\"}"
+        let packageURL = tempPackageDirectory()
+        let archiveURL = packageURL.appendingPathComponent("\(ExamplePackage.executableOne.name).zip")
+        var instance = try! PublishCommand.parseAsRoot([archiveURL.path, "-p", payload]) as! PublishCommand
+        Services.shared = mockServices
+        mockServices.mockPublisher.publishArchive = { _ -> EventLoopFuture<Lambda.AliasConfiguration> in
+            return self.mockServices.stubAliasConfiguration()
+        }
+        
+        // When calling run()
+        XCTAssertNoThrow(try instance.run())
+        
+        // Then publishArchive is called with an InvocationTask
+        XCTAssertTrue(mockServices.mockPublisher.$publishArchive.wasCalled)
+        XCTAssertEqual(mockServices.mockPublisher.$publishArchive.usage.history.count, 1, "publishArchive should have been called once.")
+        XCTAssertNotNil(mockServices.mockPublisher.$publishArchive.usage.history.first?.context.2, "The invocationTask should not be nil.")
     }
 }

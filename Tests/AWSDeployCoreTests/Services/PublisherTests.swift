@@ -77,10 +77,7 @@ class PublisherTests: XCTestCase {
         // When publishing
         mockServices.publisher.publishArchive(archiveURL,
                                               from: packageDirectory,
-                                              invokePayload: "",
-                                              invocationSetUp: invocationTask.setUp,
-                                              verifyResponse: invocationTask.verifyResponse,
-                                              invocationTearDown: invocationTask.tearDown,
+                                              invocationTask: invocationTask,
                                               alias: alias,
                                               services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
@@ -104,6 +101,59 @@ class PublisherTests: XCTestCase {
         XCTAssertTrue(verifyResponseWasCalled, "verifyResponse was not called.")
         XCTAssertEqual(mockServices.mockPublisher.$updateAliasVersion.usage.history.count, 1, "updateAliasVersion should have been called.")
     }
+    func testPublishArchiveWhenNoInvocationTaskIsProvided() throws {
+        // Setup
+        let functionName = "my-function"
+        let alias = "my-alias"
+        let version = Int.random(in: 1..<10)
+        let aliasConfig: Lambda.AliasConfiguration = .init(functionVersion: "\(version)", revisionId: "\(version)")
+        let packageDirectory = tempPackageDirectory()
+        let functionConfiguration = String(
+            data: try JSONEncoder().encode([
+                "FunctionName": functionName,
+                "RevisionId": "\(version)",
+                "Version": "\(version)",
+                "CodeSha256": UUID().uuidString,
+            ]),
+            encoding: .utf8
+        )!
+        
+        // getFunctionConfiguration, updateFunctionCode, publishLatest, verifyLambda, updateAlias
+        let fixtureResults: [ByteBuffer] = .init(repeating: ByteBuffer(string: functionConfiguration), count: 4)
+        
+        // Given an archive
+        let archiveURL = URL(fileURLWithPath: "\(ExamplePackage.tempDirectory)/\(functionName).zip")
+        try? FileManager.default.createDirectory(atPath: ExamplePackage.tempDirectory,
+                                                withIntermediateDirectories: false,
+                                                attributes: nil)
+        FileManager.default.createFile(atPath: archiveURL.path, contents: "File".data(using: .utf8)!, attributes: nil)
+        let resultReceived = expectation(description: "Result received")
+
+        // When publishing
+        mockServices.publisher.publishArchive(archiveURL,
+                                              from: packageDirectory,
+                                              invocationTask: nil,
+                                              alias: alias,
+                                              services: mockServices)
+            .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
+                // Then the updated version number should be included in the results
+                do {
+                    let result = try publishResult.get()
+                    XCTAssertEqual(result.revisionId, aliasConfig.revisionId)
+                    //XCTAssertEqual(result[0].functionVersion, aliasConfig.functionVersion)
+                } catch {
+                    XCTFail(String(describing: error))
+                }
+                resultReceived.fulfill()
+            }
+
+        try waitToProcess(fixtureResults, mockServices: mockServices)
+        wait(for: [resultReceived], timeout: 2.0)
+        
+        XCTAssertEqual(mockServices.mockPublisher.$publishLatest.usage.history.count, 1, "publishLatest should have been called.")
+        XCTAssertEqual(mockServices.mockPublisher.$verifyLambda.usage.history.count, 1, "verifyLambda should have been called.")
+        XCTAssertEqual(mockServices.mockPublisher.$updateAliasVersion.usage.history.count, 1, "updateAliasVersion should have been called.")
+    }
     
     func testPublishArchiveErrorsAreLogged() throws {
         // Setup
@@ -115,10 +165,7 @@ class PublisherTests: XCTestCase {
         // When calling publishArchive
         mockServices.publisher.publishArchive(archiveURL,
                                               from: packageDirectory,
-                                              invokePayload: "",
-                                              invocationSetUp: nil,
-                                              verifyResponse: nil,
-                                              invocationTearDown: nil,
+                                              invocationTask: nil,
                                               alias: Publisher.defaultAlias,
                                               services: mockServices)
             .whenFailure { (error: Error) in
@@ -160,10 +207,7 @@ class PublisherTests: XCTestCase {
         // When publishing to an existing function
         mockServices.publisher.publishArchive(archiveURL,
                                               from: packageDirectory,
-                                              invokePayload: "",
-                                              invocationSetUp: nil,
-                                              verifyResponse: nil,
-                                              invocationTearDown: nil,
+                                              invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
                                               alias: Publisher.defaultAlias,
                                               services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
@@ -320,10 +364,7 @@ class PublisherTests: XCTestCase {
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invokePayload: "",
-                                            invocationSetUp: nil,
-                                            verifyResponse: nil,
-                                            invocationTearDown: nil,
+                                            invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
                                             services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
@@ -341,10 +382,7 @@ class PublisherTests: XCTestCase {
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invokePayload: "",
-                                            invocationSetUp: nil,
-                                            verifyResponse: nil,
-                                            invocationTearDown: nil,
+                                            invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
                                             services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
@@ -356,18 +394,16 @@ class PublisherTests: XCTestCase {
     }
 
     func testVerifyLambda() throws {
-        // Given an invalid FunctionConfiguration
+        // Given a valid FunctionConfiguration
         let configuration: Lambda.FunctionConfiguration = .init(functionName: "my-function", version: "2")
         let resultReceived = expectation(description: "Result received")
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invokePayload: "",
-                                            invocationSetUp: nil,
-                                            verifyResponse: nil,
-                                            invocationTearDown: nil,
+                                            invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
                                             services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
+                // Then a result should be received
                 resultReceived.fulfill()
             }
 
@@ -384,10 +420,7 @@ class PublisherTests: XCTestCase {
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invokePayload: "",
-                                            invocationSetUp: nil,
-                                            verifyResponse: nil,
-                                            invocationTearDown: nil,
+                                            invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
                                             services: mockServices)
             .whenFailure { (error: Error) in
                 XCTAssertEqual("\(error)", LambdaInvokerError.invokeLambdaFailed("\(functionName):2", payload).description)
@@ -407,14 +440,11 @@ class PublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
         
         // Given a bad invocation response
-        let verifyResponse = { (data: Data) -> Bool in false }
+        let invocationTask = InvocationTask(functionName: "", payload: "", verifyResponse: { (data: Data) -> Bool in false })
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invokePayload: "",
-                                            invocationSetUp: nil,
-                                            verifyResponse: verifyResponse,
-                                            invocationTearDown: nil,
+                                            invocationTask: invocationTask,
                                             services: mockServices)
             .whenFailure { (error: Error) in
                 // Then LambdaInvokerError.verificationFailed should be thrown

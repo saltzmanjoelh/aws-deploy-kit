@@ -23,35 +23,23 @@ class MockPublisher: BlueGreenPublisher {
     @Mock
     var publishArchive = { (archiveURL: URL,
                             packageDirectory: URL,
-                            invokePayload: String,
-                            invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
-                            verifyResponse: ((Data) -> Bool)?,
-                            invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
+                            invocationTask: InvocationTask?,
                             alias: String,
                             services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> in
         return livePublisher.publishArchive(archiveURL,
                                             from: packageDirectory,
-                                            invokePayload: invokePayload,
-                                            invocationSetUp: invocationSetUp,
-                                            verifyResponse: verifyResponse,
-                                            invocationTearDown: invocationTearDown,
+                                            invocationTask: invocationTask,
                                             alias: alias,
                                             services: services)
     }
     func publishArchive(_ archiveURL: URL,
                         from packageDirectory: URL,
-                        invokePayload: String,
-                        invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
-                        verifyResponse: ((Data) -> Bool)?,
-                        invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
+                        invocationTask: InvocationTask? = nil,
                         alias: String,
                         services: Servicable) -> EventLoopFuture<Lambda.AliasConfiguration> {
         return $publishArchive.getValue((archiveURL,
                                          packageDirectory,
-                                         invokePayload,
-                                         invocationSetUp,
-                                         verifyResponse,
-                                         invocationTearDown,
+                                         invocationTask,
                                          alias,
                                          services))
     }
@@ -82,20 +70,14 @@ class MockPublisher: BlueGreenPublisher {
     
     @Mock
     var verifyLambda = { (configuration: Lambda.FunctionConfiguration,
-                          invokePayload: String,
-                          invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
-                          verifyResponse: ((Data) -> Bool)?,
-                          invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
+                          invocationTask: InvocationTask?,
                           services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> in
-        return livePublisher.verifyLambda(configuration, invokePayload: invokePayload, invocationSetUp: invocationSetUp, verifyResponse: verifyResponse, invocationTearDown: invocationTearDown, services: services)
+        return livePublisher.verifyLambda(configuration, invocationTask: invocationTask, services: services)
     }
     func verifyLambda(_ configuration: Lambda.FunctionConfiguration,
-                      invokePayload: String,
-                      invocationSetUp: ((Servicable) -> EventLoopFuture<Void>)?,
-                      verifyResponse: ((Data) -> Bool)?,
-                      invocationTearDown: ((Servicable) -> EventLoopFuture<Void>)?,
+                      invocationTask: InvocationTask?,
                       services: Servicable) -> EventLoopFuture<Lambda.FunctionConfiguration> {
-        return $verifyLambda.getValue((configuration, invokePayload, invocationSetUp, verifyResponse, invocationTearDown, services))
+        return $verifyLambda.getValue((configuration, invocationTask, services))
     }
     
     @Mock
