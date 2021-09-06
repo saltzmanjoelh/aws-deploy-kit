@@ -19,15 +19,15 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/saltzmanjoelh/mocking", .branch("main")),
-        .package(url: "https://github.com/saltzmanjoelh/log-kit", .branch("main")),
-        .package(url: "https://github.com/apple/swift-argument-parser", .branch("main")),
+        .package(url: "https://github.com/saltzmanjoelh/mocking", .upToNextMajor(from: "1.0.0")),
+        .package(url: "https://github.com/saltzmanjoelh/log-kit", .upToNextMajor(from: "1.0.0")),
+        .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMajor(from: "0.5.0")),
         .package(url: "https://github.com/swift-server/swift-aws-lambda-runtime", .branch("main")),
         .package(url: "https://github.com/swift-server/swift-aws-lambda-events", .branch("main")),
-        .package(url: "https://github.com/apple/swift-log", .branch("main")),
-        .package(url: "https://github.com/apple/swift-nio", .branch("main")),
-        .package(url: "https://github.com/soto-project/soto", .branch("main")),
-        .package(url: "https://github.com/soto-project/soto-core", .branch("main")),
+        .package(url: "https://github.com/apple/swift-log", .upToNextMajor(from: "1.4.2")),
+        .package(url: "https://github.com/apple/swift-nio", .upToNextMajor(from: "2.32.1")),
+        .package(url: "https://github.com/soto-project/soto", .upToNextMajor(from: "5.8.1")),
+        .package(url: "https://github.com/soto-project/soto-core", .upToNextMajor(from: "5.6.0")),
     ],
     targets: [
         .target(
