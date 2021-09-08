@@ -11,7 +11,7 @@ import LogKit
 
 public enum Docker {
     public struct Config {
-        public static let imageName = "swift:5.5-amazonlinux2"
+        public static let imageName = "swift:5.4-amazonlinux2"
         public static let containerName = "awsdeploykit-builder"
     }
     static func runShellCommand(_ shellCommand: String, at packageDirectory: URL, services: Servicable) throws -> LogCollector.Logs {
