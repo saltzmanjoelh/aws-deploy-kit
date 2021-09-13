@@ -37,7 +37,7 @@ public struct InvocationTask {
         self.tearDown = tearDown
     }
     
-    public func run(skipTearDown: Bool = false, services: Servicable) -> EventLoopFuture<Data> {
+    public func run(skipSetUp: Bool = false, skipTearDown: Bool = false, services: Servicable) -> EventLoopFuture<Data> {
         // Handle setup
         let setUp: (Servicable) -> EventLoopFuture<Void>
         if let action = self.setUp {
