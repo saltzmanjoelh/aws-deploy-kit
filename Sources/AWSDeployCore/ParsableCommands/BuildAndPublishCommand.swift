@@ -45,7 +45,7 @@ struct BuildAndPublishCommand: ParsableCommand {
                 invocationTask = InvocationTask(functionName: archiveURL.lastPathComponent,
                                                 payload: publishOptions.payloadOption.payload,
                                                 setUp: nil,
-                                                verifyResponse: { _ in true },
+                                                verifyResponse: { _ in /* valid */ },
                                                 tearDown: nil)
             }
         

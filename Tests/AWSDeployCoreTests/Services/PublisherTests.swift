@@ -57,7 +57,7 @@ class PublisherTests: XCTestCase {
                                                     invocationSetUpWasCalled = true
                                                     return self.mockServices.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
                                                    },
-                                                   verifyResponse: { _ in return true },
+                                                   verifyResponse: { _ in /* valid */ },
                                                    tearDown:  { _ in
                                                     verifyResponseWasCalled = true
                                                     return self.mockServices.lambda.eventLoopGroup.next().makeSucceededFuture(Void())
@@ -207,7 +207,9 @@ class PublisherTests: XCTestCase {
         // When publishing to an existing function
         mockServices.publisher.publishArchive(archiveURL,
                                               from: packageDirectory,
-                                              invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
+                                              invocationTask: InvocationTask(functionName: "",
+                                                                             payload: "",
+                                                                             verifyResponse: { _ in /* valid */ }),
                                               alias: Publisher.defaultAlias,
                                               services: mockServices)
             .whenComplete { (publishResult: Result<Lambda.AliasConfiguration, Error>) in
@@ -364,7 +366,9 @@ class PublisherTests: XCTestCase {
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
+                                            invocationTask: InvocationTask(functionName: "",
+                                                                           payload: "",
+                                                                           verifyResponse: { _ in /* valid */ }),
                                             services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
@@ -382,7 +386,9 @@ class PublisherTests: XCTestCase {
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
+                                            invocationTask: InvocationTask(functionName: "",
+                                                                           payload: "",
+                                                                           verifyResponse: { _ in /* valid */ }),
                                             services: mockServices)
             .whenFailure { (error: Error) in
                 // Then an error should be thrown
@@ -400,7 +406,9 @@ class PublisherTests: XCTestCase {
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
+                                            invocationTask: InvocationTask(functionName: "",
+                                                                           payload: "",
+                                                                           verifyResponse: { _ in /* valid */ }),
                                             services: mockServices)
             .whenSuccess { (_: Lambda.FunctionConfiguration) in
                 // Then a result should be received
@@ -420,7 +428,9 @@ class PublisherTests: XCTestCase {
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
-                                            invocationTask: InvocationTask(functionName: "", payload: "", verifyResponse: { _ in true}),
+                                            invocationTask: InvocationTask(functionName: "",
+                                                                           payload: "",
+                                                                           verifyResponse: { _ in /* valid */ }),
                                             services: mockServices)
             .whenFailure { (error: Error) in
                 XCTAssertEqual("\(error)", LambdaInvokerError.invokeLambdaFailed("\(functionName):2", payload).description)
@@ -440,7 +450,7 @@ class PublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
         
         // Given a bad invocation response
-        let invocationTask = InvocationTask(functionName: "", payload: "", verifyResponse: { (data: Data) -> Bool in false })
+        let invocationTask = InvocationTask(functionName: "", payload: "", verifyResponse: { (data: Data) throws -> Void in throw LambdaInvokerError.verificationFailed(functionName) })
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,

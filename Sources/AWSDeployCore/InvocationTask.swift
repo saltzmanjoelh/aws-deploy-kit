@@ -20,7 +20,7 @@ public struct InvocationTask {
     var payload: String
     
     /// Verify the response from invoking with the payload.
-    var verifyResponse: (Data) -> Bool
+    var verifyResponse: (Data) throws -> Void
     
     /// If this InvocationTask added anything for example, to the datastore, you can use tearDown to clean it up.
     var tearDown: ((Servicable) -> EventLoopFuture<Void>)?
@@ -28,7 +28,7 @@ public struct InvocationTask {
     public init(functionName: String,
                 payload: String,
                 setUp: ((Servicable) -> EventLoopFuture<Void>)? = nil,
-                verifyResponse: @escaping (Data) -> Bool,
+                verifyResponse: @escaping (Data) throws -> Void,
                 tearDown: ((Servicable) -> EventLoopFuture<Void>)? = nil) {
         self.functionName = functionName
         self.payload = payload

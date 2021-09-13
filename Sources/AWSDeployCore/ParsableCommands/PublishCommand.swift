@@ -50,7 +50,7 @@ extension PublishCommand {
             invocationTask = InvocationTask(functionName: URL(fileURLWithPath: archivePath).lastPathComponent,
                                             payload: publishOptions.payloadOption.payload,
                                             setUp: nil,
-                                            verifyResponse: { _ in true },
+                                            verifyResponse: { _ in /* valid */ },
                                             tearDown: nil)
         }
         

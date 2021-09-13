@@ -30,8 +30,8 @@ class DeploymentTaskTests: XCTestCase {
             return ""
         }
         
-        func verifyInvocation(_ data: Data) -> Bool {
-            return true
+        func verifyInvocation(_ data: Data) throws -> Void {
+            /* valid */
         }
         
         func invocationTearDown(services: Servicable) -> EventLoopFuture<Void> {
@@ -123,8 +123,8 @@ class DeploymentTaskTests: XCTestCase {
             func invocationPayload() throws -> String {
                 return ""
             }
-            func verifyInvocation(_ data: Data) -> Bool {
-                return true
+            func verifyInvocation(_ data: Data) throws -> Void {
+                /* valid */
             }
         }
         let task = MyTask()

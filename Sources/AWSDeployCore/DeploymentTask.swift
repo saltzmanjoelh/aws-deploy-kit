@@ -24,7 +24,7 @@ public protocol DeploymentTask {
     func invocationPayload() throws -> String
     
     /// The Lambda returns Data when being invoked. Verify that it is returning the correct data.
-    func verifyInvocation(_ responseData: Data) -> Bool
+    func verifyInvocation(_ responseData: Data) throws -> Void
     
     /// Called after the test to remove anything that may have been needed to perform the test.
     func invocationTearDown(services: Servicable) -> EventLoopFuture<Void>
