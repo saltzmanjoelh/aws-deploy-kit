@@ -11,19 +11,19 @@ import NIO
 public struct InvocationTask {
     
     /// The name of the Lambda function to invoke.
-    var functionName: String
+    public var functionName: String
     
     /// Optionally, before invoking the Lambda, you can run some async tasks with this like setting up some existing data in the datastore.
-    var setUp: ((Servicable) -> EventLoopFuture<Void>)?
+    public var setUp: ((Servicable) -> EventLoopFuture<Void>)?
     
     /// The payload to invoke with.
-    var payload: String
+    public var payload: String
     
     /// Verify the response from invoking with the payload.
-    var verifyResponse: (Data) throws -> Void
+    public var verifyResponse: (Data) throws -> Void
     
     /// If this InvocationTask added anything for example, to the datastore, you can use tearDown to clean it up.
-    var tearDown: ((Servicable) -> EventLoopFuture<Void>)?
+    public var tearDown: ((Servicable) -> EventLoopFuture<Void>)?
     
     public init(functionName: String,
                 payload: String,
