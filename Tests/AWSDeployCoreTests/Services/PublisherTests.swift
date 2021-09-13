@@ -450,7 +450,7 @@ class PublisherTests: XCTestCase {
         let errorReceived = expectation(description: "Error received")
         
         // Given a bad invocation response
-        let invocationTask = InvocationTask(functionName: "", payload: "", verifyResponse: { (data: Data) throws -> Void in throw LambdaInvokerError.verificationFailed(functionName) })
+        let invocationTask = InvocationTask(functionName: "", payload: "", verifyResponse: { (data: Data) throws -> Void in throw LambdaInvokerError.verificationFailed("functionName:2") })
 
         // When calling verifyLambda
         mockServices.publisher.verifyLambda(configuration,
