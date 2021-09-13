@@ -37,11 +37,10 @@ public struct InvocationTask {
         self.tearDown = tearDown
     }
     
-    public func run(skipSetUp: Bool = false, skipTearDown: Bool = false, services: Servicable) -> EventLoopFuture<Data> {
+    public func run(services: Servicable) -> EventLoopFuture<Data> {
         // Handle setup
         let setUp: (Servicable) -> EventLoopFuture<Void>
-        if skipSetUp == false,
-           let action = self.setUp {
+        if let action = self.setUp {
             setUp = action
         } else {
             // If we don't have a setUp action, just return
@@ -56,8 +55,7 @@ public struct InvocationTask {
                                          services: services)
         })
         .flatMap { (data: Data) -> EventLoopFuture<Data> in
-            guard let tearDownAction = self.tearDown,
-                  skipTearDown == false else {
+            guard let tearDownAction = self.tearDown else {
                 return services.lambda.eventLoopGroup.next().makeSucceededFuture(data)
             }
             return tearDownAction(services).map({ _ in data })

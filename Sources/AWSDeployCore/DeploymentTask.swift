@@ -67,7 +67,7 @@ extension DeploymentTask {
     ///   - services: The set of services which will be used to execute your request with.
     /// - Returns: The `Lambda.AliasConfiguration` for the updated alias.
     public func deploy(from packageDirectory: URL, alias: String = Publisher.defaultAlias, services: Servicable) throws -> EventLoopFuture<Lambda.AliasConfiguration> {
-        //try services.builder.prepareDocker(packageDirectory: packageDirectory, services: services)
+        services.logger.trace("DeploymentTask: \(functionName)")
         let archiveURL = try build(from: packageDirectory, services: services)
         return try publish(archiveURL: archiveURL, from: packageDirectory, services: services)
             
