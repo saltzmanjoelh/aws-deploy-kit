@@ -40,7 +40,7 @@ public struct InvocationTask {
     public func run(skipSetUp: Bool = false, skipTearDown: Bool = false, services: Servicable) -> EventLoopFuture<Data> {
         // Handle setup
         let setUp: (Servicable) -> EventLoopFuture<Void>
-        if skipSetUp,
+        if skipSetUp == false,
            let action = self.setUp {
             setUp = action
         } else {
